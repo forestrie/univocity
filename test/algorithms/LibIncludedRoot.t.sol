@@ -11,6 +11,11 @@ contract IncludedRootHarness {
     function includedRoot(uint256 i, bytes32 nodeHash, bytes32[] calldata proof) external pure returns (bytes32) {
         return LibIncludedRoot.includedRoot(i, nodeHash, proof);
     }
+
+    /// @notice Wrapper that accepts memory arrays for test convenience.
+    function includedRootMem(uint256 i, bytes32 nodeHash, bytes32[] memory proof) external view returns (bytes32) {
+        return this.includedRoot(i, nodeHash, proof);
+    }
 }
 
 /// @title LibIncludedRootTest

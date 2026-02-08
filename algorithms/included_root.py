@@ -3,6 +3,8 @@ From: https://raw.githubusercontent.com/robinbryce/merkle-mountain-range-proofs/
 See also "included_root" in https://raw.githubusercontent.com/robinbryce/draft-bryce-cose-receipts-mmr-profile/refs/heads/main/draft-bryce-cose-receipts-mmr-profile.md
 """
 
+from typing import List
+
 from .binutils import hash_pospair64, index_height
 
 

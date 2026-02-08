@@ -1,4 +1,10 @@
+"""
+Ref: https://github.com/robinbryce/merkle-mountain-range-proofs/algorithms.py
+"""
+
 from typing import List
+
+from .binutils import log2floor
 
 
 def peaks(i: int) -> List[int]:

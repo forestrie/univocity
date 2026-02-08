@@ -1,5 +1,8 @@
 from typing import List
 
+from .included_root import included_root
+from .peaks import peaks
+
 
 def consistent_roots(
     ifrom: int,

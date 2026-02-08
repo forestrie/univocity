@@ -1,3 +1,7 @@
+"""
+Ref: https://github.com/robinbryce/merkle-mountain-range-proofs/algorithms.py
+"""
+
 import hashlib
 
 
@@ -22,8 +26,8 @@ def hash_pospair64(pos, a, b):
 
 
 def all_ones(pos) -> bool:
-    msb = most_sig_bit(pos)
-    mask = (1 << (msb + 1)) - 1
+    n = pos.bit_length()
+    mask = (1 << n) - 1
     return pos == mask
 
 
