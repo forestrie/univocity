@@ -1,0 +1,90 @@
+[lint]
+# Disable automatic linting during builds
+lint_on_build = false
+
+# Disable style-related warnings
+exclude_lints = [
+  "mixed-case-function",
+  "mixed-case-variable",
+  "screaming-snake-case-immutable",
+  "screaming-snake-case-const",
+  "pascal-case-struct",
+]
+
+[profile.default]
+
+solc_version = "0.8.30"
+evm_version = "cancun"
+optimizer = true
+optimizer_runs = 200
+
+via_ir = false
+
+# Metadata: Keep IPFS hash for Etherscan/Sourcify verification
+bytecode_hash = "ipfs"
+cbor_metadata = true
+
+src = "src"
+out = "out"
+libs = ["lib"]
+
+cache_path = "cache"
+
+# for static analysis and audit
+ast = true
+
+build_info = true
+build_info_path = "out/build-info"
+
+# for audit tools and upgrade safety checks 
+extra_output = [
+  "storageLayout",
+  "evm.bytecode.sourceMap",
+  "evm.deployedBytecode.sourceMap",
+]
+
+ffi = true
+
+# Restrict filesystem access to specific paths
+fs_permissions = [
+  { access = "read", path = "./out" },
+  { access = "read", path = "./cache" },
+]
+
+# ---- Import Remappings ----
+# Domain-specific remappings (coexist with @flip-contracts during migration)
+remappings = ["forge-std/=lib/forge-std/src/", "@forge-std/=lib/forge-std/src/"]
+
+ignored_warnings_from = ["test/**", "script/**"]
+
+# =============================================================================
+# Arachnid's method and CREATE3
+#
+# This profile is used ONLY for deploying CREATE3Factory via Arachnid's CREATE2
+# proxy. The factory address is deterministic and identical across all chains.
+#
+# RULES:
+#   1. NEVER change settings in this profile after first production deployment
+#   2. ANY change will result in a different factory address on all chains
+#   3. Use `forge script ... --profile factory` for factory deployment
+#   4. Regular protocol contracts use [profile.default] and are unaffected
+#
+# Current deterministic factory address: [To be calculated on first deployment]
+[profile.factory]
+# Inherit all settings from default, override only stability-critical settings
+
+# CRITICAL: Remove metadata hash to prevent compiler version from affecting bytecode
+# With bytecode_hash = "ipfs", any compiler version change would alter the factory address
+# With bytecode_hash = "none", we can upgrade protocol to newer Solidity without issues
+bytecode_hash = "none"
+
+# Disable CBOR metadata encoding (redundant with bytecode_hash = none, but explicit)
+cbor_metadata = false
+
+# Explicitly disable optimizer for maximum bytecode stability
+# Factory is small (~500 bytes), gas optimization is not critical
+optimizer = false
+optimizer_runs = 200 # Ignored when optimizer = false, but explicit for documentation
+
+# Explicitly confirm via_ir is disabled (inherits from default, but critical to document)
+via_ir = false
