@@ -9,6 +9,18 @@ def index_height(i) -> int:
     return bit_length(pos) - 1
 
 
+def hash_pospair64(pos, a, b):
+
+    # Note: Hash algorithm agility is tbd, this example uses SHA-256
+    h = hashlib.sha256()
+
+    # Take the big endian representation of pos
+    h.update(pos.to_bytes(8, byteorder="big", signed=False))
+    h.update(a)
+    h.update(b)
+    return h.digest()
+
+
 def all_ones(pos) -> bool:
     msb = most_sig_bit(pos)
     mask = (1 << (msb + 1)) - 1
@@ -23,13 +35,6 @@ def bit_length(pos):
     return pos.bit_length()
 
 
-def hash_pospair64(pos, a, b):
-
-    # Note: Hash algorithm agility is tbd, this example uses SHA-256
-    h = hashlib.sha256()
-
-    # Take the big endian representation of pos
-    h.update(pos.to_bytes(8, byteorder="big", signed=False))
-    h.update(a)
-    h.update(b)
-    return h.digest()
+def log2floor(x):
+    """Returns the floor of log base 2 (x)"""
+    return x.bit_length() - 1

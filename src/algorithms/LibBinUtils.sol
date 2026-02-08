@@ -89,6 +89,16 @@ library LibBinUtils {
         return bitLength(pos) - 1;
     }
 
+    /// @notice Returns the floor of log base 2 of `x`.
+    /// @dev Equivalent to bitLength(x) - 1. Returns 0 for x == 0 (undefined
+    ///      mathematically, but returns 0 for consistency with bitLength).
+    /// @param x The value to compute log2 floor of.
+    /// @return The floor of log2(x), or 0 if x == 0.
+    function log2floor(uint256 x) internal pure returns (uint256) {
+        if (x == 0) return 0;
+        return bitLength(x) - 1;
+    }
+
     /// @notice Computes SHA-256(pos || a || b) where pos is encoded as 8 bytes big-endian.
     /// @dev This is the node hash function for MMR proofs. The position prefix
     ///      ensures domain separation between nodes at different positions.
