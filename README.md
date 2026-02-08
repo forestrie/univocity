@@ -1,66 +1,31 @@
-## Foundry
+# univocity
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+On-chain split view protection for [forestrie](https://github.com/forestrie/)
+transparency logs.
 
-Foundry consists of:
+## Overview
 
-- **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
-- **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
-- **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
-- **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+univocity provides Solidity contracts that verify transparency log checkpoints
+can only be published on-chain if they are consistent with previously published
+checkpoints. This prevents log operators from presenting different views of the
+log to different parties.
 
-## Documentation
+The verification logic implements the consistency proof format described in
+[draft-bryce-cose-receipts-mmr-profile](https://robinbryce.github.io/draft-bryce-cose-receipts-mmr-profile/draft-bryce-cose-receipts-mmr-profile.html).
 
-https://book.getfoundry.sh/
+## Reference Implementation
+
+The MMR algorithms are ported from the reference Python implementation:
+[merkle-mountain-range-proofs](https://github.com/robinbryce/merkle-mountain-range-proofs)
 
 ## Usage
 
-### Build
-
 ```shell
-$ forge build
+forge build   # build
+forge test    # test
+forge fmt     # format
 ```
 
-### Test
+## License
 
-```shell
-$ forge test
-```
-
-### Format
-
-```shell
-$ forge fmt
-```
-
-### Gas Snapshots
-
-```shell
-$ forge snapshot
-```
-
-### Anvil
-
-```shell
-$ anvil
-```
-
-### Deploy
-
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
-
-### Cast
-
-```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
+MIT
