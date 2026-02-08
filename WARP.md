@@ -50,6 +50,12 @@ Tests:
   `script/deploy/`, and shared support for integration-style tests which may
   need to deploy contracts
 
+## Commits
+
+- never include "Co-Authored-By" lines in commit messages
+- commit titles must be no more than 79 characters
+- commit body lines must be no more than 72 characters
+
 ## Formatting and Comments
 
 - always run `forge fmt` to format sources after changes are applied
