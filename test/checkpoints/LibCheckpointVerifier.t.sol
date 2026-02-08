@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
-import {LibCheckpointVerifier} from "../../src/checkpoints/lib/LibCheckpointVerifier.sol";
+import {LibCheckpointVerifier} from "@univocity/checkpoints/lib/LibCheckpointVerifier.sol";
 
 contract LibCheckpointVerifierTest is Test {
     function testVerifyConsistencyStubAlwaysFalse() public {

@@ -5,4 +5,4 @@ pragma solidity ^0.8.24;
 // Individual function tests are in LibBinUtils_<function>.t.sol files.
 
 import {Test} from "forge-std/Test.sol";
-import {LibBinUtils} from "../../src/algorithms/LibBinUtils.sol";
+import {LibBinUtils} from "@univocity/algorithms/LibBinUtils.sol";

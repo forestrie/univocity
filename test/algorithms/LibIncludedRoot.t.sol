@@ -2,8 +2,8 @@
 pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
-import {LibIncludedRoot} from "../../src/algorithms/LibIncludedRoot.sol";
-import {LibBinUtils} from "../../src/algorithms/LibBinUtils.sol";
+import {LibIncludedRoot} from "@univocity/algorithms/LibIncludedRoot.sol";
+import {LibBinUtils} from "@univocity/algorithms/LibBinUtils.sol";
 
 /// @title IncludedRootHarness
 /// @notice Harness contract to expose LibIncludedRoot for testing with calldata.

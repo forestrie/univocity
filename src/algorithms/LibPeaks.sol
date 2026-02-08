@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {LibBinUtils} from "./LibBinUtils.sol";
+import {LibBinUtils} from "@univocity/algorithms/LibBinUtils.sol";
 
 /// @title LibPeaks
 /// @notice Provides functions for computing MMR (Merkle Mountain Range) peaks.

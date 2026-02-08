@@ -52,8 +52,11 @@ fs_permissions = [
 ]
 
 # ---- Import Remappings ----
-# Domain-specific remappings (coexist with @flip-contracts during migration)
-remappings = ["forge-std/=lib/forge-std/src/", "@forge-std/=lib/forge-std/src/"]
+remappings = [
+  "forge-std/=lib/forge-std/src/",
+  "@forge-std/=lib/forge-std/src/",
+  "@univocity/=src/",
+]
 
 ignored_warnings_from = ["test/**", "script/**"]
 

@@ -2,8 +2,8 @@
 pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
-import {LibPeaks} from "../../src/algorithms/LibPeaks.sol";
-import {LibBinUtils} from "../../src/algorithms/LibBinUtils.sol";
+import {LibPeaks} from "@univocity/algorithms/LibPeaks.sol";
+import {LibBinUtils} from "@univocity/algorithms/LibBinUtils.sol";
 
 /// @title PeaksHarness
 /// @notice Harness contract to expose LibPeaks for testing.

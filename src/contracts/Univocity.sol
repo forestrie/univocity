@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {ICheckpointEvents} from "../checkpoints/interfaces/IE.sol";
-import {LibCoseReceipt} from "../cose/lib/LibCoseReceipt.sol";
-import {LibCheckpointVerifier} from "../checkpoints/lib/LibCheckpointVerifier.sol";
+import {ICheckpointEvents} from "@univocity/checkpoints/interfaces/IE.sol";
+import {LibCoseReceipt} from "@univocity/cose/lib/LibCoseReceipt.sol";
+import {LibCheckpointVerifier} from "@univocity/checkpoints/lib/LibCheckpointVerifier.sol";
 
 /// @title Univocity
 /// @notice Primary contract that ties together COSE receipt decoding and

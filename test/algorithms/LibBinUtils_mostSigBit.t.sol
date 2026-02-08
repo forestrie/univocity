@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
-import {LibBinUtils} from "../../src/algorithms/LibBinUtils.sol";
+import {LibBinUtils} from "@univocity/algorithms/LibBinUtils.sol";
 
 /// @title LibBinUtils_mostSigBit_Test
 /// @notice Unit tests for LibBinUtils.mostSigBit function.

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {LibBinUtils} from "./LibBinUtils.sol";
+import {LibBinUtils} from "@univocity/algorithms/LibBinUtils.sol";
 
 /// @title LibIncludedRoot
 /// @notice Computes the implied MMR root from a node hash and inclusion proof.
