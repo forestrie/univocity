@@ -49,11 +49,11 @@ Implements peak computation for MMR accumulators:
 
 | Function | Reference | Tests |
 |----------|-----------|-------|
-| `peaks` | `peaks` | 21 tests |
-| `countPeaks` | derived | 8 tests |
+| `peaks` | `peaks` | 25 tests |
 
 Tests cover all 21 complete MMR sizes up to 39 nodes, matching the complete
-MMR indices used in the reference tests.
+MMR indices used in the reference tests. The implementation pre-allocates
+MAX_PEAKS (64) entries and trims, avoiding a separate count pass.
 
 ### LibIncludedRoot.sol
 
@@ -123,10 +123,10 @@ vectors if needed.
 | Test File | Tests | Coverage |
 |-----------|-------|----------|
 | LibBinUtils_*.t.sol | 38 | All bit operations |
-| LibPeaks.t.sol | 29 | All complete MMR sizes ≤39 |
+| LibPeaks.t.sol | 25 | All complete MMR sizes ≤39 |
 | LibIncludedRoot.t.sol | 16 | Left/right children, empty proofs |
 | LibConsistentRoots.t.sol | 11 | Peak merging, deduplication, errors |
-| **Total** | **94** | |
+| **Total** | **90** | |
 
 ## Running Tests
 

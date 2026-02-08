@@ -11,10 +11,6 @@ contract PeaksHarness {
     function peaks(uint256 i) external pure returns (uint256[] memory) {
         return LibPeaks.peaks(i);
     }
-
-    function countPeaks(uint256 i) external pure returns (uint256) {
-        return LibPeaks.countPeaks(i);
-    }
 }
 
 /// @title LibPeaksTest
@@ -234,39 +230,6 @@ contract LibPeaksTest is Test {
     }
 
     // =========================================================================
-    // countPeaks tests
-    // =========================================================================
-
-    function test_countPeaks_singlePeak() public view {
-        // Perfect binary trees have single peaks
-        assertEq(harness.countPeaks(0), 1); // 1 node
-        assertEq(harness.countPeaks(2), 1); // 3 nodes
-        assertEq(harness.countPeaks(6), 1); // 7 nodes
-        assertEq(harness.countPeaks(14), 1); // 15 nodes
-        assertEq(harness.countPeaks(30), 1); // 31 nodes
-    }
-
-    function test_countPeaks_twoPeaks() public view {
-        assertEq(harness.countPeaks(3), 2); // 4 nodes: peaks at 2, 3
-        assertEq(harness.countPeaks(7), 2); // 8 nodes: peaks at 6, 7
-        assertEq(harness.countPeaks(9), 2); // 10 nodes: peaks at 6, 9
-        assertEq(harness.countPeaks(15), 2); // 16 nodes: peaks at 14, 15
-        assertEq(harness.countPeaks(17), 2); // 18 nodes: peaks at 14, 17
-        assertEq(harness.countPeaks(21), 2); // 22 nodes: peaks at 14, 21
-    }
-
-    function test_countPeaks_threePeaks() public view {
-        assertEq(harness.countPeaks(10), 3); // 11 nodes: peaks at 6, 9, 10
-        assertEq(harness.countPeaks(18), 3); // 19 nodes: peaks at 14, 17, 18
-        assertEq(harness.countPeaks(22), 3); // 23 nodes: peaks at 14, 21, 22
-        assertEq(harness.countPeaks(24), 3); // 25 nodes: peaks at 14, 21, 24
-    }
-
-    function test_countPeaks_fourPeaks() public view {
-        assertEq(harness.countPeaks(25), 4); // 26 nodes: peaks at 14, 21, 24, 25
-    }
-
-    // =========================================================================
     // Property tests
     // =========================================================================
 
@@ -311,13 +274,13 @@ contract LibPeaksTest is Test {
     }
 
     /// @dev Perfect binary tree sizes should have exactly one peak
-    function test_peaks_perfectTreesHaveOnePeak() public pure {
+    function test_peaks_perfectTreesHaveOnePeak() public view {
         // Perfect binary tree sizes: 2^n - 1 for n >= 1
         // MMR indices: 0 (1 node), 2 (3 nodes), 6 (7 nodes), 14 (15 nodes), etc.
         for (uint256 n = 1; n <= 8; n++) {
             uint256 treeSize = (1 << n) - 1;
-            uint256 peakCount = LibPeaks.countPeaks(treeSize - 1);
-            assertEq(peakCount, 1, "Perfect tree should have exactly one peak");
+            uint256[] memory p = harness.peaks(treeSize - 1);
+            assertEq(p.length, 1, "Perfect tree should have exactly one peak");
         }
     }
 }

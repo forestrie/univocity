@@ -44,18 +44,4 @@ library LibPeaks {
             mstore(result, count)
         }
     }
-
-    /// @notice Counts the number of peaks in MMR(i).
-    /// @dev The number of peaks equals the number of 1-bits in the leaf count.
-    ///      This is equivalent to popcount(leafCount(i)).
-    /// @param i The index of the last node in the MMR.
-    /// @return count The number of peaks.
-    function countPeaks(uint256 i) internal pure returns (uint256 count) {
-        uint256 s = i + 1;
-        while (s != 0) {
-            uint256 highestSize = (1 << LibBinUtils.log2floor(s + 1)) - 1;
-            s -= highestSize;
-            count++;
-        }
-    }
 }
