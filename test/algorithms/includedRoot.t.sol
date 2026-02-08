@@ -2,24 +2,24 @@
 pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
-import {LibIncludedRoot} from "@univocity/algorithms/LibIncludedRoot.sol";
+import {includedRoot} from "@univocity/algorithms/includedRoot.sol";
 import {LibBinUtils} from "@univocity/algorithms/LibBinUtils.sol";
 
 /// @title IncludedRootHarness
-/// @notice Harness contract to expose LibIncludedRoot for testing with calldata.
+/// @notice Harness contract to expose includedRoot for testing with calldata.
 contract IncludedRootHarness {
-    function includedRoot(uint256 i, bytes32 nodeHash, bytes32[] calldata proof) external pure returns (bytes32) {
-        return LibIncludedRoot.includedRoot(i, nodeHash, proof);
+    function callIncludedRoot(uint256 i, bytes32 nodeHash, bytes32[] calldata proof) external pure returns (bytes32) {
+        return includedRoot(i, nodeHash, proof);
     }
 
     /// @notice Wrapper that accepts memory arrays for test convenience.
     function includedRootMem(uint256 i, bytes32 nodeHash, bytes32[] memory proof) external view returns (bytes32) {
-        return this.includedRoot(i, nodeHash, proof);
+        return this.callIncludedRoot(i, nodeHash, proof);
     }
 }
 
-/// @title LibIncludedRootTest
-/// @notice Unit tests for LibIncludedRoot MMR inclusion proof verification.
+/// @title IncludedRootTest
+/// @notice Unit tests for includedRoot MMR inclusion proof verification.
 /// @dev Test vectors generated from reference Python implementation using
 ///      an MMR with 4 leaves. Structure:
 ///
@@ -29,7 +29,7 @@ contract IncludedRootHarness {
 ///         /       \       /       \
 ///       H0        H1    H3        H4
 ///     (idx=0)  (idx=1) (idx=3)  (idx=4)
-contract LibIncludedRootTest is Test {
+contract IncludedRootTest is Test {
     IncludedRootHarness harness;
 
     function setUp() public {
@@ -56,13 +56,13 @@ contract LibIncludedRootTest is Test {
 
     function test_includedRoot_emptyProof_returnsNodeHash() public view {
         bytes32[] memory proof = new bytes32[](0);
-        bytes32 result = harness.includedRoot(0, H0, proof);
+        bytes32 result = harness.callIncludedRoot(0, H0, proof);
         assertEq(result, H0, "Empty proof should return original nodeHash");
     }
 
     function test_includedRoot_emptyProof_rootNode() public view {
         bytes32[] memory proof = new bytes32[](0);
-        bytes32 result = harness.includedRoot(6, H6_ROOT, proof);
+        bytes32 result = harness.callIncludedRoot(6, H6_ROOT, proof);
         assertEq(result, H6_ROOT, "Empty proof for root should return root");
     }
 
@@ -80,7 +80,7 @@ contract LibIncludedRootTest is Test {
         proof[0] = H1;
         proof[1] = H5;
 
-        bytes32 result = harness.includedRoot(0, H0, proof);
+        bytes32 result = harness.callIncludedRoot(0, H0, proof);
         assertEq(result, H6_ROOT, "Proof for node 0 should produce root");
     }
 
@@ -94,7 +94,7 @@ contract LibIncludedRootTest is Test {
         proof[0] = H4;
         proof[1] = H2;
 
-        bytes32 result = harness.includedRoot(3, H3, proof);
+        bytes32 result = harness.callIncludedRoot(3, H3, proof);
         assertEq(result, H6_ROOT, "Proof for node 3 should produce root");
     }
 
@@ -105,7 +105,7 @@ contract LibIncludedRootTest is Test {
         bytes32[] memory proof = new bytes32[](1);
         proof[0] = H5;
 
-        bytes32 result = harness.includedRoot(2, H2, proof);
+        bytes32 result = harness.callIncludedRoot(2, H2, proof);
         assertEq(result, H6_ROOT, "Proof for node 2 should produce root");
     }
 
@@ -123,7 +123,7 @@ contract LibIncludedRootTest is Test {
         proof[0] = H0;
         proof[1] = H5;
 
-        bytes32 result = harness.includedRoot(1, H1, proof);
+        bytes32 result = harness.callIncludedRoot(1, H1, proof);
         assertEq(result, H6_ROOT, "Proof for node 1 should produce root");
     }
 
@@ -137,7 +137,7 @@ contract LibIncludedRootTest is Test {
         proof[0] = H3;
         proof[1] = H2;
 
-        bytes32 result = harness.includedRoot(4, H4, proof);
+        bytes32 result = harness.callIncludedRoot(4, H4, proof);
         assertEq(result, H6_ROOT, "Proof for node 4 should produce root");
     }
 
@@ -148,7 +148,7 @@ contract LibIncludedRootTest is Test {
         bytes32[] memory proof = new bytes32[](1);
         proof[0] = H2;
 
-        bytes32 result = harness.includedRoot(5, H5, proof);
+        bytes32 result = harness.callIncludedRoot(5, H5, proof);
         assertEq(result, H6_ROOT, "Proof for node 5 should produce root");
     }
 
@@ -180,7 +180,7 @@ contract LibIncludedRootTest is Test {
         proof[0] = H0; // Wrong! Should be H1 for node 0
         proof[1] = H5;
 
-        bytes32 result = harness.includedRoot(0, H0, proof);
+        bytes32 result = harness.callIncludedRoot(0, H0, proof);
         assertTrue(result != H6_ROOT, "Wrong sibling should not produce correct root");
     }
 
@@ -191,7 +191,7 @@ contract LibIncludedRootTest is Test {
         proof[1] = H5;
 
         bytes32 wrongHash = bytes32(uint256(H0) ^ 1);
-        bytes32 result = harness.includedRoot(0, wrongHash, proof);
+        bytes32 result = harness.callIncludedRoot(0, wrongHash, proof);
         assertTrue(result != H6_ROOT, "Wrong nodeHash should not produce correct root");
     }
 
@@ -202,7 +202,7 @@ contract LibIncludedRootTest is Test {
         proof[1] = H5;
 
         // Using index 1 with H0 and proof [H1, H5] should not work
-        bytes32 result = harness.includedRoot(1, H0, proof);
+        bytes32 result = harness.callIncludedRoot(1, H0, proof);
         assertTrue(result != H6_ROOT, "Wrong index should not produce correct root");
     }
 
@@ -215,7 +215,7 @@ contract LibIncludedRootTest is Test {
         bytes32[] memory proof = new bytes32[](0);
         bytes32 leafHash = sha256(abi.encodePacked(uint64(42)));
 
-        bytes32 result = harness.includedRoot(0, leafHash, proof);
+        bytes32 result = harness.callIncludedRoot(0, leafHash, proof);
         assertEq(result, leafHash, "Single node MMR root is the leaf itself");
     }
 
@@ -229,12 +229,12 @@ contract LibIncludedRootTest is Test {
         // Prove leaf 0
         bytes32[] memory proof0 = new bytes32[](1);
         proof0[0] = leaf1;
-        assertEq(harness.includedRoot(0, leaf0, proof0), root, "Proof for leaf 0");
+        assertEq(harness.callIncludedRoot(0, leaf0, proof0), root, "Proof for leaf 0");
 
         // Prove leaf 1
         bytes32[] memory proof1 = new bytes32[](1);
         proof1[0] = leaf0;
-        assertEq(harness.includedRoot(1, leaf1, proof1), root, "Proof for leaf 1");
+        assertEq(harness.callIncludedRoot(1, leaf1, proof1), root, "Proof for leaf 1");
     }
 
     // =========================================================================
@@ -247,13 +247,13 @@ contract LibIncludedRootTest is Test {
         proof[1] = H5;
 
         // Just call to measure gas in test output
-        harness.includedRoot(0, H0, proof);
+        harness.callIncludedRoot(0, H0, proof);
     }
 
     function test_includedRoot_gas_singleSiblingProof() public view {
         bytes32[] memory proof = new bytes32[](1);
         proof[0] = H5;
 
-        harness.includedRoot(2, H2, proof);
+        harness.callIncludedRoot(2, H2, proof);
     }
 }

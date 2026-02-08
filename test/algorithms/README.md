@@ -43,9 +43,9 @@ Implements fundamental bit operations used by all other algorithms:
 The `allOnes` function uses an optimized bit-trick `(x & (x + 1)) == 0` which
 is equivalent to the reference mask comparison approach.
 
-### LibPeaks.sol
+### peaks.sol
 
-Implements peak computation for MMR accumulators:
+Implements peak computation for MMR accumulators as a free function:
 
 | Function | Reference | Tests |
 |----------|-----------|-------|
@@ -55,9 +55,9 @@ Tests cover all 21 complete MMR sizes up to 39 nodes, matching the complete
 MMR indices used in the reference tests. The implementation pre-allocates
 MAX_PEAKS (64) entries and trims, avoiding a separate count pass.
 
-### LibIncludedRoot.sol
+### includedRoot.sol
 
-Implements inclusion proof verification:
+Implements inclusion proof verification as a free function:
 
 | Function | Reference | Tests |
 |----------|-----------|-------|
@@ -66,9 +66,9 @@ Implements inclusion proof verification:
 Test vectors use nodes 0-6 from the canonical MMR (a 7-node MMR with 4 leaves).
 All hash values verified against `KatDB.init_canonical39()`.
 
-### LibConsistentRoots.sol
+### consistentRoots.sol
 
-Implements consistency proof verification:
+Implements consistency proof verification as a free function:
 
 | Function | Reference | Tests |
 |----------|-----------|-------|
@@ -88,8 +88,8 @@ All 30 unique hash values used across test files have been verified against
 the canonical 39-node MMR:
 
 ```
-LibIncludedRoot.t.sol:  7 hashes (N0-N6)
-LibConsistentRoots.t.sol: 23 hashes (N0-N30, including proof siblings)
+includedRoot.t.sol:  7 hashes (N0-N6)
+consistentRoots.t.sol: 23 hashes (N0-N30, including proof siblings)
 ```
 
 Key peak hashes cross-checked with `tests.py` expected accumulators:
@@ -123,9 +123,9 @@ vectors if needed.
 | Test File | Tests | Coverage |
 |-----------|-------|----------|
 | LibBinUtils_*.t.sol | 38 | All bit operations |
-| LibPeaks.t.sol | 25 | All complete MMR sizes ≤39 |
-| LibIncludedRoot.t.sol | 16 | Left/right children, empty proofs |
-| LibConsistentRoots.t.sol | 11 | Peak merging, deduplication, errors |
+| peaks.t.sol | 25 | All complete MMR sizes ≤39 |
+| includedRoot.t.sol | 16 | Left/right children, empty proofs |
+| consistentRoots.t.sol | 11 | Peak merging, deduplication, errors |
 | **Total** | **90** | |
 
 ## Running Tests

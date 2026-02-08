@@ -2,11 +2,11 @@
 pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
-import {LibConsistentRoots} from "@univocity/algorithms/LibConsistentRoots.sol";
+import {consistentRoots} from "@univocity/algorithms/consistentRoots.sol";
 
 /// @title ConsistentRootsHarness
-/// @notice Harness contract to expose LibConsistentRoots for testing.
-/// @dev Uses storage for accumulatorFrom as required by the library.
+/// @notice Harness contract to expose consistentRoots for testing.
+/// @dev Uses storage for accumulatorFrom as required by the function.
 contract ConsistentRootsHarness {
     bytes32[] public accumulator;
 
@@ -17,16 +17,16 @@ contract ConsistentRootsHarness {
         }
     }
 
-    function consistentRoots(uint256 ifrom, bytes32[][] calldata proofs) external view returns (bytes32[] memory) {
-        return LibConsistentRoots.consistentRoots(ifrom, accumulator, proofs);
+    function callConsistentRoots(uint256 ifrom, bytes32[][] calldata proofs) external view returns (bytes32[] memory) {
+        return consistentRoots(ifrom, accumulator, proofs);
     }
 }
 
-/// @title LibConsistentRootsTest
-/// @notice Unit tests for LibConsistentRoots consistency proof verification.
+/// @title ConsistentRootsTest
+/// @notice Unit tests for consistentRoots consistency proof verification.
 /// @dev Test vectors generated from reference Python implementation using
 ///      a 39-node canonical MMR.
-contract LibConsistentRootsTest is Test {
+contract ConsistentRootsTest is Test {
     ConsistentRootsHarness harness;
 
     function setUp() public {
@@ -46,7 +46,7 @@ contract LibConsistentRootsTest is Test {
         proofs[0] = new bytes32[](1);
         proofs[0][0] = 0xcd2662154e6d76b2b2b92e70c0cac3ccf534f9b74eb5b89819ec509083d00a50;
 
-        bytes32[] memory result = harness.consistentRoots(0, proofs);
+        bytes32[] memory result = harness.callConsistentRoots(0, proofs);
         assertEq(result.length, 1);
         assertEq(result[0], 0xad104051c516812ea5874ca3ff06d0258303623d04307c41ec80a7a18b332ef8);
     }
@@ -64,7 +64,7 @@ contract LibConsistentRootsTest is Test {
         proofs[0] = new bytes32[](1);
         proofs[0][0] = 0x9a18d3bc0a7d505ef45f985992270914cc02b44c91ccabba448c546a4b70f0f0;
 
-        bytes32[] memory result = harness.consistentRoots(2, proofs);
+        bytes32[] memory result = harness.callConsistentRoots(2, proofs);
         assertEq(result.length, 1);
         assertEq(result[0], 0x827f3213c1de0d4c6277caccc1eeca325e45dfe2c65adce1943774218db61f88);
     }
@@ -86,7 +86,7 @@ contract LibConsistentRootsTest is Test {
         proofs[1][0] = 0x8005f02d43fa06e7d0585fb64c961d57e318b27a145c857bcd3a6bdb413ff7fc;
         proofs[1][1] = 0xad104051c516812ea5874ca3ff06d0258303623d04307c41ec80a7a18b332ef8;
 
-        bytes32[] memory result = harness.consistentRoots(3, proofs);
+        bytes32[] memory result = harness.callConsistentRoots(3, proofs);
         // Both peaks prove to same root, so only 1 result (deduplicated)
         assertEq(result.length, 1);
         assertEq(result[0], 0x827f3213c1de0d4c6277caccc1eeca325e45dfe2c65adce1943774218db61f88);
@@ -105,7 +105,7 @@ contract LibConsistentRootsTest is Test {
         proofs[0] = new bytes32[](1);
         proofs[0][0] = 0x508326f17c5f2769338cb00105faba3bf7862ca1e5c9f63ba2287e1f3cf2807a;
 
-        bytes32[] memory result = harness.consistentRoots(6, proofs);
+        bytes32[] memory result = harness.callConsistentRoots(6, proofs);
         assertEq(result.length, 1);
         assertEq(result[0], 0x78b2b4162eb2c58b229288bbcb5b7d97c7a1154eed3161905fb0f180eba6f112);
     }
@@ -128,7 +128,7 @@ contract LibConsistentRootsTest is Test {
         proofs[1][1] = 0x6f3360ad3e99ab4ba39f2cbaf13da56ead8c9e697b03b901532ced50f7030fea;
         proofs[1][2] = 0x827f3213c1de0d4c6277caccc1eeca325e45dfe2c65adce1943774218db61f88;
 
-        bytes32[] memory result = harness.consistentRoots(7, proofs);
+        bytes32[] memory result = harness.callConsistentRoots(7, proofs);
         assertEq(result.length, 1);
         assertEq(result[0], 0x78b2b4162eb2c58b229288bbcb5b7d97c7a1154eed3161905fb0f180eba6f112);
     }
@@ -155,7 +155,7 @@ contract LibConsistentRootsTest is Test {
         proofs[2][1] = 0xb8faf5f748f149b04018491a51334499fd8b6060c42a835f361fa9665562d12d;
         proofs[2][2] = 0x827f3213c1de0d4c6277caccc1eeca325e45dfe2c65adce1943774218db61f88;
 
-        bytes32[] memory result = harness.consistentRoots(10, proofs);
+        bytes32[] memory result = harness.callConsistentRoots(10, proofs);
         assertEq(result.length, 1);
         assertEq(result[0], 0x78b2b4162eb2c58b229288bbcb5b7d97c7a1154eed3161905fb0f180eba6f112);
     }
@@ -173,7 +173,7 @@ contract LibConsistentRootsTest is Test {
         proofs[0] = new bytes32[](1);
         proofs[0][0] = 0x77651b3eec6774e62545ae04900c39a32841e2b4bac80e2ba93755115252aae1;
 
-        bytes32[] memory result = harness.consistentRoots(14, proofs);
+        bytes32[] memory result = harness.callConsistentRoots(14, proofs);
         assertEq(result.length, 1);
         assertEq(result[0], 0xd4fb5649422ff2eaf7b1c0b851585a8cfd14fb08ce11addb30075a96309582a7);
     }
@@ -206,7 +206,7 @@ contract LibConsistentRootsTest is Test {
         proofs[3][2] = 0x61b3ff808934301578c9ed7402e3dd7dfe98b630acdf26d1fd2698a3c4a22710;
         proofs[3][3] = 0x78b2b4162eb2c58b229288bbcb5b7d97c7a1154eed3161905fb0f180eba6f112;
 
-        bytes32[] memory result = harness.consistentRoots(25, proofs);
+        bytes32[] memory result = harness.callConsistentRoots(25, proofs);
         assertEq(result.length, 1);
         assertEq(result[0], 0xd4fb5649422ff2eaf7b1c0b851585a8cfd14fb08ce11addb30075a96309582a7);
     }
@@ -226,7 +226,7 @@ contract LibConsistentRootsTest is Test {
         proofs[1] = new bytes32[](0);
 
         vm.expectRevert("Peak count mismatch");
-        harness.consistentRoots(0, proofs);
+        harness.callConsistentRoots(0, proofs);
     }
 
     function test_consistentRoots_revert_proofCountMismatch() public {
@@ -239,7 +239,7 @@ contract LibConsistentRootsTest is Test {
         proofs[1] = new bytes32[](0);
 
         vm.expectRevert("Proof count mismatch");
-        harness.consistentRoots(0, proofs);
+        harness.callConsistentRoots(0, proofs);
     }
 
     // =========================================================================
@@ -254,7 +254,7 @@ contract LibConsistentRootsTest is Test {
         bytes32[][] memory proofs = new bytes32[][](1);
         proofs[0] = new bytes32[](0);
 
-        bytes32[] memory result = harness.consistentRoots(2, proofs);
+        bytes32[] memory result = harness.callConsistentRoots(2, proofs);
         assertEq(result.length, 1);
         assertEq(result[0], 0xad104051c516812ea5874ca3ff06d0258303623d04307c41ec80a7a18b332ef8);
     }

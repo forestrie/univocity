@@ -2,19 +2,19 @@
 pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
-import {LibPeaks} from "@univocity/algorithms/LibPeaks.sol";
+import {peaks} from "@univocity/algorithms/peaks.sol";
 import {LibBinUtils} from "@univocity/algorithms/LibBinUtils.sol";
 
 /// @title PeaksHarness
-/// @notice Harness contract to expose LibPeaks for testing.
+/// @notice Harness contract to expose peaks for testing.
 contract PeaksHarness {
-    function peaks(uint256 i) external pure returns (uint256[] memory) {
-        return LibPeaks.peaks(i);
+    function callPeaks(uint256 i) external pure returns (uint256[] memory) {
+        return peaks(i);
     }
 }
 
-/// @title LibPeaksTest
-/// @notice Unit tests for LibPeaks MMR peak computation.
+/// @title PeaksTest
+/// @notice Unit tests for peaks MMR peak computation.
 /// @dev Test vectors from reference Python implementation.
 ///      Complete MMR indices: [0, 2, 3, 6, 7, 9, 10, 14, 15, 17, 18, 21, 22, 24, 25, 30, 31, 33, 34, 37, 38]
 ///
@@ -27,7 +27,7 @@ contract PeaksHarness {
 ///           2      5     9     12
 ///          / \    / \   / \   /  \
 ///         0   1  3   4 7   8 10  11
-contract LibPeaksTest is Test {
+contract PeaksTest is Test {
     PeaksHarness harness;
 
     function setUp() public {
@@ -40,7 +40,7 @@ contract LibPeaksTest is Test {
 
     function test_peaks_singleNode() public view {
         // MMR with 1 node (index 0)
-        uint256[] memory result = harness.peaks(0);
+        uint256[] memory result = harness.callPeaks(0);
         assertEq(result.length, 1);
         assertEq(result[0], 0);
     }
@@ -48,7 +48,7 @@ contract LibPeaksTest is Test {
     function test_peaks_threeNodes() public view {
         // MMR with 3 nodes (indices 0, 1, 2)
         // Structure: peak at 2
-        uint256[] memory result = harness.peaks(2);
+        uint256[] memory result = harness.callPeaks(2);
         assertEq(result.length, 1);
         assertEq(result[0], 2);
     }
@@ -56,7 +56,7 @@ contract LibPeaksTest is Test {
     function test_peaks_fourNodes() public view {
         // MMR with 4 nodes (indices 0, 1, 2, 3)
         // Structure: peaks at 2, 3
-        uint256[] memory result = harness.peaks(3);
+        uint256[] memory result = harness.callPeaks(3);
         assertEq(result.length, 2);
         assertEq(result[0], 2);
         assertEq(result[1], 3);
@@ -65,7 +65,7 @@ contract LibPeaksTest is Test {
     function test_peaks_sevenNodes() public view {
         // MMR with 7 nodes (indices 0-6)
         // Structure: single peak at 6
-        uint256[] memory result = harness.peaks(6);
+        uint256[] memory result = harness.callPeaks(6);
         assertEq(result.length, 1);
         assertEq(result[0], 6);
     }
@@ -73,7 +73,7 @@ contract LibPeaksTest is Test {
     function test_peaks_eightNodes() public view {
         // MMR with 8 nodes (indices 0-7)
         // Structure: peaks at 6, 7
-        uint256[] memory result = harness.peaks(7);
+        uint256[] memory result = harness.callPeaks(7);
         assertEq(result.length, 2);
         assertEq(result[0], 6);
         assertEq(result[1], 7);
@@ -82,7 +82,7 @@ contract LibPeaksTest is Test {
     function test_peaks_tenNodes() public view {
         // MMR with 10 nodes (indices 0-9)
         // Structure: peaks at 6, 9
-        uint256[] memory result = harness.peaks(9);
+        uint256[] memory result = harness.callPeaks(9);
         assertEq(result.length, 2);
         assertEq(result[0], 6);
         assertEq(result[1], 9);
@@ -91,7 +91,7 @@ contract LibPeaksTest is Test {
     function test_peaks_elevenNodes() public view {
         // MMR with 11 nodes (indices 0-10)
         // Structure: peaks at 6, 9, 10
-        uint256[] memory result = harness.peaks(10);
+        uint256[] memory result = harness.callPeaks(10);
         assertEq(result.length, 3);
         assertEq(result[0], 6);
         assertEq(result[1], 9);
@@ -101,7 +101,7 @@ contract LibPeaksTest is Test {
     function test_peaks_fifteenNodes() public view {
         // MMR with 15 nodes (indices 0-14)
         // Structure: single peak at 14
-        uint256[] memory result = harness.peaks(14);
+        uint256[] memory result = harness.callPeaks(14);
         assertEq(result.length, 1);
         assertEq(result[0], 14);
     }
@@ -109,7 +109,7 @@ contract LibPeaksTest is Test {
     function test_peaks_sixteenNodes() public view {
         // MMR with 16 nodes (indices 0-15)
         // Structure: peaks at 14, 15
-        uint256[] memory result = harness.peaks(15);
+        uint256[] memory result = harness.callPeaks(15);
         assertEq(result.length, 2);
         assertEq(result[0], 14);
         assertEq(result[1], 15);
@@ -118,7 +118,7 @@ contract LibPeaksTest is Test {
     function test_peaks_eighteenNodes() public view {
         // MMR with 18 nodes (indices 0-17)
         // Structure: peaks at 14, 17
-        uint256[] memory result = harness.peaks(17);
+        uint256[] memory result = harness.callPeaks(17);
         assertEq(result.length, 2);
         assertEq(result[0], 14);
         assertEq(result[1], 17);
@@ -127,7 +127,7 @@ contract LibPeaksTest is Test {
     function test_peaks_nineteenNodes() public view {
         // MMR with 19 nodes (indices 0-18)
         // Structure: peaks at 14, 17, 18
-        uint256[] memory result = harness.peaks(18);
+        uint256[] memory result = harness.callPeaks(18);
         assertEq(result.length, 3);
         assertEq(result[0], 14);
         assertEq(result[1], 17);
@@ -137,7 +137,7 @@ contract LibPeaksTest is Test {
     function test_peaks_twentyTwoNodes() public view {
         // MMR with 22 nodes (indices 0-21)
         // Structure: peaks at 14, 21
-        uint256[] memory result = harness.peaks(21);
+        uint256[] memory result = harness.callPeaks(21);
         assertEq(result.length, 2);
         assertEq(result[0], 14);
         assertEq(result[1], 21);
@@ -146,7 +146,7 @@ contract LibPeaksTest is Test {
     function test_peaks_twentyThreeNodes() public view {
         // MMR with 23 nodes (indices 0-22)
         // Structure: peaks at 14, 21, 22
-        uint256[] memory result = harness.peaks(22);
+        uint256[] memory result = harness.callPeaks(22);
         assertEq(result.length, 3);
         assertEq(result[0], 14);
         assertEq(result[1], 21);
@@ -156,7 +156,7 @@ contract LibPeaksTest is Test {
     function test_peaks_twentyFiveNodes() public view {
         // MMR with 25 nodes (indices 0-24)
         // Structure: peaks at 14, 21, 24
-        uint256[] memory result = harness.peaks(24);
+        uint256[] memory result = harness.callPeaks(24);
         assertEq(result.length, 3);
         assertEq(result[0], 14);
         assertEq(result[1], 21);
@@ -166,7 +166,7 @@ contract LibPeaksTest is Test {
     function test_peaks_twentySixNodes() public view {
         // MMR with 26 nodes (indices 0-25)
         // Structure: peaks at 14, 21, 24, 25
-        uint256[] memory result = harness.peaks(25);
+        uint256[] memory result = harness.callPeaks(25);
         assertEq(result.length, 4);
         assertEq(result[0], 14);
         assertEq(result[1], 21);
@@ -177,7 +177,7 @@ contract LibPeaksTest is Test {
     function test_peaks_thirtyOneNodes() public view {
         // MMR with 31 nodes (indices 0-30)
         // Structure: single peak at 30
-        uint256[] memory result = harness.peaks(30);
+        uint256[] memory result = harness.callPeaks(30);
         assertEq(result.length, 1);
         assertEq(result[0], 30);
     }
@@ -185,7 +185,7 @@ contract LibPeaksTest is Test {
     function test_peaks_thirtyTwoNodes() public view {
         // MMR with 32 nodes (indices 0-31)
         // Structure: peaks at 30, 31
-        uint256[] memory result = harness.peaks(31);
+        uint256[] memory result = harness.callPeaks(31);
         assertEq(result.length, 2);
         assertEq(result[0], 30);
         assertEq(result[1], 31);
@@ -194,7 +194,7 @@ contract LibPeaksTest is Test {
     function test_peaks_thirtyFourNodes() public view {
         // MMR with 34 nodes (indices 0-33)
         // Structure: peaks at 30, 33
-        uint256[] memory result = harness.peaks(33);
+        uint256[] memory result = harness.callPeaks(33);
         assertEq(result.length, 2);
         assertEq(result[0], 30);
         assertEq(result[1], 33);
@@ -203,7 +203,7 @@ contract LibPeaksTest is Test {
     function test_peaks_thirtyFiveNodes() public view {
         // MMR with 35 nodes (indices 0-34)
         // Structure: peaks at 30, 33, 34
-        uint256[] memory result = harness.peaks(34);
+        uint256[] memory result = harness.callPeaks(34);
         assertEq(result.length, 3);
         assertEq(result[0], 30);
         assertEq(result[1], 33);
@@ -213,7 +213,7 @@ contract LibPeaksTest is Test {
     function test_peaks_thirtyEightNodes() public view {
         // MMR with 38 nodes (indices 0-37)
         // Structure: peaks at 30, 37
-        uint256[] memory result = harness.peaks(37);
+        uint256[] memory result = harness.callPeaks(37);
         assertEq(result.length, 2);
         assertEq(result[0], 30);
         assertEq(result[1], 37);
@@ -222,7 +222,7 @@ contract LibPeaksTest is Test {
     function test_peaks_thirtyNineNodes() public view {
         // MMR with 39 nodes (indices 0-38)
         // Structure: peaks at 30, 37, 38
-        uint256[] memory result = harness.peaks(38);
+        uint256[] memory result = harness.callPeaks(38);
         assertEq(result.length, 3);
         assertEq(result[0], 30);
         assertEq(result[1], 37);
@@ -235,7 +235,7 @@ contract LibPeaksTest is Test {
 
     /// @dev Peak heights should be strictly decreasing
     function test_peaks_heightsDecreasing() public view {
-        uint256[] memory result = harness.peaks(38);
+        uint256[] memory result = harness.callPeaks(38);
 
         for (uint256 j = 1; j < result.length; j++) {
             uint256 prevHeight = LibBinUtils.indexHeight(result[j - 1]);
@@ -252,7 +252,7 @@ contract LibPeaksTest is Test {
         uint256[10] memory testIndices = [uint256(0), 2, 6, 14, 30, 7, 10, 25, 38, 62];
 
         for (uint256 j = 0; j < testIndices.length; j++) {
-            p = harness.peaks(testIndices[j]);
+            p = harness.callPeaks(testIndices[j]);
             // First peak should have the maximum height
             uint256 maxHeight = 0;
             for (uint256 k = 0; k < p.length; k++) {
@@ -266,7 +266,7 @@ contract LibPeaksTest is Test {
     /// @dev All peak indices should be valid (within MMR bounds)
     function test_peaks_allIndicesValid() public view {
         uint256 i = 38;
-        uint256[] memory result = harness.peaks(i);
+        uint256[] memory result = harness.callPeaks(i);
 
         for (uint256 j = 0; j < result.length; j++) {
             assertTrue(result[j] <= i, "Peak index should be within MMR bounds");
@@ -279,7 +279,7 @@ contract LibPeaksTest is Test {
         // MMR indices: 0 (1 node), 2 (3 nodes), 6 (7 nodes), 14 (15 nodes), etc.
         for (uint256 n = 1; n <= 8; n++) {
             uint256 treeSize = (1 << n) - 1;
-            uint256[] memory p = harness.peaks(treeSize - 1);
+            uint256[] memory p = harness.callPeaks(treeSize - 1);
             assertEq(p.length, 1, "Perfect tree should have exactly one peak");
         }
     }
