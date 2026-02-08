@@ -8,6 +8,11 @@ import {LibBinUtils} from "@univocity/algorithms/LibBinUtils.sol";
 /// @dev Peaks are the roots of the complete binary trees that make up an MMR.
 ///      They are listed in descending order of height.
 library LibPeaks {
+    /// @notice Maximum number of peaks in an MMR.
+    /// @dev The draft specifies a maximum height of 63 (zero-based), so at most
+    ///      64 peaks can exist (one per bit in a uint64 leaf count).
+    uint256 private constant MAX_PEAKS = 64;
+
     /// @notice Returns the peak indices for MMR(i) in highest to lowest order.
     /// @dev Assumes MMR(i) is complete. Callers can verify completeness by
     ///      checking that indexHeight(i+1) == 0.
@@ -16,22 +21,27 @@ library LibPeaks {
     /// @param i The index of the last node in the MMR (MMR size - 1).
     /// @return result Array of peak indices in descending height order.
     function peaks(uint256 i) internal pure returns (uint256[] memory result) {
-        // Count peaks first to allocate exact array size
-        uint256 peakCount = countPeaks(i);
-        result = new uint256[](peakCount);
+        // Pre-allocate maximum size, then trim. This avoids iterating twice
+        // (once to count, once to fill).
+        result = new uint256[](MAX_PEAKS);
 
         uint256 peak = 0;
         uint256 s = i + 1;
-        uint256 idx = 0;
+        uint256 count = 0;
 
         while (s != 0) {
             // Find the highest peak size in the current MMR(s)
             // A complete binary tree of height h has 2^(h+1) - 1 nodes
             uint256 highestSize = (1 << LibBinUtils.log2floor(s + 1)) - 1;
             peak = peak + highestSize;
-            result[idx] = peak - 1;
+            result[count] = peak - 1;
             s -= highestSize;
-            idx++;
+            count++;
+        }
+
+        // Trim array to actual size
+        assembly {
+            mstore(result, count)
         }
     }
 
