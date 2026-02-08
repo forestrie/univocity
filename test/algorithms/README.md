@@ -75,6 +75,7 @@ Implements consistency proof verification:
 | `consistentRoots` | `consistent_roots` | 11 tests |
 
 Test cases cover:
+
 - Single peak to single peak transitions (0→2, 2→6, 6→14, 14→30)
 - Multi-peak merging scenarios (3→6, 7→14, 10→14, 25→38)
 - Consecutive duplicate root deduplication
