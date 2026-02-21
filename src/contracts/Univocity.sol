@@ -18,12 +18,15 @@ contract Univocity is ICheckpointEvents {
     LibCheckpointVerifier.Checkpoint public latestCheckpoint;
 
     /// @notice Publish an initial checkpoint without a consistency proof.
-    /// @dev This is intended for bootstrapping only. Once
+    /// @dev This is intended for bootstrapping only. Can only be called once
+    ///      (before any checkpoint has been set). Once
     ///      LibCheckpointVerifier.verifyConsistency is implemented, agents
     ///      should consider adding access control and stronger invariants.
     /// @param root Root hash of the initial checkpoint.
     /// @param size Log size of the initial checkpoint.
     function publishInitialCheckpoint(bytes32 root, uint256 size) external {
+        require(latestCheckpoint.size == 0, "Already initialized");
+
         latestCheckpoint = LibCheckpointVerifier.Checkpoint({root: root, size: size});
 
         emit CheckpointPublished(root, size, "");
@@ -37,24 +40,31 @@ contract Univocity is ICheckpointEvents {
     ///      further development can build on a stable interface.
     /// @param newRoot Root hash of the new checkpoint.
     /// @param newSize Log size of the new checkpoint.
-    /// @param proofPath Placeholder path for a future consistency proof.
+    /// @param proofPaths Inclusion proof paths, one per peak in the current
+    ///        accumulator (see consistentRoots).
     /// @param receipt Raw COSE receipt bytes.
-    function publishCheckpoint(bytes32 newRoot, uint256 newSize, bytes32[] calldata proofPath, bytes calldata receipt)
-        external
-    {
+    function publishCheckpoint(
+        bytes32 newRoot,
+        uint256 newSize,
+        bytes32[][] calldata proofPaths,
+        bytes calldata receipt
+    ) external {
+        require(newSize > latestCheckpoint.size, "New size must exceed current");
+
         // Decode the receipt to exercise LibCoseReceipt and surface type
-        // expectations. The decoded structure is currently unused.
+        // expectations (no-op until COSE parsing is implemented).
         LibCoseReceipt.CoseReceipt memory decoded = LibCoseReceipt.decode(receipt);
-        decoded; // silence unused variable warning until fields are defined.
+        decoded;
 
         LibCheckpointVerifier.Checkpoint memory next = LibCheckpointVerifier.Checkpoint({root: newRoot, size: newSize});
 
-        LibCheckpointVerifier.ConsistencyProof memory proof = LibCheckpointVerifier.ConsistencyProof({path: proofPath});
+        LibCheckpointVerifier.ConsistencyProof memory proof =
+            LibCheckpointVerifier.ConsistencyProof({paths: proofPaths});
 
         // TODO: once implemented, enforce verifyConsistency(latestCheckpoint,
         //       next, proof) before updating state.
         bool ok = LibCheckpointVerifier.verifyConsistency(latestCheckpoint, next, proof);
-        ok; // placeholder to avoid warnings until verification is used.
+        ok;
 
         latestCheckpoint = next;
 

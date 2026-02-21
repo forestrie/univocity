@@ -30,14 +30,39 @@ contract UnivocityTest is Test {
 
         bytes32 newRoot = keccak256("next");
         uint256 newSize = 20;
-        bytes32[] memory path = new bytes32[](0);
+        bytes32[][] memory paths = new bytes32[][](0);
         bytes memory receipt = hex"01";
 
-        univocity.publishCheckpoint(newRoot, newSize, path, receipt);
+        univocity.publishCheckpoint(newRoot, newSize, paths, receipt);
 
         (bytes32 storedRoot, uint256 storedSize) = univocity.latestCheckpoint();
 
         assertEq(storedRoot, newRoot);
         assertEq(storedSize, newSize);
+    }
+
+    function testPublishInitialCheckpointRevertsIfAlreadyInitialized() public {
+        bytes32 root = keccak256("root");
+        uint256 size = 42;
+
+        univocity.publishInitialCheckpoint(root, size);
+
+        vm.expectRevert("Already initialized");
+        univocity.publishInitialCheckpoint(keccak256("other"), 100);
+    }
+
+    function testPublishCheckpointRevertsIfSizeNotGreater() public {
+        bytes32 initialRoot = keccak256("initial");
+        uint256 initialSize = 10;
+        univocity.publishInitialCheckpoint(initialRoot, initialSize);
+
+        bytes32[][] memory paths = new bytes32[][](0);
+        bytes memory receipt = hex"01";
+
+        vm.expectRevert("New size must exceed current");
+        univocity.publishCheckpoint(keccak256("next"), initialSize, paths, receipt);
+
+        vm.expectRevert("New size must exceed current");
+        univocity.publishCheckpoint(keccak256("next"), initialSize - 1, paths, receipt);
     }
 }

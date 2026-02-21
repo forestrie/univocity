@@ -11,7 +11,7 @@ contract LibCheckpointVerifierTest is Test {
         LibCheckpointVerifier.Checkpoint memory newCp =
             LibCheckpointVerifier.Checkpoint({root: bytes32(uint256(2)), size: 20});
         LibCheckpointVerifier.ConsistencyProof memory proof =
-            LibCheckpointVerifier.ConsistencyProof({path: new bytes32[](0)});
+            LibCheckpointVerifier.ConsistencyProof({paths: new bytes32[][](0)});
 
         bool ok = LibCheckpointVerifier.verifyConsistency(oldCp, newCp, proof);
 

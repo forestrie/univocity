@@ -15,11 +15,11 @@ library LibCheckpointVerifier {
         uint256 size;
     }
 
-    /// @dev Minimal placeholder representation of a consistency proof.
+    /// @dev Representation of a consistency proof between two checkpoints.
+    ///      Each entry in `paths` is an inclusion proof for the corresponding
+    ///      peak in the origin accumulator (see consistentRoots).
     struct ConsistencyProof {
-        // TODO: add fields for the sequence of hashes required to prove
-        //       consistency between checkpoints.
-        bytes32[] path;
+        bytes32[][] paths;
     }
 
     /// @notice Verify that `newCp` is consistent with `oldCp` given

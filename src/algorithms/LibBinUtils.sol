@@ -41,6 +41,8 @@ library LibBinUtils {
             x >>= 2;
             n += 2;
         }
+        // Final two bit positions are collapsed into one branch: x in {2,3}
+        // has bitLength 2, x == 1 has bitLength 1.
         if (x >= 1 << 1) {
             n += 2;
         } else if (x >= 1) {
