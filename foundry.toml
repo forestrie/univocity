@@ -56,6 +56,8 @@ remappings = [
   "forge-std/=lib/forge-std/src/",
   "@forge-std/=lib/forge-std/src/",
   "@univocity/=src/",
+  "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+  "witnet-solidity-bridge/=lib/witnet-solidity-bridge/",
 ]
 
 ignored_warnings_from = ["test/**", "script/**"]
