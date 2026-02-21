@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.24;
 
-import "../../algorithms/LibBinUtils.sol";
-import "../../cose/lib/LibCose.sol";
-import "../../cbor/lib/LibCbor.sol";
+import {LibCose} from "@univocity/cose/lib/LibCose.sol";
+import {LibCbor} from "@univocity/cbor/lib/LibCbor.sol";
+import {includedRoot} from "@univocity/algorithms/includedRoot.sol";
 
 /// @title LibAuthorityVerifier
 /// @notice Verifies SCITT-format payment receipts for R5 authorization
@@ -81,21 +81,21 @@ library LibAuthorityVerifier {
     }
 
     /// @notice Verify receipt is included in authority log
-    /// @param receiptHash Hash of the receipt content
-    /// @param proof Inclusion proof (MMR path)
+    /// @dev Caller supplies the leaf hash. Univocity computes leaf = H(receiptIdtimestampBe || sha256(receipt))
+    ///      per ADR-0030 and passes it as receiptHash.
+    /// @param receiptHash Leaf hash: H(receiptIdtimestampBe || sha256(receipt)) when called from Univocity
+    /// @param proof MMR path (sibling hashes), calldata
     /// @param accumulator Current authority log accumulator
-    /// @param leafIndex Index of receipt in MMR
+    /// @param mmrIndex Zero-based MMR index of the receipt leaf (leaf position - 1)
     /// @return True if inclusion verified
     function verifyReceiptInclusion(
         bytes32 receiptHash,
-        bytes32[] memory proof,
+        bytes32[] calldata proof,
         bytes32[] memory accumulator,
-        uint64 leafIndex
+        uint64 mmrIndex
     ) internal pure returns (bool) {
-        // Compute the root implied by the inclusion proof
-        bytes32 computedRoot = _includedRootMemory(leafIndex, receiptHash, proof);
+        bytes32 computedRoot = includedRoot(mmrIndex, receiptHash, proof);
 
-        // Check if computed root matches any peak in the accumulator
         for (uint256 i = 0; i < accumulator.length; i++) {
             if (accumulator[i] == computedRoot) {
                 return true;
@@ -103,31 +103,5 @@ library LibAuthorityVerifier {
         }
 
         return false;
-    }
-
-    /// @notice Internal version of includedRoot that works with memory arrays
-    /// @dev Mirrors the logic from includedRoot.sol but accepts memory proof
-    function _includedRootMemory(uint64 i, bytes32 nodeHash, bytes32[] memory proof)
-        private
-        pure
-        returns (bytes32 root)
-    {
-        root = nodeHash;
-        uint256 idx = i;
-        uint256 g = LibBinUtils.indexHeight(idx);
-
-        for (uint256 j = 0; j < proof.length; j++) {
-            bytes32 sibling = proof[j];
-
-            if (LibBinUtils.indexHeight(idx + 1) > g) {
-                idx = idx + 1;
-                root = LibBinUtils.hashPosPair64(uint64(idx + 1), sibling, root);
-            } else {
-                idx = idx + (2 << g);
-                root = LibBinUtils.hashPosPair64(uint64(idx + 1), root, sibling);
-            }
-
-            g = g + 1;
-        }
     }
 }

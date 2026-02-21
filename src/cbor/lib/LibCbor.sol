@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.24;
 
-import "witnet-solidity-bridge/contracts/libs/WitnetBuffer.sol";
+import {WitnetBuffer} from "witnet-solidity-bridge/contracts/libs/WitnetBuffer.sol";
 
 /// @title LibCbor
 /// @notice CBOR decoding for SCITT payment receipt claims

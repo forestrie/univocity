@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/utils/cryptography/P256.sol";
-import "witnet-solidity-bridge/contracts/libs/WitnetBuffer.sol";
-import "../../cbor/lib/LibCbor.sol";
+import {P256} from "@openzeppelin/contracts/utils/cryptography/P256.sol";
+import {WitnetBuffer} from "witnet-solidity-bridge/contracts/libs/WitnetBuffer.sol";
+import {LibCbor} from "@univocity/cbor/lib/LibCbor.sol";
 
 /// @title LibCose
 /// @notice COSE_Sign1 decoding and dual-algorithm signature verification

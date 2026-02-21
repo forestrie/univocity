@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import {consistentRoots} from "@univocity/algorithms/consistentRoots.sol";
+
 /// @title LibCheckpointVerifier
 /// @notice Library for verifying transparency log checkpoints against
 ///         consistency proofs.
@@ -46,21 +48,22 @@ library LibCheckpointVerifier {
     /// @notice Verify consistency proof between two accumulators
     /// @param oldAccumulator Previous checkpoint's MMR peak list
     /// @param newAccumulator New checkpoint's MMR peak list
-    /// @param oldSize Previous MMR size
-    /// @param proof Encoded consistency proof
-    /// @return ok True if proof is valid
+    /// @param oldSize Previous MMR size (leaf count)
+    /// @param proof One inclusion proof per old peak (calldata)
+    /// @return ok True if proof is valid and newAccumulator is consistent with old
     function verifyConsistencyProof(
         bytes32[] storage oldAccumulator,
         bytes32[] calldata newAccumulator,
         uint64 oldSize,
-        bytes calldata proof
+        bytes32[][] calldata proof
     ) internal view returns (bool ok) {
-        // TODO: Wire up to existing consistentRoots algorithm
-        // For now, return true to allow integration testing
-        oldAccumulator;
-        newAccumulator;
-        oldSize;
-        proof;
+        uint256 ifrom = oldSize == 0 ? 0 : uint256(oldSize) - 1;
+        bytes32[] memory roots = consistentRoots(ifrom, oldAccumulator, proof);
+        // Proven roots must be a prefix of the new accumulator (per MMR profile)
+        if (roots.length > newAccumulator.length) return false;
+        for (uint256 i = 0; i < roots.length; i++) {
+            if (roots[i] != newAccumulator[i]) return false;
+        }
         return true;
     }
 }

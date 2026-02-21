@@ -8,6 +8,8 @@ interface IUnivocityErrors {
     error AlreadyInitialized();
     error NotInitialized();
     error OnlyBootstrapAuthority();
+    error FirstCheckpointSizeTooSmall();
+    error BootstrapReceiptMustBeFirstEntry();
 
     // Log state
     error LogNotFound(bytes32 logId);
