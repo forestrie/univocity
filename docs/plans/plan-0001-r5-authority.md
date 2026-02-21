@@ -7,12 +7,12 @@
 
 | Document | Description |
 |----------|-------------|
-| [ARC-0016](https://raw.githubusercontent.com/forestrie/devdocs/main/arc/arc-0016-checkpoint-incentivisation-model.md) | Checkpoint Incentivisation Model |
-| [ADR-0025](https://raw.githubusercontent.com/forestrie/devdocs/main/adr/adr-0025-log-based-checkpoint-authority.md) | Log-Based Checkpoint Publishing Authority |
-| [ADR-0026](https://raw.githubusercontent.com/forestrie/devdocs/main/adr/adr-0026-content-exclusion-proofs.md) | Content-Based Exclusion Proofs (deferred) |
-| [ADR-0027](https://raw.githubusercontent.com/forestrie/devdocs/main/adr/adr-0027-urkle-trie-retention.md) | Urkle Trie Retention Analysis |
-| [ADR-0028](https://raw.githubusercontent.com/forestrie/devdocs/main/adr/adr-0028-log-ownership-challenge.md) | Log Ownership Model (rejected - signing key IS ownership) |
-| [ARC-0010](https://raw.githubusercontent.com/forestrie/devdocs/main/arc/arc-0010-delegation-signer-cose-cbor-scitt.md) | Delegation Signer COSE/CBOR |
+| [ARC-0016](https://github.com/forestrie/devdocs/blob/main/arc/arc-0016-checkpoint-incentivisation-model.md) | Checkpoint Incentivisation Model |
+| [ADR-0025](https://github.com/forestrie/devdocs/blob/main/adr/adr-0025-log-based-checkpoint-authority.md) | Log-Based Checkpoint Publishing Authority |
+| [ADR-0026](https://github.com/forestrie/devdocs/blob/main/adr/adr-0026-content-exclusion-proofs.md) | Content-Based Exclusion Proofs (deferred) |
+| [ADR-0027](https://github.com/forestrie/devdocs/blob/main/adr/adr-0027-urkle-trie-retention.md) | Urkle Trie Retention Analysis |
+| [ADR-0028](https://github.com/forestrie/devdocs/blob/main/adr/adr-0028-log-ownership-challenge.md) | Log Ownership Model (rejected - signing key IS ownership) |
+| [ARC-0010](https://github.com/forestrie/devdocs/blob/main/arc/arc-0010-delegation-signer-cose-cbor-scitt.md) | Delegation Signer COSE/CBOR |
 
 ## Summary
 
@@ -58,7 +58,7 @@ Implement R5 payment-bounded checkpoint authority for univocity contracts:
 
 **This is fundamental to the system architecture.**
 
-See [ARC-0016 Section 6.2](https://raw.githubusercontent.com/forestrie/devdocs/main/arc/arc-0016-checkpoint-incentivisation-model.md)
+See [ARC-0016 Section 6.2](https://github.com/forestrie/devdocs/blob/main/arc/arc-0016-checkpoint-incentivisation-model.md)
 for the authoritative description.
 
 **Summary**: Given a validly signed checkpoint and valid payment receipt,
@@ -270,7 +270,7 @@ function verifyPaymentReceipt(
 
 ### Authority Model (SCITT Pattern)
 
-See [ARC-0016 Section 6.1-6.4](https://raw.githubusercontent.com/forestrie/devdocs/main/arc/arc-0016-checkpoint-incentivisation-model.md)
+See [ARC-0016 Section 6.1-6.4](https://github.com/forestrie/devdocs/blob/main/arc/arc-0016-checkpoint-incentivisation-model.md)
 for the full authorization model including diagrams.
 
 **Key points for implementation**:
@@ -1967,7 +1967,7 @@ These MUST hold after implementation:
 
 ### Permissionless Submission Security
 
-See [ARC-0016 Section 6.2-6.3](https://raw.githubusercontent.com/forestrie/devdocs/main/arc/arc-0016-checkpoint-incentivisation-model.md)
+See [ARC-0016 Section 6.2-6.3](https://github.com/forestrie/devdocs/blob/main/arc/arc-0016-checkpoint-incentivisation-model.md)
 for the full security rationale.
 
 **Summary**: Submitter controls only timing and gas price. Content is
