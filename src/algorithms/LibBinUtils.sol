@@ -56,6 +56,7 @@ library LibBinUtils {
     /// @return The MSB value (a power of 2), or 0 if x is 0.
     function mostSigBit(uint256 x) internal pure returns (uint256) {
         if (x == 0) return 0;
+        // forge-lint: disable-next-line(incorrect-shift)
         return 1 << (bitLength(x) - 1);
     }
 

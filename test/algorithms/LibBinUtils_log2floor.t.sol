@@ -60,6 +60,7 @@ contract LibBinUtils_log2floor_Test is Test {
         vm.assume(x > 0);
         uint256 result = LibBinUtils.log2floor(x);
         // 2^result <= x < 2^(result+1)
+        // forge-lint: disable-next-line(incorrect-shift)
         assertTrue((1 << result) <= x);
         if (result < 255) {
             assertTrue(x < (uint256(1) << (result + 1)));

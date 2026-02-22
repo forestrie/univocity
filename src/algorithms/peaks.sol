@@ -27,6 +27,7 @@ function peaks(uint256 i) pure returns (uint256[] memory result) {
     while (s != 0) {
         // Find the highest peak size in the current MMR(s)
         // A complete binary tree of height h has 2^(h+1) - 1 nodes
+        // forge-lint: disable-next-line(incorrect-shift)
         uint256 highestSize = (1 << LibBinUtils.log2floor(s + 1)) - 1;
         peak = peak + highestSize;
         result[count] = peak - 1;

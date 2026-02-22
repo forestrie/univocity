@@ -288,6 +288,7 @@ contract PeaksTest is Test {
         // MMR indices: 0 (1 node), 2 (3 nodes), 6 (7 nodes), 14 (15 nodes),
         // etc.
         for (uint256 n = 1; n <= 8; n++) {
+            // forge-lint: disable-next-line(incorrect-shift)
             uint256 treeSize = (1 << n) - 1;
             uint256[] memory p = harness.callPeaks(treeSize - 1);
             assertEq(p.length, 1, "Perfect tree should have exactly one peak");

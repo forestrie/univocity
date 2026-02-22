@@ -32,25 +32,34 @@ import {includedRoot} from "@univocity/algorithms/includedRoot.sol";
 function consistentRoots(
     uint256 ifrom,
     bytes32[] storage accumulatorFrom,
-    bytes32[][] calldata proofs
+    bytes32[][] memory proofs
 ) view returns (bytes32[] memory roots) {
-    // Get peak indices for MMR(ifrom)
+    bytes32[] memory accMem = new bytes32[](accumulatorFrom.length);
+    for (uint256 i = 0; i < accMem.length; i++) {
+        accMem[i] = accumulatorFrom[i];
+    }
+    return consistentRootsMemory(ifrom, accMem, proofs);
+}
+
+/// @notice Same as consistentRoots with memory accumulator (for chained
+///    verification per draft "Verifying the Receipt of consistency").
+function consistentRootsMemory(
+    uint256 ifrom,
+    bytes32[] memory accumulatorFrom,
+    bytes32[][] memory proofs
+) pure returns (bytes32[] memory roots) {
     uint256[] memory fromPeaks = peaks(ifrom);
 
-    // Validate lengths match
     require(fromPeaks.length == accumulatorFrom.length, "Peak count mismatch");
     require(fromPeaks.length == proofs.length, "Proof count mismatch");
 
-    // Allocate maximum possible size (will trim later)
     roots = new bytes32[](fromPeaks.length);
     uint256 rootCount = 0;
 
-    // For each peak, compute the included root
     for (uint256 i = 0; i < fromPeaks.length; i++) {
         bytes32 root =
             includedRoot(fromPeaks[i], accumulatorFrom[i], proofs[i]);
 
-        // Skip consecutive duplicates
         if (rootCount > 0 && roots[rootCount - 1] == root) {
             continue;
         }
@@ -59,7 +68,6 @@ function consistentRoots(
         rootCount++;
     }
 
-    // Trim array to actual size
     assembly {
         mstore(roots, rootCount)
     }

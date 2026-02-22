@@ -2,27 +2,21 @@
 pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
-import {includedRoot} from "@univocity/algorithms/includedRoot.sol";
+import {
+    includedRoot,
+    verifyInclusion
+} from "@univocity/algorithms/includedRoot.sol";
 import {LibBinUtils} from "@univocity/algorithms/LibBinUtils.sol";
 
 /// @title IncludedRootHarness
-/// @notice Harness contract to expose includedRoot for testing with calldata.
+/// @notice Harness contract to expose includedRoot for testing (memory).
 contract IncludedRootHarness {
     function callIncludedRoot(
         uint256 i,
         bytes32 nodeHash,
-        bytes32[] calldata proof
+        bytes32[] memory proof
     ) external pure returns (bytes32) {
         return includedRoot(i, nodeHash, proof);
-    }
-
-    /// @notice Wrapper that accepts memory arrays for test convenience.
-    function includedRootMem(
-        uint256 i,
-        bytes32 nodeHash,
-        bytes32[] memory proof
-    ) external view returns (bytes32) {
-        return this.callIncludedRoot(i, nodeHash, proof);
     }
 }
 
@@ -301,5 +295,45 @@ contract IncludedRootTest is Test {
         proof[0] = H5;
 
         harness.callIncludedRoot(2, H2, proof);
+    }
+
+    // ========================================================================
+    // =
+    // verifyInclusion (deterministic peak; used by bootstrap and RoI)
+    // ========================================================================
+    // =
+
+    /// @notice Empty proof: leaf is the only node, root = leafHash.
+    function test_verifyInclusion_emptyProof_singlePeak() public pure {
+        bytes32 receiptHash = sha256("receipt");
+        bytes32[] memory proof;
+        bytes32[] memory accumulator = new bytes32[](1);
+        accumulator[0] = receiptHash;
+
+        assertTrue(verifyInclusion(0, receiptHash, proof, accumulator, 1));
+    }
+
+    /// @notice Wrong node hash does not match peak.
+    function test_verifyInclusion_wrongHash_fails() public pure {
+        bytes32 receiptHash = sha256("receipt");
+        bytes32 wrongHash = sha256("wrong");
+        bytes32[] memory proof;
+        bytes32[] memory accumulator = new bytes32[](1);
+        accumulator[0] = receiptHash;
+
+        assertFalse(verifyInclusion(0, wrongHash, proof, accumulator, 1));
+    }
+
+    /// @notice ADR-0030 leaf formula: H(idtimestampBe ‖ sha256(receipt)).
+    function test_verifyInclusion_idtimestampLeafFormula() public pure {
+        bytes memory receipt = hex"deadbeef";
+        bytes8 idtimestampBe = bytes8(uint64(1));
+        bytes32 leafHash =
+            sha256(abi.encodePacked(idtimestampBe, sha256(receipt)));
+        bytes32[] memory proof;
+        bytes32[] memory accumulator = new bytes32[](1);
+        accumulator[0] = leafHash;
+
+        assertTrue(verifyInclusion(0, leafHash, proof, accumulator, 1));
     }
 }

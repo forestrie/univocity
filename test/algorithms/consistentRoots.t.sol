@@ -17,7 +17,7 @@ contract ConsistentRootsHarness {
         }
     }
 
-    function callConsistentRoots(uint256 ifrom, bytes32[][] calldata proofs)
+    function callConsistentRoots(uint256 ifrom, bytes32[][] memory proofs)
         external
         view
         returns (bytes32[] memory)
