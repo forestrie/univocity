@@ -859,6 +859,16 @@ storage; tests.
 
 ## Appendix A: Consistency receipt as single parameter
 
+**Implemented behaviour:** The contract takes a full COSE **Receipt of
+Consistency** (COSE_Sign1 with detached payload). It **always** verifies
+both (1) the **consistency proof chain** (LibConsistencyReceipt
+verifyConsistencyProofChain) and (2) the **receipt signature** over the
+accumulator commitment (LibCose verifySignatureDetachedPayload). The
+signing key is bootstrap keys, a delegated key from the receipt’s
+unprotected 1000, or the log’s stored root key. So consistency receipts
+are both consistency-proof checked and signature verified on every
+checkpoint.
+
 **Question:** Can we pass only a **consistency receipt** (or a single
 encoding of the consistency proof) and derive `size`, `accumulator`, and
 the consistency proof from it, instead of passing `size`, `accumulator`, and
@@ -957,28 +967,28 @@ that feeds `consistentRoots` and the new-accumulator construction).
 
 ### A.4 Signed vs unsigned blob
 
-- **Unsigned (raw consistency-proof CBOR):** Pass the consistency-proof
-  structure as a single CBOR blob. Contract decodes it, recomputes the new
-  accumulator, verifies consistency, and updates state. **No** extra
-  signature verification. The **checkpoint COSE** (Option 2) already binds
-  the signer to (size, accumulator); the consistency proof only proves
-  extension. So security is unchanged; we just repackage three parameters
-  into one.
+- **Unsigned (raw consistency-proof CBOR):** A hypothetical design would
+  pass only the consistency-proof structure as a single CBOR blob. The
+  contract would decode it, recompute the new accumulator, and verify
+  consistency. There would be **no** signature over that blob; some other
+  binding (e.g. a separate checkpoint COSE) would attest to (size,
+  accumulator). The **current implementation does not use this**; it uses
+  the signed form below.
 
-- **Signed (full COSE Receipt of Consistency):** If we pass the full SCITT
-  Receipt of Consistency (COSE Sign1 with detached payload), the contract
-  would decode the receipt, extract the consistency-proof from the
-  unprotected header, **recompute** the new accumulator (as the detached
-  payload), then **verify the receipt signature** over that payload. That
-  would add another signature verification and require a key (e.g. same as
-  checkpoint signer or a separate consistency-receipt signer). More gas and
-  more complexity; only justified if we want a separate consistency
-  attestation.
+- **Signed (full COSE Receipt of Consistency):** The **implemented** design
+  passes the full SCITT Receipt of Consistency (COSE_Sign1, payload
+  detached). The contract decodes the receipt, extracts the
+  consistency-proof from the unprotected header, runs the consistency proof
+  chain to obtain the new accumulator, builds the detached payload
+  (commitment to that accumulator), and **verifies the receipt signature**
+  over that payload using bootstrap keys, a delegated key (from unprotected
+  1000), or the log’s stored root key. So the consistency receipt is both
+  consistency-proof checked and signature verified on every call to
+  publishCheckpoint.
 
-**Recommendation:** Support the **unsigned** single-blob form first (raw
-consistency-proof CBOR). That gives a single parameter and keeps simplicity
-and gas reasonable; the checkpoint COSE remains the authority binding. Full
-COSE Receipt of Consistency can be a later option if needed.
+**Recommendation (historical):** The plan originally suggested supporting
+unsigned single-blob first. The code instead implements the **signed** full
+COSE Receipt of Consistency and verifies its signature in all cases.
 
 ### A.5 Plan impact
 
