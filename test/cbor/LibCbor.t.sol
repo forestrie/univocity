@@ -93,4 +93,25 @@ contract LibCborTest is Test {
         vm.expectRevert();
         helper.callDecodePaymentClaims(notMap);
     }
+
+    /// @notice Plan 0012 §4.5: map with extra unknown keys still decodes known claims (forward compatibility)
+    function test_decodePaymentClaims_extraUnknownKeys_decodesKnownClaims() public pure {
+        bytes32 logId = keccak256("log");
+        address payer = address(0x1234567890123456789012345678901234567890);
+        bytes memory payload = abi.encodePacked(
+            hex"a6",                      // map(6) — one extra key
+            hex"025820", logId,
+            hex"2054", payer,
+            hex"21", hex"00",             // checkpoint_start 0
+            hex"22", hex"1864",           // checkpoint_end 100
+            hex"23", hex"00",             // max_height 0
+            hex"00", hex"01"              // unknown key 0: 1 (skip)
+        );
+        LibCbor.PaymentClaims memory claims = LibCbor.decodePaymentClaims(payload);
+        assertEq(claims.targetLogId, logId);
+        assertEq(claims.payer, payer);
+        assertEq(claims.checkpointStart, 0);
+        assertEq(claims.checkpointEnd, 100);
+        assertEq(claims.maxHeight, 0);
+    }
 }

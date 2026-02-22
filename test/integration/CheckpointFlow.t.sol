@@ -25,7 +25,8 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
         // Authority log is established by first bootstrap publishCheckpoint in tests that need it
     }
 
-    /// @notice First bootstrap checkpoint: receipt must be first entry in new accumulator (ADR-0029); leaf uses idtimestamp (ADR-0030).
+    /// @notice First bootstrap checkpoint: receipt must be first entry in new accumulator (ADR-0029).
+    ///         Leaf = H(receiptIdtimestampBe ‖ sha256(receipt)) per ADR-0030; authority accumulator commits to that leaf.
     function test_fullFlow_bootstrapInitializesAndPublishesAuthority() public {
         Univocity fresh = new Univocity(BOOTSTRAP, ks256Signer, bytes32(0), bytes32(0));
         (bytes memory receipt, bytes32[] memory inclusionProofPath, bytes32[] memory authorityAcc) =

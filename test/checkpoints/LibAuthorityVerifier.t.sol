@@ -110,4 +110,16 @@ contract LibAuthorityVerifierTest is Test {
 
         assertFalse(harness.verifyReceiptInclusion(wrongHash, proof, accumulator, 0));
     }
+
+    /// @notice Plan 0012 §4.5: leafHash = H(idtimestampBe ‖ sha256(receipt)) matches accumulator peak (ADR-0030)
+    function test_verifyReceiptInclusion_idtimestampLeafFormula() public view {
+        bytes memory receipt = hex"deadbeef";
+        bytes8 idtimestampBe = bytes8(uint64(1));
+        bytes32 leafHash = sha256(abi.encodePacked(idtimestampBe, sha256(receipt)));
+        bytes32[] memory proof;
+        bytes32[] memory accumulator = new bytes32[](1);
+        accumulator[0] = leafHash;
+
+        assertTrue(harness.verifyReceiptInclusion(leafHash, proof, accumulator, 0));
+    }
 }
