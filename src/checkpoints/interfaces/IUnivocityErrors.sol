@@ -25,4 +25,20 @@ interface IUnivocityErrors {
     error CheckpointCountExceeded(uint64 current, uint64 limit);
     error MaxHeightExceeded(uint64 size, uint64 maxHeight);
     error ReceiptLogIdMismatch(bytes32 expected, bytes32 actual);
+
+    // ADR-0032 checkpoint COSE / delegation
+    error InvalidCheckpointCose();
+    error MissingDelegationCert();
+    error InvalidDelegationSignatureLength(uint256 length);
+    error InvalidRecoveryId(uint8 value);
+    error RecoveryIdDuplicate();
+    error DuplicateRootKeyInDelegation();
+    error RecoveredKeyMismatchIncludedKey();
+    error MissingRootKeyForRecovery();
+    error DelegationSignatureInvalid();
+    error DelegationLogIdMismatch();
+    error CheckpointIndexOutOfDelegationRange();
+    error CheckpointPayloadSizeMismatch();
+    error CheckpointAccumulatorMismatch();
+    error CheckpointSignatureInvalid();
 }

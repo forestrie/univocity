@@ -22,7 +22,8 @@ evm_version = "cancun"
 optimizer = true
 optimizer_runs = 200
 
-via_ir = false
+# Required for publishCheckpoint stack depth (plan 0013)
+via_ir = true
 
 # Metadata: Keep IPFS hash for Etherscan/Sourcify verification
 bytecode_hash = "ipfs"

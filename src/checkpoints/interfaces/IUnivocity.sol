@@ -12,6 +12,10 @@ interface IUnivocity is IUnivocityEvents {
         uint64 size;
         uint64 checkpointCount;
         uint256 initializedAt;
+        /// @dev Root public key (P-256) for delegation cert verification.
+        ///    Zero until the log's first checkpoint with checkpoint COSE.
+        bytes32 rootKeyX;
+        bytes32 rootKeyY;
     }
 
     // === View Functions ===
@@ -19,6 +23,10 @@ interface IUnivocity is IUnivocityEvents {
     function bootstrapAuthority() external view returns (address);
     function authorityLogId() external view returns (bytes32);
     function getLogState(bytes32 logId) external view returns (LogState memory);
+    function getLogRootKey(bytes32 logId)
+        external
+        view
+        returns (bytes32 rootKeyX, bytes32 rootKeyY);
     function isLogInitialized(bytes32 logId) external view returns (bool);
 
     // === State-Changing Functions ===
@@ -36,19 +44,23 @@ interface IUnivocity is IUnivocityEvents {
     ///    position - 1); ignored if receipt is empty.
     /// @param receiptInclusionProof MMR path (sibling hashes) for receipt
     ///    inclusion. May be empty only when bootstrapping the authority log.
-    /// @param receiptIdtimestampBe Receipt's idtimestamp (Snowflake64) in
-    ///    8-byte big-endian;
-    ///    required when receipt non-empty.
-    ///    Leaf = H(receiptIdtimestampBe ‖ sha256(receipt)) per
-    ///    ADR-0030.
+    /// @param proofAndCose Consistency proof, receiptMmrIndex,
+    ///    receiptInclusionProof, receiptIdtimestampBe (ADR-0030 leaf), and
+    ///    checkpointCoseSign1 (ADR-0032; empty to skip). Bundled to avoid
+    ///    stack-too-deep.
+    struct ProofAndCoseCalldata {
+        bytes32[][] consistencyProof;
+        uint64 receiptMmrIndex;
+        bytes32[] receiptInclusionProof;
+        bytes8 receiptIdtimestampBe;
+        bytes checkpointCoseSign1;
+    }
+
     function publishCheckpoint(
         bytes32 logId,
         uint64 size,
         bytes32[] calldata accumulator,
         bytes calldata receipt,
-        bytes32[][] calldata consistencyProof,
-        uint64 receiptMmrIndex,
-        bytes32[] calldata receiptInclusionProof,
-        bytes8 receiptIdtimestampBe
+        ProofAndCoseCalldata calldata proofAndCose
     ) external;
 }

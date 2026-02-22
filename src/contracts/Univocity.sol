@@ -12,6 +12,9 @@ import {
     LibAuthorityVerifier
 } from "@univocity/checkpoints/lib/LibAuthorityVerifier.sol";
 import {LibCose} from "@univocity/cose/lib/LibCose.sol";
+import {
+    LibDelegationVerifier
+} from "@univocity/checkpoints/lib/LibDelegationVerifier.sol";
 import {peaks} from "@univocity/algorithms/peaks.sol";
 
 /// @title Univocity
@@ -150,6 +153,20 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         return _logs[logId];
     }
 
+    /// @notice Returns the per-log root public key for delegation cert
+    ///    verification (ADR-0032).
+    /// @param logId The 32-byte log identifier.
+    /// @return rootKeyX P-256 x-coordinate; zero if root not yet established.
+    /// @return rootKeyY P-256 y-coordinate; zero if root not yet established.
+    function getLogRootKey(bytes32 logId)
+        external
+        view
+        returns (bytes32 rootKeyX, bytes32 rootKeyY)
+    {
+        LogState storage log = _logs[logId];
+        return (log.rootKeyX, log.rootKeyY);
+    }
+
     /// @notice Returns whether a log has received at least one checkpoint.
     /// @param logId The 32-byte log identifier.
     /// @return True if the log has been initialized (first checkpoint
@@ -180,22 +197,9 @@ contract Univocity is IUnivocity, IUnivocityErrors {
     ///    Authority log: signed by bootstrap.
     ///    Other logs:
     ///    payment receipt plus inclusion proof in authority log.
-    /// @param consistencyProof Proof that the new accumulator extends the
-    ///    previous state: one
-    ///    inclusion path per previous peak.
-    ///    Empty for the first checkpoint of a log.
-    /// @param receiptMmrIndex Zero-based MMR index of the receipt leaf in the
-    ///    authority log. Ignored if receipt is empty.
-    /// @param receiptInclusionProof MMR sibling path proving receipt inclusion
-    ///    in the authority log. May be empty only when bootstrapping the
-    ///    authority log (single leaf, no siblings).
-    /// @param receiptIdtimestampBe Receipt's idtimestamp (Snowflake64) in
-    ///    8-byte big-endian;
-    ///    required when receipt
-    ///    non-empty.
-    ///    Leaf = sha256(receiptIdtimestampBe ‖ sha256(receipt)) per
-    ///    ADR-0030
-    ///    (Forestrie ledger).
+    /// @param proofAndCose Bundled: consistencyProof, receiptMmrIndex,
+    ///    receiptInclusionProof, receiptIdtimestampBe (ADR-0030 leaf), and
+    ///    checkpointCoseSign1 (ADR-0032; empty to skip). Avoids stack-too-deep.
     /// @custom:throws FirstCheckpointSizeTooSmall If establishing the
     /// authority log with size < 1.
     /// @custom:throws OnlyBootstrapAuthority If first checkpoint has no
@@ -225,12 +229,17 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         uint64 size,
         bytes32[] calldata accumulator,
         bytes calldata receipt,
-        bytes32[][] calldata consistencyProof,
-        uint64 receiptMmrIndex,
-        bytes32[] calldata receiptInclusionProof,
-        bytes8 receiptIdtimestampBe
+        IUnivocity.ProofAndCoseCalldata calldata proofAndCose
     ) external {
-        LogState storage log = _logs[logId];
+        if (proofAndCose.checkpointCoseSign1.length > 0) {
+            _verifyAndStoreCheckpointCose(
+                proofAndCose.checkpointCoseSign1,
+                logId,
+                size,
+                accumulator,
+                _logs[logId]
+            );
+        }
 
         // === Not yet initialized: first checkpoint;
         // bootstrap receipt must be first entry in new
@@ -238,22 +247,29 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         if (authorityLogId == bytes32(0)) {
             if (size < 1) revert FirstCheckpointSizeTooSmall();
             if (receipt.length == 0) revert OnlyBootstrapAuthority();
-            if (receiptMmrIndex != 0) {
+            if (proofAndCose.receiptMmrIndex != 0) {
                 revert BootstrapReceiptMustBeFirstEntry();
             }
             _verifyBootstrapReceipt(logId, 0, size, receipt);
             // Leaf = H(receiptIdtimestampBe ‖ sha256(receipt)) per ADR-0030
             bytes32 leafHash = sha256(
-                abi.encodePacked(receiptIdtimestampBe, sha256(receipt))
+                abi.encodePacked(
+                    proofAndCose.receiptIdtimestampBe, sha256(receipt)
+                )
             );
             bytes32[] memory acc = accumulator;
             if (!LibAuthorityVerifier.verifyReceiptInclusion(
-                    leafHash, receiptInclusionProof, acc, 0
+                    leafHash,
+                    proofAndCose.receiptInclusionProof,
+                    acc,
+                    0
                 )) {
                 revert InvalidReceiptInclusionProof();
             }
             _initializeAuthorityLog(logId);
         }
+
+        LogState storage log = _logs[logId];
 
         // === Validation ===
         _validateCheckpoint(log, size, accumulator);
@@ -264,15 +280,18 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             log,
             size,
             receipt,
-            receiptMmrIndex,
-            receiptInclusionProof,
-            receiptIdtimestampBe
+            proofAndCose.receiptMmrIndex,
+            proofAndCose.receiptInclusionProof,
+            proofAndCose.receiptIdtimestampBe
         );
 
         // === Consistency Verification ===
         if (log.initializedAt != 0) {
             if (!LibCheckpointVerifier.verifyConsistencyProof(
-                    log.accumulator, accumulator, log.size, consistencyProof
+                    log.accumulator,
+                    accumulator,
+                    log.size,
+                    proofAndCose.consistencyProof
                 )) {
                 revert InvalidConsistencyProof();
             }
@@ -280,6 +299,30 @@ contract Univocity is IUnivocity, IUnivocityErrors {
 
         // === State Update ===
         _updateLogState(logId, log, size, accumulator, receipt);
+    }
+
+    /// @notice ADR-0032: verify checkpoint COSE and delegation; store root when
+    ///    first checkpoint for this log (plan 0013).
+    function _verifyAndStoreCheckpointCose(
+        bytes calldata checkpointCoseSign1,
+        bytes32 logId,
+        uint64 size,
+        bytes32[] calldata accumulator,
+        LogState storage log
+    ) private {
+        (bytes32 rootX, bytes32 rootY) =
+            LibDelegationVerifier.verifyCheckpointCoseAndDelegation(
+                checkpointCoseSign1,
+                logId,
+                size,
+                accumulator,
+                log.rootKeyX,
+                log.rootKeyY
+            );
+        if (log.rootKeyX == 0 && log.rootKeyY == 0) {
+            log.rootKeyX = rootX;
+            log.rootKeyY = rootY;
+        }
     }
 
     function _validateCheckpoint(
