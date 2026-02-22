@@ -118,6 +118,246 @@ library LibCbor {
         revert ClaimNotFound(1); // Algorithm not found
     }
 
+    /// @notice Read a CBOR map and return the bstr value for an integer key.
+    /// @dev Buffer must be at the map's first byte. Advances buf past the
+    ///    map.
+    /// @param buf Buffer positioned at the map's initial byte.
+    /// @param key Integer key to look up (e.g. 1000 for delegation cert).
+    /// @return found True if the key was present.
+    /// @return value The bstr value; empty if not found.
+    function readMapLookupBstr(
+        WitnetBuffer.Buffer memory buf,
+        int64 key
+    ) internal pure returns (bool found, bytes memory value) {
+        uint8 initialByte = buf.readUint8();
+        uint8 majorType = initialByte >> 5;
+        if (majorType != MAJOR_TYPE_MAP) {
+            revert UnexpectedMajorType(majorType, MAJOR_TYPE_MAP);
+        }
+        uint64 mapLen = _readLength(buf, initialByte & 0x1f);
+        for (uint64 i = 0; i < mapLen; i++) {
+            int64 k = _readIntegerKey(buf);
+            if (k == key) {
+                value = _readBytes(buf);
+                found = true;
+                for (uint64 j = i + 1; j < mapLen; j++) {
+                    _readIntegerKey(buf);
+                    _skipValue(buf);
+                }
+                return (found, value);
+            } else {
+                _skipValue(buf);
+            }
+        }
+        return (false, "");
+    }
+
+    /// @notice Read a CBOR map and return the uint value for an integer key.
+    /// @dev Buffer must be at the map's first byte. Advances buf past the map.
+    /// @param buf Buffer positioned at the map's initial byte.
+    /// @param key Integer key to look up (e.g. 1001 for recovery id).
+    /// @return found True if the key was present.
+    /// @return value The uint value; 0 if not found.
+    function readMapLookupUint(
+        WitnetBuffer.Buffer memory buf,
+        int64 key
+    ) internal pure returns (bool found, uint64 value) {
+        uint8 initialByte = buf.readUint8();
+        uint8 majorType = initialByte >> 5;
+        if (majorType != MAJOR_TYPE_MAP) {
+            revert UnexpectedMajorType(majorType, MAJOR_TYPE_MAP);
+        }
+        uint64 mapLen = _readLength(buf, initialByte & 0x1f);
+        for (uint64 i = 0; i < mapLen; i++) {
+            int64 k = _readIntegerKey(buf);
+            if (k == key) {
+                value = _readUint(buf);
+                found = true;
+                for (uint64 j = i + 1; j < mapLen; j++) {
+                    _readIntegerKey(buf);
+                    _skipValue(buf);
+                }
+                return (found, value);
+            } else {
+                _skipValue(buf);
+            }
+        }
+        return (false, 0);
+    }
+
+    /// @notice Extract delegation cert unprotected header labels 1001 and
+    ///    1002 in one pass (plan 0013).
+    /// @dev Buffer must be at the map's first byte. Advances buf past the map.
+    /// @param buf Buffer positioned at the delegation cert unprotected map.
+    /// @return hasRecoveryId True if label 1001 was present.
+    /// @return recoveryId Value for 1001 (0 or 1 for P-256); 0 if absent.
+    /// @return hasRootKeyInHeader True if label 1002 was present.
+    /// @return rootKeyInHeader Bstr value for 1002 (e.g. uncompressed point).
+    function readMapExtractDelegationUnprotected(WitnetBuffer.Buffer memory buf)
+        internal
+        pure
+        returns (
+            bool hasRecoveryId,
+            uint8 recoveryId,
+            bool hasRootKeyInHeader,
+            bytes memory rootKeyInHeader
+        )
+    {
+        uint8 initialByte = buf.readUint8();
+        uint8 majorType = initialByte >> 5;
+        if (majorType != MAJOR_TYPE_MAP) {
+            revert UnexpectedMajorType(majorType, MAJOR_TYPE_MAP);
+        }
+        uint64 mapLen = _readLength(buf, initialByte & 0x1f);
+        for (uint64 i = 0; i < mapLen; i++) {
+            int64 k = _readIntegerKey(buf);
+            if (k == 1001) {
+                uint64 v = _readUint(buf);
+                if (v > 1) revert InvalidCborStructure();
+                hasRecoveryId = true;
+                recoveryId = uint8(v);
+            } else if (k == 1002) {
+                rootKeyInHeader = _readBytes(buf);
+                hasRootKeyInHeader = true;
+            } else {
+                _skipValue(buf);
+            }
+        }
+    }
+
+    /// @notice Extract EC2 COSE_Key (P-256) x,y from a CBOR map (keys -2, -3).
+    /// @dev Buffer must be at the map's first byte. Advances buf past the map.
+    function readMapExtractCoseKeyEc2(WitnetBuffer.Buffer memory buf)
+        internal
+        pure
+        returns (bytes32 x, bytes32 y)
+    {
+        uint8 initialByte = buf.readUint8();
+        uint8 majorType = initialByte >> 5;
+        if (majorType != MAJOR_TYPE_MAP) {
+            revert UnexpectedMajorType(majorType, MAJOR_TYPE_MAP);
+        }
+        uint64 mapLen = _readLength(buf, initialByte & 0x1f);
+        for (uint64 i = 0; i < mapLen; i++) {
+            int64 k = _readIntegerKey(buf);
+            if (k == -2) {
+                bytes memory b = _readBytes(buf);
+                if (b.length == 32) x = _bytesToBytes32(b);
+            } else if (k == -3) {
+                bytes memory b = _readBytes(buf);
+                if (b.length == 32) y = _bytesToBytes32(b);
+            } else {
+                _skipValue(buf);
+            }
+        }
+    }
+
+    /// @notice Decoded delegation payload (ARC-0010 keys 1–5, plan 0013).
+    struct DelegationPayload {
+        bytes32 logId;
+        bytes32 massifId;
+        uint64 mmrStart;
+        uint64 mmrEnd;
+        bytes32 delegatedKeyX;
+        bytes32 delegatedKeyY;
+    }
+
+    /// @notice Decode delegation cert payload (CBOR map keys 1–5).
+    /// @param payload Raw delegation payload bytes (COSE_Sign1 payload).
+    function decodeDelegationPayload(bytes memory payload)
+        internal
+        pure
+        returns (DelegationPayload memory d)
+    {
+        WitnetBuffer.Buffer memory buf = WitnetBuffer.Buffer(payload, 0);
+        uint8 initialByte = buf.readUint8();
+        uint8 majorType = initialByte >> 5;
+        if (majorType != MAJOR_TYPE_MAP) {
+            revert UnexpectedMajorType(majorType, MAJOR_TYPE_MAP);
+        }
+        uint64 mapLen = _readLength(buf, initialByte & 0x1f);
+        for (uint64 i = 0; i < mapLen; i++) {
+            int64 k = _readIntegerKey(buf);
+            if (k == 1) {
+                d.logId = bytes32(keccak256(_readBytesOrString(buf)));
+            } else if (k == 2) {
+                d.massifId = bytes32(keccak256(_readBytesOrString(buf)));
+            } else if (k == 3) {
+                d.mmrStart = _readUint(buf);
+            } else if (k == 4) {
+                d.mmrEnd = _readUint(buf);
+            } else if (k == 5) {
+                (d.delegatedKeyX, d.delegatedKeyY) =
+                    readMapExtractCoseKeyEc2(buf);
+            } else {
+                _skipValue(buf);
+            }
+        }
+    }
+
+    /// @notice Decoded checkpoint payload (ARC-0010 keys 1–5, plan 0013).
+    struct CheckpointPayload {
+        bytes32 logId;
+        bytes32 massifId;
+        uint64 mmrSize;
+        bytes mmrRoot;
+        uint64 mmrIndex;
+    }
+
+    /// @notice Decode checkpoint COSE_Sign1 payload (CBOR map keys 1–5).
+    function decodeCheckpointPayload(bytes memory payload)
+        internal
+        pure
+        returns (CheckpointPayload memory p)
+    {
+        WitnetBuffer.Buffer memory buf = WitnetBuffer.Buffer(payload, 0);
+        uint8 initialByte = buf.readUint8();
+        uint8 majorType = initialByte >> 5;
+        if (majorType != MAJOR_TYPE_MAP) {
+            revert UnexpectedMajorType(majorType, MAJOR_TYPE_MAP);
+        }
+        uint64 mapLen = _readLength(buf, initialByte & 0x1f);
+        for (uint64 i = 0; i < mapLen; i++) {
+            int64 k = _readIntegerKey(buf);
+            if (k == 1) {
+                p.logId = bytes32(keccak256(_readBytesOrString(buf)));
+            } else if (k == 2) {
+                p.massifId = bytes32(keccak256(_readBytesOrString(buf)));
+            } else if (k == 3) {
+                p.mmrSize = _readUint(buf);
+            } else if (k == 4) {
+                p.mmrRoot = _readBytes(buf);
+            } else if (k == 5) {
+                p.mmrIndex = _readUint(buf);
+            } else {
+                _skipValue(buf);
+            }
+        }
+    }
+
+    function _readBytesOrString(WitnetBuffer.Buffer memory buf)
+        private
+        pure
+        returns (bytes memory)
+    {
+        uint8 initialByte = buf.readUint8();
+        uint8 majorType = initialByte >> 5;
+        if (majorType != MAJOR_TYPE_BYTES && majorType != MAJOR_TYPE_STRING) {
+            revert UnexpectedMajorType(majorType, MAJOR_TYPE_BYTES);
+        }
+        uint64 len = _readLength(buf, initialByte & 0x1f);
+        return buf.read(uint32(len));
+    }
+
+    function _bytesToBytes32(bytes memory b) private pure returns (bytes32) {
+        if (b.length != 32) revert InvalidCborStructure();
+        bytes32 x;
+        assembly {
+            x := mload(add(add(b, 32), 0))
+        }
+        return x;
+    }
+
     // ============ Internal Helpers ============
 
     /// @notice Read an integer key (handles both positive and negative)

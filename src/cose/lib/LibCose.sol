@@ -35,6 +35,8 @@ library LibCose {
     error InvalidSignatureLength(uint256 expected, uint256 actual);
     error InvalidCoseStructure();
     error SignatureVerificationFailed();
+    error MissingDelegationCert();
+    error DuplicateRootKeyInDelegation();
 
     // ============ Structs ============
 
@@ -49,6 +51,18 @@ library LibCose {
         address ks256Signer;
         bytes32 es256X;
         bytes32 es256Y;
+    }
+
+    /// @notice Decoded delegation cert (COSE_Sign1) plus optional recovery id
+    ///    and root key (plan 0013).
+    struct DelegationCertDecoded {
+        CoseSign1 cose;
+        bool hasRecoveryId;
+        uint8 recoveryId;
+        bool hasRootKeyInHeader;
+        bytes rootKeyInHeader;
+        bool hasRootKeyInPayload;
+        bytes rootKeyInPayload;
     }
 
     // ============ Main Functions ============
@@ -87,6 +101,79 @@ library LibCose {
 
         // Extract algorithm from protected header (uses LibCbor)
         decoded.alg = LibCbor.extractAlgorithm(decoded.protectedHeader);
+    }
+
+    /// @notice Decode checkpoint COSE_Sign1 and extract delegation cert from
+    ///    unprotected header label 1000 (ARC-0010, plan 0013).
+    /// @param data Raw checkpoint COSE_Sign1 bytes.
+    /// @return decoded The decoded checkpoint (protected, payload, signature,
+    ///    alg).
+    /// @return delegationCertBytes Value of unprotected label 1000 (bstr).
+    function decodeCheckpointCoseSign1(bytes calldata data)
+        internal
+        pure
+        returns (CoseSign1 memory decoded, bytes memory delegationCertBytes)
+    {
+        WitnetBuffer.Buffer memory buf = WitnetBuffer.Buffer(data, 0);
+
+        uint8 initialByte = buf.readUint8();
+        uint8 majorType = initialByte >> 5;
+        if (majorType != MAJOR_TYPE_ARRAY) revert InvalidCoseStructure();
+        uint64 arrayLen = _readLength(buf, initialByte & 0x1f);
+        if (arrayLen != 4) revert InvalidCoseStructure();
+
+        decoded.protectedHeader = _readBytes(buf);
+
+        (bool found, bytes memory certBytes) =
+            LibCbor.readMapLookupBstr(buf, 1000);
+        if (!found) revert MissingDelegationCert();
+        delegationCertBytes = certBytes;
+
+        decoded.payload = _readBytes(buf);
+        decoded.signature = _readBytes(buf);
+        decoded.alg = LibCbor.extractAlgorithm(decoded.protectedHeader);
+        return (decoded, delegationCertBytes);
+    }
+
+    /// @notice Decode delegation cert COSE_Sign1 and extract unprotected
+    ///    labels 1001, 1002 and payload key 11 (plan 0013).
+    /// @param certBytes Raw delegation cert (COSE_Sign1) bytes.
+    /// @return d Struct with cose, optional recovery id, optional root key.
+    function decodeDelegationCert(bytes memory certBytes)
+        internal
+        pure
+        returns (DelegationCertDecoded memory d)
+    {
+        WitnetBuffer.Buffer memory buf =
+            WitnetBuffer.Buffer(certBytes, 0);
+
+        uint8 initialByte = buf.readUint8();
+        uint8 majorType = initialByte >> 5;
+        if (majorType != MAJOR_TYPE_ARRAY) revert InvalidCoseStructure();
+        uint64 arrayLen = _readLength(buf, initialByte & 0x1f);
+        if (arrayLen != 4) revert InvalidCoseStructure();
+
+        d.cose.protectedHeader = _readBytes(buf);
+
+        (
+            d.hasRecoveryId,
+            d.recoveryId,
+            d.hasRootKeyInHeader,
+            d.rootKeyInHeader
+        ) = LibCbor.readMapExtractDelegationUnprotected(buf);
+
+        d.cose.payload = _readBytes(buf);
+        d.cose.signature = _readBytes(buf);
+        d.cose.alg = LibCbor.extractAlgorithm(d.cose.protectedHeader);
+
+        (d.hasRootKeyInPayload, d.rootKeyInPayload) =
+            LibCbor.readMapLookupBstr(
+                WitnetBuffer.Buffer(d.cose.payload, 0),
+                11
+            );
+        if (d.hasRootKeyInHeader && d.hasRootKeyInPayload) {
+            revert DuplicateRootKeyInDelegation();
+        }
     }
 
     /// @notice Verify COSE_Sign1 signature with algorithm dispatch
