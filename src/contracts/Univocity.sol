@@ -5,16 +5,18 @@ import {IUnivocity} from "@univocity/checkpoints/interfaces/IUnivocity.sol";
 import {
     IUnivocityErrors
 } from "@univocity/checkpoints/interfaces/IUnivocityErrors.sol";
-import {
-    LibCheckpointVerifier
-} from "@univocity/checkpoints/lib/LibCheckpointVerifier.sol";
-import {
-    LibAuthorityVerifier
-} from "@univocity/checkpoints/lib/LibAuthorityVerifier.sol";
 import {LibCose} from "@univocity/cose/lib/LibCose.sol";
+import {LibCoseReceipt} from "@univocity/cose/lib/LibCoseReceipt.sol";
 import {
     LibDelegationVerifier
 } from "@univocity/checkpoints/lib/LibDelegationVerifier.sol";
+import {
+    LibConsistencyReceipt
+} from "@univocity/checkpoints/lib/LibConsistencyReceipt.sol";
+import {
+    LibInclusionReceipt
+} from "@univocity/checkpoints/lib/LibInclusionReceipt.sol";
+import {verifyInclusion} from "@univocity/algorithms/includedRoot.sol";
 import {peaks} from "@univocity/algorithms/peaks.sol";
 
 /// @title Univocity
@@ -106,9 +108,9 @@ contract Univocity is IUnivocity, IUnivocityErrors {
     function getBootstrapKeys()
         public
         view
-        returns (LibCose.BootstrapKeys memory)
+        returns (LibCose.CoseVerifierKeys memory)
     {
-        return LibCose.BootstrapKeys({
+        return LibCose.CoseVerifierKeys({
             ks256Signer: ks256Signer, es256X: es256X, es256Y: es256Y
         });
     }
@@ -116,8 +118,12 @@ contract Univocity is IUnivocity, IUnivocityErrors {
     // === Modifiers ===
 
     modifier onlyBootstrap() {
-        if (msg.sender != bootstrapAuthority) revert OnlyBootstrapAuthority();
+        _onlyBootstrap();
         _;
+    }
+
+    function _onlyBootstrap() internal view {
+        if (msg.sender != bootstrapAuthority) revert OnlyBootstrapAuthority();
     }
 
     // === Initialization (internal;
@@ -177,287 +183,198 @@ contract Univocity is IUnivocity, IUnivocityErrors {
 
     // === Checkpoint Publishing ===
 
-    /// @notice Publishes a checkpoint for a transparency log,
-    ///    updating the stored MMR state.
-    /// @dev First checkpoint (establishing the authority log) requires size >=
-    ///    1, a SCITT receipt signed by the bootstrap authority,
-    ///    and proof that the receipt hash is at leaf index 0
-    ///    in the submitted accumulator (so the bootstrap receipt is always
-    ///    the first entry in the authority log).
-    ///    Authority-log and regular-log semantics unchanged; see ADR-0029.
-    /// @param logId Identifier of the log to checkpoint (e.g.
-    ///    keccak256 of log config).
-    /// @param size MMR leaf count at this checkpoint (must be greater than the
-    ///    log's current size).
-    /// @param accumulator MMR peak hashes for this size;
-    ///    length must equal peaks(size - 1).length.
-    /// @param receipt COSE_Sign1 SCITT receipt.
-    ///    First checkpoint: must be signed by bootstrap and
-    ///    provably at leaf index 0 in the new accumulator.
-    ///    Authority log: signed by bootstrap.
-    ///    Other logs:
-    ///    payment receipt plus inclusion proof in authority log.
-    /// @param proofAndCose Bundled: consistencyProof, receiptMmrIndex,
-    ///    receiptInclusionProof, receiptIdtimestampBe (ADR-0030 leaf), and
-    ///    checkpointCoseSign1 (ADR-0032; empty to skip). Avoids stack-too-deep.
-    /// @custom:throws FirstCheckpointSizeTooSmall If establishing the
-    /// authority log with size < 1.
-    /// @custom:throws OnlyBootstrapAuthority If first checkpoint has no
-    /// receipt, or authority log
-    /// has no receipt.
-    /// @custom:throws BootstrapReceiptMustBeFirstEntry If first checkpoint has
-    /// receiptMmrIndex !=
-    /// 0.
-    /// @custom:throws SizeMustIncrease If size is not greater than the log's
-    /// current size.
-    /// @custom:throws InvalidAccumulatorLength If accumulator length does not
-    /// match the peak count
-    /// for size.
-    /// @custom:throws InvalidConsistencyProof If consistency proof does not
-    /// prove the new
-    /// accumulator.
-    /// @custom:throws ReceiptLogIdMismatch If receipt targets a different log.
-    /// @custom:throws CheckpointCountExceeded If checkpoint count is outside
-    /// the receipt's range.
-    /// @custom:throws MaxHeightExceeded If size exceeds the receipt's
-    /// maxHeight.
-    /// @custom:throws InvalidReceiptInclusionProof If the receipt is not
-    /// included in the authority
-    /// log.
+    /// @notice Plan 0014/0015: publish checkpoint from consistency receipt and
+    ///    payment receipt (RoI or bootstrap). Log is paymentGrant.logId.
+    ///    Delegation from consistency receipt unprotected 1000 when present.
     function publishCheckpoint(
-        bytes32 logId,
-        uint64 size,
-        bytes32[] calldata accumulator,
-        bytes calldata receipt,
-        IUnivocity.ProofAndCoseCalldata calldata proofAndCose
+        bytes calldata consistencyReceipt,
+        bytes calldata paymentReceipt,
+        bytes8 paymentIDTimestampBe,
+        IUnivocity.PaymentGrant calldata paymentGrant
     ) external {
-        if (proofAndCose.checkpointCoseSign1.length > 0) {
-            _verifyAndStoreCheckpointCose(
-                proofAndCose.checkpointCoseSign1,
-                logId,
-                size,
-                accumulator,
-                _logs[logId]
-            );
+        bytes32 logId = paymentGrant.logId;
+        LogState storage log = _logs[logId];
+
+        _checkPaymentGrantBoundsCheckpointRange(log, paymentGrant);
+
+        (
+            LibCose.CoseSign1 memory decodedConsistency,
+            bytes[] memory consistencyProofsList,
+            bytes memory delegationCertBytes
+        ) = LibCoseReceipt.decodeConsistencyReceiptCoseSign1(
+            consistencyReceipt
+        );
+
+        (bytes32[] memory accMem, uint64 size) = LibConsistencyReceipt.verifyConsistencyProofChain(
+            log.accumulator, consistencyProofsList
+        );
+
+        _validateCheckpointSizeIncrease(log, size);
+        _checkPaymentGrantBoundsMaxHeight(size, paymentGrant);
+        uint64 currentSize = log.size;
+        if (size < currentSize + paymentGrant.minGrowth) {
+            revert MinGrowthNotMet(currentSize, size, paymentGrant.minGrowth);
         }
 
-        // === Not yet initialized: first checkpoint;
-        // bootstrap receipt must be first entry in new
-        // accumulator ===
+        bytes memory detachedPayload =
+            LibConsistencyReceipt.buildDetachedPayloadCommitment(accMem);
+
+        if (delegationCertBytes.length > 0) {
+            LibDelegationVerifier.DelegationResult memory delResult =
+                LibDelegationVerifier.verifyDelegationCert(
+                    delegationCertBytes,
+                    logId,
+                    size > 0 ? size - 1 : 0,
+                    log.rootKeyX,
+                    log.rootKeyY
+                );
+            if (!LibCose.verifySignatureDetachedPayload(
+                    decodedConsistency,
+                    detachedPayload,
+                    LibCose.fromDelegatedEs256(
+                        delResult.delegatedKeyX, delResult.delegatedKeyY
+                    )
+                )) {
+                revert ConsistencyReceiptSignatureInvalid();
+            }
+            if (log.rootKeyX == 0 && log.rootKeyY == 0) {
+                log.rootKeyX = delResult.rootKeyX;
+                log.rootKeyY = delResult.rootKeyY;
+            }
+        } else {
+            bytes32 keyX = log.rootKeyX;
+            bytes32 keyY = log.rootKeyY;
+            if (authorityLogId == bytes32(0)) {
+                if (!LibCose.verifySignatureDetachedPayload(
+                        decodedConsistency, detachedPayload, getBootstrapKeys()
+                    )) {
+                    revert ConsistencyReceiptSignatureInvalid();
+                }
+            } else if (keyX == bytes32(0) && keyY == bytes32(0)) {
+                if (!LibCose.verifySignatureDetachedPayload(
+                        decodedConsistency, detachedPayload, getBootstrapKeys()
+                    )) {
+                    revert ConsistencyReceiptSignatureInvalid();
+                }
+            } else {
+                if (!LibCose.verifySignatureDetachedPayload(
+                        decodedConsistency,
+                        detachedPayload,
+                        LibCose.fromDelegatedEs256(keyX, keyY)
+                    )) {
+                    revert ConsistencyReceiptSignatureInvalid();
+                }
+            }
+        }
+
         if (authorityLogId == bytes32(0)) {
             if (size < 1) revert FirstCheckpointSizeTooSmall();
-            if (receipt.length == 0) revert OnlyBootstrapAuthority();
-            if (proofAndCose.receiptMmrIndex != 0) {
-                revert BootstrapReceiptMustBeFirstEntry();
-            }
-            _verifyBootstrapReceipt(logId, 0, size, receipt);
-            // Leaf = H(receiptIdtimestampBe ‖ sha256(receipt)) per ADR-0030
-            bytes32 leafHash = sha256(
-                abi.encodePacked(
-                    proofAndCose.receiptIdtimestampBe, sha256(receipt)
-                )
-            );
-            bytes32[] memory acc = accumulator;
-            if (!LibAuthorityVerifier.verifyReceiptInclusion(
-                    leafHash,
-                    proofAndCose.receiptInclusionProof,
-                    acc,
-                    0
+            if (paymentReceipt.length != 0) revert InvalidPaymentReceipt();
+            bytes32 leafCommitment =
+                _leafCommitment(paymentIDTimestampBe, paymentGrant);
+            if (!verifyInclusion(
+                    0, leafCommitment, new bytes32[](0), accMem, size
                 )) {
                 revert InvalidReceiptInclusionProof();
             }
             _initializeAuthorityLog(logId);
-        }
-
-        LogState storage log = _logs[logId];
-
-        // === Validation ===
-        _validateCheckpoint(log, size, accumulator);
-
-        // === Authorization ===
-        _checkAuthorization(
-            logId,
-            log,
-            size,
-            receipt,
-            proofAndCose.receiptMmrIndex,
-            proofAndCose.receiptInclusionProof,
-            proofAndCose.receiptIdtimestampBe
-        );
-
-        // === Consistency Verification ===
-        if (log.initializedAt != 0) {
-            if (!LibCheckpointVerifier.verifyConsistencyProof(
-                    log.accumulator,
-                    accumulator,
-                    log.size,
-                    proofAndCose.consistencyProof
+        } else if (paymentGrant.logId == authorityLogId) {
+            if (paymentReceipt.length != 0) revert InvalidPaymentReceipt();
+            if (msg.sender != bootstrapAuthority) {
+                revert OnlyBootstrapAuthority();
+            }
+        } else {
+            if (paymentReceipt.length == 0) revert InvalidPaymentReceipt();
+            bytes32 leafCommitment =
+                _leafCommitment(paymentIDTimestampBe, paymentGrant);
+            LogState storage authorityLog = _logs[authorityLogId];
+            if (!LibInclusionReceipt.verifyReceiptOfInclusion(
+                    paymentReceipt,
+                    leafCommitment,
+                    authorityLog.accumulator,
+                    authorityLog.size,
+                    getBootstrapKeys()
                 )) {
-                revert InvalidConsistencyProof();
+                revert InvalidPaymentReceipt();
             }
         }
 
-        // === State Update ===
-        _updateLogState(logId, log, size, accumulator, receipt);
+        _validateCheckpointAccumulatorLength(size, accMem);
+
+        _updateLogState(logId, log, size, accMem, paymentReceipt);
     }
 
-    /// @notice ADR-0032: verify checkpoint COSE and delegation; store root when
-    ///    first checkpoint for this log (plan 0013).
-    function _verifyAndStoreCheckpointCose(
-        bytes calldata checkpointCoseSign1,
-        bytes32 logId,
-        uint64 size,
-        bytes32[] calldata accumulator,
-        LogState storage log
-    ) private {
-        (bytes32 rootX, bytes32 rootY) =
-            LibDelegationVerifier.verifyCheckpointCoseAndDelegation(
-                checkpointCoseSign1,
-                logId,
-                size,
-                accumulator,
-                log.rootKeyX,
-                log.rootKeyY
-            );
-        if (log.rootKeyX == 0 && log.rootKeyY == 0) {
-            log.rootKeyX = rootX;
-            log.rootKeyY = rootY;
+    function _leafCommitment(
+        bytes8 paymentIDTimestampBe,
+        IUnivocity.PaymentGrant calldata g
+    ) private pure returns (bytes32) {
+        bytes32 inner = sha256(
+            abi.encodePacked(
+                g.logId,
+                g.payer,
+                g.checkpointStart,
+                g.checkpointEnd,
+                g.maxHeight,
+                g.minGrowth
+            )
+        );
+        return sha256(abi.encodePacked(paymentIDTimestampBe, inner));
+    }
+
+    /// @notice Checkpoint range only; safe to call before any proof/signature
+    ///    verification (no dependency on derived size).
+    function _checkPaymentGrantBoundsCheckpointRange(
+        LogState storage log,
+        IUnivocity.PaymentGrant calldata g
+    ) private view {
+        uint64 cc = log.checkpointCount;
+        if (cc < g.checkpointStart) {
+            revert CheckpointCountExceeded(cc, g.checkpointStart);
+        }
+        if (cc >= g.checkpointEnd) {
+            revert CheckpointCountExceeded(cc, g.checkpointEnd);
         }
     }
 
-    function _validateCheckpoint(
-        LogState storage log,
+    /// @notice Max height bound only; requires derived size (call after proof
+    ///    chain).
+    function _checkPaymentGrantBoundsMaxHeight(
         uint64 size,
-        bytes32[] calldata accumulator
+        IUnivocity.PaymentGrant calldata g
+    ) private pure {
+        if (g.maxHeight != 0 && size > g.maxHeight) {
+            revert MaxHeightExceeded(size, g.maxHeight);
+        }
+    }
+
+    /// @notice Size must increase (or be initial); no dependency on new
+    ///    accumulator. Call after proof chain.
+    function _validateCheckpointSizeIncrease(
+        LogState storage log,
+        uint64 size
     ) private view {
-        // Size must increase (or be initial)
         if (log.initializedAt != 0 && size <= log.size) {
             revert SizeMustIncrease(log.size, size);
         }
+    }
 
-        // Validate accumulator length matches expected peaks for size (per MMR
-        // profile)
+    /// @notice Accumulator length must match expected peaks for size (MMR
+    ///    profile). Call after proof chain.
+    function _validateCheckpointAccumulatorLength(
+        uint64 size,
+        bytes32[] memory accumulator
+    ) private pure {
         uint256 expectedPeaks = size == 0 ? 0 : peaks(uint256(size) - 1).length;
         if (accumulator.length != expectedPeaks) {
             revert InvalidAccumulatorLength(expectedPeaks, accumulator.length);
         }
     }
 
-    function _checkAuthorization(
-        bytes32 logId,
-        LogState storage log,
-        uint64 size,
-        bytes calldata receipt,
-        uint64 receiptMmrIndex,
-        bytes32[] calldata receiptInclusionProof,
-        bytes8 receiptIdtimestampBe
-    ) private {
-        if (logId == authorityLogId) {
-            // Authority log: SCITT receipt signed by bootstrap;
-            // no inclusion proof (receipt need
-            // not be in the log)
-            if (receipt.length == 0) revert OnlyBootstrapAuthority();
-            _verifyBootstrapReceipt(logId, log.checkpointCount, size, receipt);
-        } else {
-            // Regular log:
-            // payment receipt plus inclusion proof in authority log
-            _verifyAuthorization(
-                logId,
-                log.checkpointCount,
-                size,
-                receipt,
-                receiptMmrIndex,
-                receiptInclusionProof,
-                receiptIdtimestampBe
-            );
-        }
-    }
-
-    /// @notice Verifies a SCITT receipt with the given keys and checks bounds;
-    ///    reverts with a typed
-    ///    error on failure.
-    /// @dev Generic receipt verification: signature + decode with `keys`, then
-    ///    logId/checkpoint/height bounds.
-    ///    Used for both bootstrap (authority) and regular-log flows;
-    ///    caller adds inclusion proof
-    ///    check if needed.
-    /// @param logId Log being checkpointed (must match receipt targetLogId).
-    /// @param checkpointCount Current checkpoint count for the log.
-    /// @param size Proposed checkpoint size (must be within receipt maxHeight
-    ///    if set).
-    /// @param receipt COSE_Sign1 SCITT receipt (payment claims).
-    /// @param keys Bootstrap keys used to verify the receipt signature (e.g.
-    ///    getBootstrapKeys()).
-    /// @return claims Decoded payment claims on success.
-    function _verifyReceiptAndCheckBounds(
-        bytes32 logId,
-        uint64 checkpointCount,
-        uint64 size,
-        bytes calldata receipt,
-        LibCose.BootstrapKeys memory keys
-    ) private returns (LibAuthorityVerifier.PaymentClaims memory claims) {
-        claims = LibAuthorityVerifier.verifyAndDecode(receipt, keys);
-
-        if (claims.targetLogId != logId) {
-            emit AuthorizationFailed(logId, claims.payer, "logId mismatch");
-            revert ReceiptLogIdMismatch(logId, claims.targetLogId);
-        }
-
-        if (checkpointCount < claims.checkpointStart) {
-            emit AuthorizationFailed(logId, claims.payer, "below range start");
-            revert CheckpointCountExceeded(
-                checkpointCount, claims.checkpointStart
-            );
-        }
-
-        if (checkpointCount >= claims.checkpointEnd) {
-            emit AuthorizationFailed(logId, claims.payer, "above range end");
-            revert CheckpointCountExceeded(
-                checkpointCount, claims.checkpointEnd
-            );
-        }
-
-        if (claims.maxHeight != 0 && size > claims.maxHeight) {
-            emit AuthorizationFailed(logId, claims.payer, "height exceeded");
-            revert MaxHeightExceeded(size, claims.maxHeight);
-        }
-
-        return claims;
-    }
-
-    /// @notice Verifies that the receipt is signed by the bootstrap keys and
-    ///    authorizes this
-    ///    checkpoint.
-    /// @dev Used for the first checkpoint (establishing authority log) and for
-    ///    publishing to the
-    ///    authority log.
-    ///    Delegates to _verifyReceiptAndCheckBounds with getBootstrapKeys();
-    ///    no inclusion proof.
-    function _verifyBootstrapReceipt(
-        bytes32 logId,
-        uint64 checkpointCount,
-        uint64 size,
-        bytes calldata receipt
-    ) private {
-        LibAuthorityVerifier.PaymentClaims memory
-            claims =
-            _verifyReceiptAndCheckBounds(
-                logId, checkpointCount, size, receipt, getBootstrapKeys()
-            );
-        emit CheckpointAuthorized(
-            logId,
-            claims.payer,
-            claims.checkpointStart,
-            claims.checkpointEnd,
-            claims.maxHeight
-        );
-    }
-
     function _updateLogState(
         bytes32 logId,
         LogState storage log,
         uint64 size,
-        bytes32[] calldata accumulator,
+        bytes32[] memory accumulator,
         bytes calldata receipt
     ) private {
         bool isNewLog = log.initializedAt == 0;
@@ -480,53 +397,6 @@ contract Univocity is IUnivocity, IUnivocityErrors {
 
         emit CheckpointPublished(
             logId, size, log.checkpointCount, accumulator, receipt
-        );
-    }
-
-    // === Internal Functions ===
-
-    /// @notice Verify R5 authorization using SCITT receipt (signature + bounds
-    ///    + inclusion in
-    ///    authority log).
-    /// @dev Uses _verifyReceiptAndCheckBounds with getBootstrapKeys(),
-    ///    then verifies receipt
-    ///    inclusion.
-    ///    Leaf = H(receiptIdtimestampBe ‖ sha256(receipt)) per ADR-0030.
-    function _verifyAuthorization(
-        bytes32 logId,
-        uint64 checkpointCount,
-        uint64 size,
-        bytes calldata receipt,
-        uint64 receiptMmrIndex,
-        bytes32[] calldata receiptInclusionProof,
-        bytes8 receiptIdtimestampBe
-    ) internal {
-        LibAuthorityVerifier.PaymentClaims memory
-            claims =
-            _verifyReceiptAndCheckBounds(
-                logId, checkpointCount, size, receipt, getBootstrapKeys()
-            );
-
-        LogState storage authorityLog = _logs[authorityLogId];
-        bytes32 leafHash =
-            sha256(abi.encodePacked(receiptIdtimestampBe, sha256(receipt)));
-        bool included = LibAuthorityVerifier.verifyReceiptInclusion(
-            leafHash,
-            receiptInclusionProof,
-            authorityLog.accumulator,
-            receiptMmrIndex
-        );
-        if (!included) {
-            emit AuthorizationFailed(logId, claims.payer, "inclusion failed");
-            revert InvalidReceiptInclusionProof();
-        }
-
-        emit CheckpointAuthorized(
-            logId,
-            claims.payer,
-            claims.checkpointStart,
-            claims.checkpointEnd,
-            claims.maxHeight
         );
     }
 }

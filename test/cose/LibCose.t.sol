@@ -50,7 +50,7 @@ contract LibCoseTest is Test {
 
     /// @notice Decode minimal COSE_Sign1: 4-element array
     ///    84 43 a10126 a0 40 58 40
-    function test_decodeCoseSign1_minimal() public {
+    function test_decodeCoseSign1_minimal() public view {
         bytes memory cose = abi.encodePacked(
             hex"84", // array(4)
             hex"43a10126", // bstr(3) = protected {1:-7}
@@ -75,7 +75,7 @@ contract LibCoseTest is Test {
     }
 
     /// @notice KS256: decode and verify with vm.sign
-    function test_verifySignature_ks256_valid() public {
+    function test_verifySignature_ks256_valid() public view {
         uint256 pk =
             0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
         address signer = vm.addr(pk);
@@ -94,7 +94,7 @@ contract LibCoseTest is Test {
             signature: sig,
             alg: LibCose.ALG_KS256
         });
-        LibCose.BootstrapKeys memory keys = LibCose.BootstrapKeys({
+        LibCose.CoseVerifierKeys memory keys = LibCose.CoseVerifierKeys({
             ks256Signer: signer, es256X: bytes32(0), es256Y: bytes32(0)
         });
 
@@ -102,7 +102,7 @@ contract LibCoseTest is Test {
     }
 
     /// @notice KS256: wrong signer fails
-    function test_verifySignature_ks256_wrongSigner() public {
+    function test_verifySignature_ks256_wrongSigner() public view {
         uint256 pk =
             0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
         bytes memory protected = hex"a1013a00010106";
@@ -118,7 +118,7 @@ contract LibCoseTest is Test {
             signature: sig,
             alg: LibCose.ALG_KS256
         });
-        LibCose.BootstrapKeys memory keys = LibCose.BootstrapKeys({
+        LibCose.CoseVerifierKeys memory keys = LibCose.CoseVerifierKeys({
             ks256Signer: address(0xbad), // wrong
             es256X: bytes32(0),
             es256Y: bytes32(0)

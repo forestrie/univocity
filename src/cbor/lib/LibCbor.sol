@@ -30,6 +30,7 @@ library LibCbor {
     int64 constant CLAIM_CHECKPOINT_START = -2;
     int64 constant CLAIM_CHECKPOINT_END = -3;
     int64 constant CLAIM_MAX_HEIGHT = -4;
+    int64 constant CLAIM_MIN_GROWTH = -5;
 
     error InvalidCborStructure();
     error ClaimNotFound(int64 key);
@@ -37,11 +38,12 @@ library LibCbor {
 
     /// @notice Decoded payment claims from CBOR payload
     struct PaymentClaims {
-        bytes32 targetLogId;
+        bytes32 logId;
         address payer;
         uint64 checkpointStart;
         uint64 checkpointEnd;
         uint64 maxHeight;
+        uint64 minGrowth;
     }
 
     /// @notice Decode all payment claims from CBOR map payload
@@ -68,7 +70,7 @@ library LibCbor {
             int64 key = _readIntegerKey(buf);
 
             if (key == CWT_SUB) {
-                claims.targetLogId = bytes32(_readBytes(buf));
+                claims.logId = bytes32(_readBytes(buf));
             } else if (key == CLAIM_PAYER) {
                 claims.payer = address(bytes20(_readBytes(buf)));
             } else if (key == CLAIM_CHECKPOINT_START) {
@@ -77,6 +79,8 @@ library LibCbor {
                 claims.checkpointEnd = _readUint(buf);
             } else if (key == CLAIM_MAX_HEIGHT) {
                 claims.maxHeight = _readUint(buf);
+            } else if (key == CLAIM_MIN_GROWTH) {
+                claims.minGrowth = _readUint(buf);
             } else {
                 // Skip unknown claims (forward compatibility)
                 _skipValue(buf);
@@ -125,10 +129,11 @@ library LibCbor {
     /// @param key Integer key to look up (e.g. 1000 for delegation cert).
     /// @return found True if the key was present.
     /// @return value The bstr value; empty if not found.
-    function readMapLookupBstr(
-        WitnetBuffer.Buffer memory buf,
-        int64 key
-    ) internal pure returns (bool found, bytes memory value) {
+    function readMapLookupBstr(WitnetBuffer.Buffer memory buf, int64 key)
+        internal
+        pure
+        returns (bool found, bytes memory value)
+    {
         uint8 initialByte = buf.readUint8();
         uint8 majorType = initialByte >> 5;
         if (majorType != MAJOR_TYPE_MAP) {
@@ -152,16 +157,174 @@ library LibCbor {
         return (false, "");
     }
 
+    // MMR profile: vdp 396 => map; -2 => consistency-proof(s), -1 =>
+    // inclusion-proof(s) (plan 0014/0015).
+    int64 constant VDP_VERIFIABLE_PROOFS = 396;
+    int64 constant CONSISTENCY_PROOF_LABEL = -2;
+    int64 constant INCLUSION_PROOF_LABEL = -1;
+
+    /// @notice Extract consistency-proof(s) from Receipt of Consistency
+    ///    unprotected map (vdp 396 => map, key -2 => bstr or [ + bstr ]).
+    ///    MMR profile §7: "consistency-proofs = [ + consistency-proof ]";
+    ///    -2 may be a single bstr (one proof) or array of bstr (catch-up).
+    /// @param buf Buffer at the unprotected map's first byte.
+    /// @return consistencyProofs One or more bstr .cbor consistency-proofs.
+    /// @return found True if both 396 and -2 were present.
+    function readUnprotectedMapConsistencyProofs(
+        WitnetBuffer.Buffer memory buf
+    ) internal pure returns (bytes[] memory consistencyProofs, bool found) {
+        (consistencyProofs, found,,) =
+            readUnprotectedMapConsistencyProofsAndDelegation(buf);
+    }
+
+    /// @notice Extract consistency-proof(s) and optional delegation cert from
+    ///    Receipt of Consistency unprotected map (396 => map with -2; optional
+    ///    1000 => bstr). Plan 0013/0014: same labels as checkpoint COSE.
+    /// @param buf Buffer at the unprotected map's first byte.
+    /// @return consistencyProofs One or more bstr .cbor consistency-proofs.
+    /// @return foundProofs True if 396 and -2 were present.
+    /// @return delegationCertBytes Value of label 1000 if present; else empty.
+    /// @return foundCert True if label 1000 was present.
+    function readUnprotectedMapConsistencyProofsAndDelegation(
+        WitnetBuffer.Buffer memory buf
+    )
+        internal
+        pure
+        returns (
+            bytes[] memory consistencyProofs,
+            bool foundProofs,
+            bytes memory delegationCertBytes,
+            bool foundCert
+        )
+    {
+        uint8 initialByte = buf.readUint8();
+        uint8 majorType = initialByte >> 5;
+        if (majorType != MAJOR_TYPE_MAP) {
+            revert UnexpectedMajorType(majorType, MAJOR_TYPE_MAP);
+        }
+        uint64 mapLen = _readLength(buf, initialByte & 0x1f);
+        consistencyProofs = new bytes[](0);
+        for (uint64 i = 0; i < mapLen; i++) {
+            int64 k = _readIntegerKey(buf);
+            if (k == VDP_VERIFIABLE_PROOFS) {
+                uint8 innerByte = buf.readUint8();
+                uint8 innerMajor = innerByte >> 5;
+                if (innerMajor != MAJOR_TYPE_MAP) {
+                    _skipValue(buf);
+                    continue;
+                }
+                uint64 mapLen2 = _readLength(buf, innerByte & 0x1f);
+                for (uint64 j = 0; j < mapLen2; j++) {
+                    int64 k2 = _readIntegerKey(buf);
+                    if (k2 == CONSISTENCY_PROOF_LABEL) {
+                        consistencyProofs = _readBstrOrArrayOfBstr(buf);
+                        foundProofs = true;
+                        for (uint64 jj = j + 1; jj < mapLen2; jj++) {
+                            _readIntegerKey(buf);
+                            _skipValue(buf);
+                        }
+                        break;
+                    } else {
+                        _skipValue(buf);
+                    }
+                }
+            } else if (k == 1000) {
+                delegationCertBytes = _readBytes(buf);
+                foundCert = true;
+            } else {
+                _skipValue(buf);
+            }
+        }
+    }
+
+    /// @notice Extract inclusion-proof(s) from Receipt of Inclusion
+    ///    unprotected map (vdp 396 => map, key -1 => bstr or [ + bstr ]).
+    ///    MMR profile: inclusion-proofs = [ + inclusion-proof ].
+    /// @param buf Buffer at the unprotected map's first byte.
+    /// @return inclusionProofs One or more bstr .cbor inclusion-proofs.
+    /// @return found True if both 396 and -1 were present.
+    function readUnprotectedMapInclusionProofs(WitnetBuffer.Buffer memory buf)
+        internal
+        pure
+        returns (bytes[] memory inclusionProofs, bool found)
+    {
+        uint8 initialByte = buf.readUint8();
+        uint8 majorType = initialByte >> 5;
+        if (majorType != MAJOR_TYPE_MAP) {
+            revert UnexpectedMajorType(majorType, MAJOR_TYPE_MAP);
+        }
+        uint64 mapLen = _readLength(buf, initialByte & 0x1f);
+        for (uint64 i = 0; i < mapLen; i++) {
+            int64 k = _readIntegerKey(buf);
+            if (k != VDP_VERIFIABLE_PROOFS) {
+                _skipValue(buf);
+                continue;
+            }
+            uint8 innerByte = buf.readUint8();
+            uint8 innerMajor = innerByte >> 5;
+            if (innerMajor != MAJOR_TYPE_MAP) {
+                _skipValue(buf);
+                continue;
+            }
+            uint64 mapLen2 = _readLength(buf, innerByte & 0x1f);
+            for (uint64 j = 0; j < mapLen2; j++) {
+                int64 k2 = _readIntegerKey(buf);
+                if (k2 != INCLUSION_PROOF_LABEL) {
+                    _skipValue(buf);
+                    continue;
+                }
+                inclusionProofs = _readBstrOrArrayOfBstr(buf);
+                for (uint64 jj = j + 1; jj < mapLen2; jj++) {
+                    _readIntegerKey(buf);
+                    _skipValue(buf);
+                }
+                for (uint64 ii = i + 1; ii < mapLen; ii++) {
+                    _readIntegerKey(buf);
+                    _skipValue(buf);
+                }
+                return (inclusionProofs, true);
+            }
+        }
+        return (new bytes[](0), false);
+    }
+
+    /// @notice Read CBOR value as either one bstr or array of bstr (for -2).
+    function _readBstrOrArrayOfBstr(WitnetBuffer.Buffer memory buf)
+        private
+        pure
+        returns (bytes[] memory out)
+    {
+        uint8 initialByte = buf.readUint8();
+        uint8 majorType = initialByte >> 5;
+        if (majorType == MAJOR_TYPE_BYTES) {
+            uint64 len = _readLength(buf, initialByte & 0x1f);
+            out = new bytes[](1);
+            // forge-lint: disable-next-line(unsafe-typecast)
+            out[0] = buf.read(uint32(len));
+            return out;
+        }
+        if (majorType == MAJOR_TYPE_ARRAY) {
+            uint64 n = _readLength(buf, initialByte & 0x1f);
+            out = new bytes[](n);
+            for (uint64 i = 0; i < n; i++) {
+                out[i] = _readBytes(buf);
+            }
+            return out;
+        }
+        revert UnexpectedMajorType(majorType, MAJOR_TYPE_BYTES);
+    }
+
     /// @notice Read a CBOR map and return the uint value for an integer key.
     /// @dev Buffer must be at the map's first byte. Advances buf past the map.
     /// @param buf Buffer positioned at the map's initial byte.
     /// @param key Integer key to look up (e.g. 1001 for recovery id).
     /// @return found True if the key was present.
     /// @return value The uint value; 0 if not found.
-    function readMapLookupUint(
-        WitnetBuffer.Buffer memory buf,
-        int64 key
-    ) internal pure returns (bool found, uint64 value) {
+    function readMapLookupUint(WitnetBuffer.Buffer memory buf, int64 key)
+        internal
+        pure
+        returns (bool found, uint64 value)
+    {
         uint8 initialByte = buf.readUint8();
         uint8 majorType = initialByte >> 5;
         if (majorType != MAJOR_TYPE_MAP) {
@@ -193,7 +356,9 @@ library LibCbor {
     /// @return recoveryId Value for 1001 (0 or 1 for P-256); 0 if absent.
     /// @return hasRootKeyInHeader True if label 1002 was present.
     /// @return rootKeyInHeader Bstr value for 1002 (e.g. uncompressed point).
-    function readMapExtractDelegationUnprotected(WitnetBuffer.Buffer memory buf)
+    function readMapExtractDelegationUnprotected(
+        WitnetBuffer.Buffer memory buf
+    )
         internal
         pure
         returns (
@@ -215,6 +380,7 @@ library LibCbor {
                 uint64 v = _readUint(buf);
                 if (v > 1) revert InvalidCborStructure();
                 hasRecoveryId = true;
+                // forge-lint: disable-next-line(unsafe-typecast)
                 recoveryId = uint8(v);
             } else if (k == 1002) {
                 rootKeyInHeader = _readBytes(buf);
@@ -295,43 +461,99 @@ library LibCbor {
         }
     }
 
-    /// @notice Decoded checkpoint payload (ARC-0010 keys 1–5, plan 0013).
-    struct CheckpointPayload {
-        bytes32 logId;
-        bytes32 massifId;
-        uint64 mmrSize;
-        bytes mmrRoot;
-        uint64 mmrIndex;
+    /// @notice Decoded consistency-proof payload (MMR profile §6, plan 0014).
+    ///    consistency-proof = bstr .cbor [ tree-size-1, tree-size-2,
+    ///    consistency-paths, right-peaks ]
+    struct ConsistencyProofPayload {
+        uint64 treeSize1;
+        uint64 treeSize2;
+        bytes32[][] paths;
+        bytes32[] rightPeaks;
     }
 
-    /// @notice Decode checkpoint COSE_Sign1 payload (CBOR map keys 1–5).
-    function decodeCheckpointPayload(bytes memory payload)
+    /// @notice Decoded inclusion-proof payload (MMR profile). inclusion-proof
+    ///    = bstr .cbor [ index: uint, inclusion-path: [ + bstr ] ].
+    struct InclusionProofPayload {
+        uint64 index;
+        bytes32[] path;
+    }
+
+    /// @notice Decode inclusion-proof CBOR array (index, path). Plan 0015.
+    function decodeInclusionProofPayload(bytes memory data)
         internal
         pure
-        returns (CheckpointPayload memory p)
+        returns (InclusionProofPayload memory p)
     {
-        WitnetBuffer.Buffer memory buf = WitnetBuffer.Buffer(payload, 0);
+        WitnetBuffer.Buffer memory buf = WitnetBuffer.Buffer(data, 0);
         uint8 initialByte = buf.readUint8();
         uint8 majorType = initialByte >> 5;
-        if (majorType != MAJOR_TYPE_MAP) {
-            revert UnexpectedMajorType(majorType, MAJOR_TYPE_MAP);
+        if (majorType != MAJOR_TYPE_ARRAY) {
+            revert UnexpectedMajorType(majorType, MAJOR_TYPE_ARRAY);
         }
-        uint64 mapLen = _readLength(buf, initialByte & 0x1f);
-        for (uint64 i = 0; i < mapLen; i++) {
-            int64 k = _readIntegerKey(buf);
-            if (k == 1) {
-                p.logId = bytes32(keccak256(_readBytesOrString(buf)));
-            } else if (k == 2) {
-                p.massifId = bytes32(keccak256(_readBytesOrString(buf)));
-            } else if (k == 3) {
-                p.mmrSize = _readUint(buf);
-            } else if (k == 4) {
-                p.mmrRoot = _readBytes(buf);
-            } else if (k == 5) {
-                p.mmrIndex = _readUint(buf);
-            } else {
-                _skipValue(buf);
-            }
+        uint64 arrLen = _readLength(buf, initialByte & 0x1f);
+        if (arrLen != 2) revert InvalidCborStructure();
+
+        p.index = uint64(_readUint(buf));
+        p.path = _readArrayOfBstr32(buf);
+    }
+
+    /// @notice Decode consistency-proof CBOR array (4 elements: sizes, paths,
+    ///    right-peaks). MMR profile draft-bryce-cose-receipts-mmr-profile.
+    function decodeConsistencyProofPayload(bytes memory data)
+        internal
+        pure
+        returns (ConsistencyProofPayload memory p)
+    {
+        WitnetBuffer.Buffer memory buf = WitnetBuffer.Buffer(data, 0);
+        uint8 initialByte = buf.readUint8();
+        uint8 majorType = initialByte >> 5;
+        if (majorType != MAJOR_TYPE_ARRAY) {
+            revert UnexpectedMajorType(majorType, MAJOR_TYPE_ARRAY);
+        }
+        uint64 arrLen = _readLength(buf, initialByte & 0x1f);
+        if (arrLen != 4) revert InvalidCborStructure();
+
+        p.treeSize1 = _readUint(buf);
+        p.treeSize2 = _readUint(buf);
+        p.paths = _readArrayOfArrayOfBstr32(buf);
+        p.rightPeaks = _readArrayOfBstr32(buf);
+    }
+
+    /// @notice Read CBOR array of byte strings (each 32 bytes) as bytes32[].
+    function _readArrayOfBstr32(WitnetBuffer.Buffer memory buf)
+        private
+        pure
+        returns (bytes32[] memory out)
+    {
+        uint8 initialByte = buf.readUint8();
+        uint8 majorType = initialByte >> 5;
+        if (majorType != MAJOR_TYPE_ARRAY) {
+            revert UnexpectedMajorType(majorType, MAJOR_TYPE_ARRAY);
+        }
+        uint64 n = _readLength(buf, initialByte & 0x1f);
+        out = new bytes32[](n);
+        for (uint64 i = 0; i < n; i++) {
+            bytes memory b = _readBytes(buf);
+            if (b.length != 32) revert InvalidCborStructure();
+            out[i] = _bytesToBytes32(b);
+        }
+    }
+
+    /// @notice Read CBOR array of arrays of byte strings (each 32 bytes).
+    function _readArrayOfArrayOfBstr32(WitnetBuffer.Buffer memory buf)
+        private
+        pure
+        returns (bytes32[][] memory out)
+    {
+        uint8 initialByte = buf.readUint8();
+        uint8 majorType = initialByte >> 5;
+        if (majorType != MAJOR_TYPE_ARRAY) {
+            revert UnexpectedMajorType(majorType, MAJOR_TYPE_ARRAY);
+        }
+        uint64 n = _readLength(buf, initialByte & 0x1f);
+        out = new bytes32[][](n);
+        for (uint64 i = 0; i < n; i++) {
+            out[i] = _readArrayOfBstr32(buf);
         }
     }
 
@@ -346,6 +568,7 @@ library LibCbor {
             revert UnexpectedMajorType(majorType, MAJOR_TYPE_BYTES);
         }
         uint64 len = _readLength(buf, initialByte & 0x1f);
+        // forge-lint: disable-next-line(unsafe-typecast)
         return buf.read(uint32(len));
     }
 
@@ -382,9 +605,11 @@ library LibCbor {
         uint64 value = _readLength(buf, additionalInfo);
 
         if (majorType == MAJOR_TYPE_UINT) {
+            // forge-lint: disable-next-line(unsafe-typecast)
             return int64(value);
         } else if (majorType == MAJOR_TYPE_NEGINT) {
             // CBOR negative: -1 - value
+            // forge-lint: disable-next-line(unsafe-typecast)
             return -1 - int64(value);
         } else {
             revert UnexpectedMajorType(majorType, MAJOR_TYPE_UINT);
@@ -417,6 +642,7 @@ library LibCbor {
             revert UnexpectedMajorType(majorType, MAJOR_TYPE_BYTES);
         }
         uint64 len = _readLength(buf, initialByte & 0x1f);
+        // forge-lint: disable-next-line(unsafe-typecast)
         return buf.read(uint32(len));
     }
 
@@ -451,12 +677,14 @@ library LibCbor {
             // Skip the integer value bytes
             if (additionalInfo >= 24 && additionalInfo <= 27) {
                 uint64 bytesToSkip = uint64(1) << (additionalInfo - 24);
+                // forge-lint: disable-next-line(unsafe-typecast)
                 buf.cursor += uint32(bytesToSkip);
             }
         } else if (
             majorType == MAJOR_TYPE_BYTES || majorType == MAJOR_TYPE_STRING
         ) {
             uint64 len = _readLength(buf, additionalInfo);
+            // forge-lint: disable-next-line(unsafe-typecast)
             buf.cursor += uint32(len);
         } else if (majorType == MAJOR_TYPE_ARRAY) {
             uint64 len = _readLength(buf, additionalInfo);

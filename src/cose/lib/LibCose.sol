@@ -35,7 +35,6 @@ library LibCose {
     error InvalidSignatureLength(uint256 expected, uint256 actual);
     error InvalidCoseStructure();
     error SignatureVerificationFailed();
-    error MissingDelegationCert();
     error DuplicateRootKeyInDelegation();
 
     // ============ Structs ============
@@ -47,7 +46,11 @@ library LibCose {
         int64 alg;
     }
 
-    struct BootstrapKeys {
+    /// @notice Keys for COSE_Sign1 verification (ES256 and/or KS256).
+    ///    Can be from bootstrap config or from delegation/receipt (e.g. P-256
+    ///    delegated key). For ES256-only use fromDelegatedEs256; for bootstrap
+    ///    use both ks256Signer and es256X/Y as configured.
+    struct CoseVerifierKeys {
         address ks256Signer;
         bytes32 es256X;
         bytes32 es256Y;
@@ -103,19 +106,17 @@ library LibCose {
         decoded.alg = LibCbor.extractAlgorithm(decoded.protectedHeader);
     }
 
-    /// @notice Decode checkpoint COSE_Sign1 and extract delegation cert from
-    ///    unprotected header label 1000 (ARC-0010, plan 0013).
-    /// @param data Raw checkpoint COSE_Sign1 bytes.
-    /// @return decoded The decoded checkpoint (protected, payload, signature,
-    ///    alg).
-    /// @return delegationCertBytes Value of unprotected label 1000 (bstr).
-    function decodeCheckpointCoseSign1(bytes calldata data)
+    /// @notice Decode COSE_Sign1 and return decoded structure plus raw
+    ///    unprotected header bytes for receipt-specific parsing (MMR profile).
+    /// @param data Raw COSE_Sign1 bytes.
+    /// @return decoded Protected, payload, signature, alg.
+    /// @return unprotectedRaw Serialized CBOR of the unprotected map (element 1).
+    function decodeCoseSign1WithUnprotected(bytes calldata data)
         internal
         pure
-        returns (CoseSign1 memory decoded, bytes memory delegationCertBytes)
+        returns (CoseSign1 memory decoded, bytes memory unprotectedRaw)
     {
         WitnetBuffer.Buffer memory buf = WitnetBuffer.Buffer(data, 0);
-
         uint8 initialByte = buf.readUint8();
         uint8 majorType = initialByte >> 5;
         if (majorType != MAJOR_TYPE_ARRAY) revert InvalidCoseStructure();
@@ -123,16 +124,24 @@ library LibCose {
         if (arrayLen != 4) revert InvalidCoseStructure();
 
         decoded.protectedHeader = _readBytes(buf);
-
-        (bool found, bytes memory certBytes) =
-            LibCbor.readMapLookupBstr(buf, 1000);
-        if (!found) revert MissingDelegationCert();
-        delegationCertBytes = certBytes;
-
+        unprotectedRaw = _readValueToBytes(buf);
         decoded.payload = _readBytes(buf);
         decoded.signature = _readBytes(buf);
         decoded.alg = LibCbor.extractAlgorithm(decoded.protectedHeader);
-        return (decoded, delegationCertBytes);
+    }
+
+    /// @notice Verify Receipt of Consistency signature with detached payload
+    /// @notice Build verifier keys from a single P-256 public key (e.g.
+    ///    delegated key from consistency receipt). Use with
+    ///    verifySignature/verifySignatureDetachedPayload for ES256 COSE.
+    function fromDelegatedEs256(bytes32 keyX, bytes32 keyY)
+        internal
+        pure
+        returns (CoseVerifierKeys memory keys)
+    {
+        keys.ks256Signer = address(0);
+        keys.es256X = keyX;
+        keys.es256Y = keyY;
     }
 
     /// @notice Decode delegation cert COSE_Sign1 and extract unprotected
@@ -144,8 +153,7 @@ library LibCose {
         pure
         returns (DelegationCertDecoded memory d)
     {
-        WitnetBuffer.Buffer memory buf =
-            WitnetBuffer.Buffer(certBytes, 0);
+        WitnetBuffer.Buffer memory buf = WitnetBuffer.Buffer(certBytes, 0);
 
         uint8 initialByte = buf.readUint8();
         uint8 majorType = initialByte >> 5;
@@ -166,11 +174,9 @@ library LibCose {
         d.cose.signature = _readBytes(buf);
         d.cose.alg = LibCbor.extractAlgorithm(d.cose.protectedHeader);
 
-        (d.hasRootKeyInPayload, d.rootKeyInPayload) =
-            LibCbor.readMapLookupBstr(
-                WitnetBuffer.Buffer(d.cose.payload, 0),
-                11
-            );
+        (d.hasRootKeyInPayload, d.rootKeyInPayload) = LibCbor.readMapLookupBstr(
+            WitnetBuffer.Buffer(d.cose.payload, 0), 11
+        );
         if (d.hasRootKeyInHeader && d.hasRootKeyInPayload) {
             revert DuplicateRootKeyInDelegation();
         }
@@ -178,16 +184,40 @@ library LibCose {
 
     /// @notice Verify COSE_Sign1 signature with algorithm dispatch
     /// @param cose Decoded COSE_Sign1 structure
-    /// @param keys Bootstrap keys for verification
+    /// @param keys Verifier keys (bootstrap or fromDelegatedEs256)
     /// @return True if signature valid
-    function verifySignature(CoseSign1 memory cose, BootstrapKeys memory keys)
-        internal
-        view
-        returns (bool)
-    {
+    function verifySignature(
+        CoseSign1 memory cose,
+        CoseVerifierKeys memory keys
+    ) internal view returns (bool) {
         // Build Sig_structure per RFC 9052
         bytes memory sigStructure =
             buildSigStructure(cose.protectedHeader, cose.payload);
+
+        if (cose.alg == ALG_ES256) {
+            return _verifyES256(
+                sigStructure, cose.signature, keys.es256X, keys.es256Y
+            );
+        } else if (cose.alg == ALG_KS256) {
+            return _verifyKS256(sigStructure, cose.signature, keys.ks256Signer);
+        } else {
+            revert UnsupportedAlgorithm(cose.alg);
+        }
+    }
+
+    /// @notice Verify COSE_Sign1 signature with detached payload (e.g. RoI
+    ///    root). Plan 0015.
+    /// @param cose Decoded COSE_Sign1 (payload field ignored).
+    /// @param detachedPayload The payload used in Sig_structure (e.g. 32-byte
+    ///    root).
+    /// @param keys Verifier keys (bootstrap or fromDelegatedEs256).
+    function verifySignatureDetachedPayload(
+        CoseSign1 memory cose,
+        bytes memory detachedPayload,
+        CoseVerifierKeys memory keys
+    ) internal view returns (bool) {
+        bytes memory sigStructure =
+            buildSigStructure(cose.protectedHeader, detachedPayload);
 
         if (cose.alg == ALG_ES256) {
             return _verifyES256(
@@ -298,6 +328,7 @@ library LibCose {
         uint8 majorType = initialByte >> 5;
         if (majorType != MAJOR_TYPE_BYTES) revert InvalidCoseStructure();
         uint64 len = _readLength(buf, initialByte & 0x1f);
+        // forge-lint: disable-next-line(unsafe-typecast)
         return buf.read(uint32(len));
     }
 
@@ -334,6 +365,7 @@ library LibCose {
         } else if (majorType == MAJOR_TYPE_BYTES || majorType == 3) {
             // Bytes/string: skip content
             uint64 len = _readLength(buf, additionalInfo);
+            // forge-lint: disable-next-line(unsafe-typecast)
             buf.cursor += uint32(len);
         } else if (majorType == MAJOR_TYPE_ARRAY) {
             uint64 len = _readLength(buf, additionalInfo);
@@ -348,6 +380,22 @@ library LibCose {
         }
     }
 
+    /// @notice Read one CBOR value and return its raw bytes (for re-parsing).
+    function _readValueToBytes(WitnetBuffer.Buffer memory buf)
+        private
+        pure
+        returns (bytes memory)
+    {
+        uint256 start = buf.cursor;
+        _skipValue(buf);
+        uint256 len = buf.cursor - start;
+        bytes memory out = new bytes(len);
+        for (uint256 i = 0; i < len; i++) {
+            out[i] = buf.data[start + i];
+        }
+        return out;
+    }
+
     /// @notice Encode bytes as CBOR bstr
     /// @dev Handles length encoding for various sizes
     function _encodeBstr(bytes memory data)
@@ -359,15 +407,19 @@ library LibCose {
 
         if (len < 24) {
             // Major type 2 (bstr) + length in same byte
+            // forge-lint: disable-next-line(unsafe-typecast)
             return abi.encodePacked(bytes1(uint8(0x40 + len)), data);
         } else if (len < 256) {
             // Major type 2 + 24 (1-byte length follows)
+            // forge-lint: disable-next-line(unsafe-typecast)
             return abi.encodePacked(hex"58", bytes1(uint8(len)), data);
         } else if (len < 65536) {
             // Major type 2 + 25 (2-byte length follows)
+            // forge-lint: disable-next-line(unsafe-typecast)
             return abi.encodePacked(hex"59", bytes2(uint16(len)), data);
         } else {
             // Major type 2 + 26 (4-byte length follows)
+            // forge-lint: disable-next-line(unsafe-typecast)
             return abi.encodePacked(hex"5a", bytes4(uint32(len)), data);
         }
     }

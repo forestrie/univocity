@@ -60,32 +60,34 @@ contract LibCborTest is Test {
 
     /// @notice Decode payload with sub (2), payer (-1), checkpoint_start (-2),
     ///    checkpoint_end (-3),
-    ///    max_height (-4)
+    ///    max_height (-4), min_growth (-5)
     ///    Map: 02 58 20 <32 bytes>, 20 54 <20 bytes>, 21 00, 22 1864 (100),
-    ///    23 192710 (10000)
+    ///    23 192710 (10000), 24 18 64 (100)
     function test_decodePaymentClaims_full() public pure {
         bytes32 logId = keccak256("test-log");
         address payer = address(0x1234567890123456789012345678901234567890);
 
         bytes memory payload = abi.encodePacked(
-            hex"a5", // map(5)
+            hex"a6", // map(6)
             hex"025820",
-            logId, // 2: bstr(32) = targetLogId
+            logId, // 2: bstr(32) = logId
             hex"2054",
             payer, // -1: bstr(20) = payer
             hex"2100", // -2: 0 = checkpointStart
             hex"221864", // -3: 100 = checkpointEnd
-            hex"23192710" // -4: 10000 = maxHeight
+            hex"23192710", // -4: 10000 = maxHeight
+            hex"241864" // -5: 100 = minGrowth
         );
 
         LibCbor.PaymentClaims memory claims =
             LibCbor.decodePaymentClaims(payload);
 
-        assertEq(claims.targetLogId, logId);
+        assertEq(claims.logId, logId);
         assertEq(claims.payer, payer);
         assertEq(claims.checkpointStart, 0);
         assertEq(claims.checkpointEnd, 100);
         assertEq(claims.maxHeight, 10000);
+        assertEq(claims.minGrowth, 100);
     }
 
     /// @notice Decode payload with only sub and bounds (partial map)
@@ -100,7 +102,7 @@ contract LibCborTest is Test {
         );
         LibCbor.PaymentClaims memory claims =
             LibCbor.decodePaymentClaims(payload);
-        assertEq(claims.targetLogId, logId);
+        assertEq(claims.logId, logId);
         assertEq(claims.checkpointEnd, 100);
         assertEq(claims.maxHeight, 100);
     }
@@ -138,7 +140,7 @@ contract LibCborTest is Test {
         );
         LibCbor.PaymentClaims memory claims =
             LibCbor.decodePaymentClaims(payload);
-        assertEq(claims.targetLogId, logId);
+        assertEq(claims.logId, logId);
         assertEq(claims.payer, payer);
         assertEq(claims.checkpointStart, 0);
         assertEq(claims.checkpointEnd, 100);
