@@ -18,6 +18,18 @@ interface IUnivocity is IUnivocityEvents {
         bytes32 rootKeyY;
     }
 
+    /// @notice Caller-supplied payment grant for leaf commitment and bounds.
+    ///    Leaf = SHA256(paymentIDTimestampBe || SHA256(logId||payer||
+    ///    checkpointStart||checkpointEnd||maxHeight||minGrowth)). Plan 0015.
+    struct PaymentGrant {
+        bytes32 logId;
+        address payer;
+        uint64 checkpointStart;
+        uint64 checkpointEnd;
+        uint64 maxHeight;
+        uint64 minGrowth;
+    }
+
     // === View Functions ===
 
     function bootstrapAuthority() external view returns (address);
@@ -31,36 +43,21 @@ interface IUnivocity is IUnivocityEvents {
 
     // === State-Changing Functions ===
 
-    /// @notice Publish a checkpoint for a log
-    /// @param logId The log to checkpoint
-    /// @param size The MMR size (leaf count) at this checkpoint (uint64 per
-    ///    SCITT profile)
-    /// @param accumulator The MMR peak list
-    /// @param receipt COSE_Sign1 payment receipt (SCITT format)
-    /// @param consistencyProof One inclusion proof per old peak (calldata);
-    ///    empty for first
-    ///    checkpoint
-    /// @param receiptMmrIndex Zero-based MMR index of the receipt leaf (leaf
-    ///    position - 1); ignored if receipt is empty.
-    /// @param receiptInclusionProof MMR path (sibling hashes) for receipt
-    ///    inclusion. May be empty only when bootstrapping the authority log.
-    /// @param proofAndCose Consistency proof, receiptMmrIndex,
-    ///    receiptInclusionProof, receiptIdtimestampBe (ADR-0030 leaf), and
-    ///    checkpointCoseSign1 (ADR-0032; empty to skip). Bundled to avoid
-    ///    stack-too-deep.
-    struct ProofAndCoseCalldata {
-        bytes32[][] consistencyProof;
-        uint64 receiptMmrIndex;
-        bytes32[] receiptInclusionProof;
-        bytes8 receiptIdtimestampBe;
-        bytes checkpointCoseSign1;
-    }
-
+    /// @notice Publish a checkpoint from a consistency receipt and a payment
+    ///    receipt (COSE Receipt of Inclusion). Plan 0014/0015. The log to
+    ///    checkpoint is paymentGrant.logId. Delegation (root key) is optional
+    ///    via consistency receipt unprotected label 1000.
+    /// @param consistencyReceipt COSE Receipt of Consistency (MMR profile);
+    ///    may include optional delegation cert at unprotected 1000.
+    /// @param paymentReceipt COSE Receipt of Inclusion proving payment leaf
+    ///    is in the authority log.
+    /// @param paymentIDTimestampBe Big-endian idtimestamp of included content.
+    /// @param paymentGrant LogId, payer, checkpoint range, max_height,
+    ///    min_growth for leaf commitment and bounds.
     function publishCheckpoint(
-        bytes32 logId,
-        uint64 size,
-        bytes32[] calldata accumulator,
-        bytes calldata receipt,
-        ProofAndCoseCalldata calldata proofAndCose
+        bytes calldata consistencyReceipt,
+        bytes calldata paymentReceipt,
+        bytes8 paymentIDTimestampBe,
+        PaymentGrant calldata paymentGrant
     ) external;
 }

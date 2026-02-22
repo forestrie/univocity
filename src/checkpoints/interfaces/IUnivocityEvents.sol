@@ -36,11 +36,12 @@ interface IUnivocityEvents {
 
     /// @notice Payment receipt added to authority log
     event PaymentReceiptRegistered(
-        bytes32 indexed targetLogId,
+        bytes32 indexed logId,
         address indexed payer,
         uint64 checkpointStart,
         uint64 checkpointEnd,
-        uint64 maxHeight
+        uint64 maxHeight,
+        uint64 minGrowth
     );
 
     /// @notice Authorization failed (emitted before revert for debugging)

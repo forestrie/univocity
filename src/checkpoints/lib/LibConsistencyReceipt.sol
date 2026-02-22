@@ -1,0 +1,86 @@
+// SPDX-License-Identifier: Apache-2.0
+pragma solidity ^0.8.24;
+
+import {LibCbor} from "@univocity/cbor/lib/LibCbor.sol";
+import {
+    consistentRoots,
+    consistentRootsMemory
+} from "@univocity/algorithms/consistentRoots.sol";
+
+/// @title LibConsistencyReceipt
+/// @notice MMR profile: decode and verify a series of consistency proofs per
+///    draft "Verifying the Receipt of consistency". Uses algorithms from
+///    src/algorithms (consistentRoots, consistentRootsMemory).
+library LibConsistencyReceipt {
+    /// @notice Run the consistency proof chain from stored initial accumulator.
+    /// @param initialAccumulator Peaks of the log state (tree-size before
+    ///    first proof).
+    /// @param rawProofPayloads One or more bstr .cbor consistency-proof
+    ///    payloads (order preserved).
+    /// @return finalAccumulator Peaks after applying all proofs.
+    /// @return size Tree size (leaf count) after the last proof.
+    function verifyConsistencyProofChain(
+        bytes32[] storage initialAccumulator,
+        bytes[] memory rawProofPayloads
+    ) internal view returns (bytes32[] memory finalAccumulator, uint64 size) {
+        uint256 n = rawProofPayloads.length;
+        if (n == 0) {
+            finalAccumulator = new bytes32[](0);
+            size = 0;
+            return (finalAccumulator, size);
+        }
+
+        bytes32[] memory accMem;
+        bytes32[] memory accumulatorFrom;
+
+        for (uint256 idx = 0; idx < n; idx++) {
+            LibCbor.ConsistencyProofPayload memory p =
+                LibCbor.decodeConsistencyProofPayload(rawProofPayloads[idx]);
+
+            if (idx == 0) {
+                accumulatorFrom = initialAccumulator;
+            } else {
+                accumulatorFrom = accMem;
+            }
+
+            if (p.treeSize1 == 0) {
+                accMem = p.rightPeaks;
+            } else {
+                uint256 ifrom = uint256(p.treeSize1) - 1;
+                bytes32[] memory roots = idx == 0
+                    ? consistentRoots(ifrom, initialAccumulator, p.paths)
+                    : consistentRootsMemory(ifrom, accumulatorFrom, p.paths);
+                accMem = _concatAccumulator(roots, p.rightPeaks);
+            }
+            size = p.treeSize2;
+        }
+
+        finalAccumulator = accMem;
+    }
+
+    /// @notice Build the detached payload (commitment) for consistency receipt
+    ///    signature verification. Draft: "use the consistent accumulator as
+    ///    the detached payload".
+    /// @param accumulator Peak hashes (MMR accumulator).
+    /// @return commitment 32-byte SHA-256 commitment.
+    function buildDetachedPayloadCommitment(bytes32[] memory accumulator)
+        internal
+        pure
+        returns (bytes memory commitment)
+    {
+        commitment = abi.encodePacked(sha256(abi.encodePacked(accumulator)));
+    }
+
+    function _concatAccumulator(
+        bytes32[] memory roots,
+        bytes32[] memory rightPeaks
+    ) private pure returns (bytes32[] memory out) {
+        out = new bytes32[](roots.length + rightPeaks.length);
+        for (uint256 i = 0; i < roots.length; i++) {
+            out[i] = roots[i];
+        }
+        for (uint256 j = 0; j < rightPeaks.length; j++) {
+            out[roots.length + j] = rightPeaks[j];
+        }
+    }
+}

@@ -19,55 +19,14 @@ library LibDelegationVerifier {
     error DelegationSignatureInvalid();
     error DelegationLogIdMismatch();
     error CheckpointIndexOutOfDelegationRange();
-    error CheckpointPayloadSizeMismatch();
-    error CheckpointAccumulatorMismatch();
-    error CheckpointSignatureInvalid();
 
     /// @notice Result of delegation verification: root key to store and
-    ///    delegated key for checkpoint sig verify.
+    ///    delegated key for consistency receipt sig verify.
     struct DelegationResult {
         bytes32 rootKeyX;
         bytes32 rootKeyY;
         bytes32 delegatedKeyX;
         bytes32 delegatedKeyY;
-    }
-
-    /// @notice Full checkpoint COSE verification: decode, verify delegation,
-    ///    binding and checkpoint signature (plan 0013). Returns root key to
-    ///    store (for first checkpoint).
-    function verifyCheckpointCoseAndDelegation(
-        bytes calldata checkpointCoseSign1,
-        bytes32 logId,
-        uint64 size,
-        bytes32[] calldata accumulator,
-        bytes32 storedRootX,
-        bytes32 storedRootY
-    ) internal view returns (bytes32 rootKeyX, bytes32 rootKeyY) {
-        (
-            LibCose.CoseSign1 memory checkpointCose,
-            bytes memory delegationCertBytes
-        ) = LibCose.decodeCheckpointCoseSign1(checkpointCoseSign1);
-
-        LibCbor.CheckpointPayload memory checkpointPayload =
-            LibCbor.decodeCheckpointPayload(checkpointCose.payload);
-
-        DelegationResult memory delResult = verifyDelegationCert(
-            delegationCertBytes,
-            logId,
-            checkpointPayload.mmrIndex,
-            storedRootX,
-            storedRootY
-        );
-
-        verifyCheckpointBindingAndSignature(
-            checkpointCose,
-            size,
-            accumulator,
-            delResult.delegatedKeyX,
-            delResult.delegatedKeyY
-        );
-
-        return (delResult.rootKeyX, delResult.rootKeyY);
     }
 
     /// @notice Verify delegation cert and optionally establish root (first
@@ -105,7 +64,9 @@ library LibDelegationVerifier {
         uint8 recoveryIdValue;
         if (recoveryIdInSig) {
             recoveryIdValue = uint8(sig[sig.length - 1]);
-            if (recoveryIdValue > 1) revert InvalidRecoveryId(recoveryIdValue);
+            if (recoveryIdValue > 1) {
+                revert InvalidRecoveryId(recoveryIdValue);
+            }
         } else if (d.hasRecoveryId) {
             recoveryIdValue = d.recoveryId;
         }
@@ -126,10 +87,8 @@ library LibDelegationVerifier {
         result.delegatedKeyX = payload.delegatedKeyX;
         result.delegatedKeyY = payload.delegatedKeyY;
 
-        bytes memory sigStructure = LibCose.buildSigStructure(
-            d.cose.protectedHeader,
-            d.cose.payload
-        );
+        bytes memory sigStructure =
+            LibCose.buildSigStructure(d.cose.protectedHeader, d.cose.payload);
         bytes32 hash = sha256(sigStructure);
         bytes32 r;
         bytes32 s;
@@ -141,16 +100,15 @@ library LibDelegationVerifier {
         bool isFirstCheckpoint = storedRootX == 0 && storedRootY == 0;
 
         if (isFirstCheckpoint) {
-            (result.rootKeyX, result.rootKeyY) =
-                _establishRoot(
-                    hash,
-                    r,
-                    s,
-                    hasRecoveryId,
-                    recoveryIdValue,
-                    hasIncludedRootKey,
-                    includedRootKeyBstr
-                );
+            (result.rootKeyX, result.rootKeyY) = _establishRoot(
+                hash,
+                r,
+                s,
+                hasRecoveryId,
+                recoveryIdValue,
+                hasIncludedRootKey,
+                includedRootKeyBstr
+            );
         } else {
             if (!P256.verify(hash, r, s, storedRootX, storedRootY)) {
                 revert DelegationSignatureInvalid();
@@ -218,53 +176,6 @@ library LibDelegationVerifier {
         assembly {
             x := mload(add(b, 33))
             y := mload(add(b, 65))
-        }
-    }
-
-    /// @notice Verify checkpoint payload binding (size, accumulator) and
-    ///    checkpoint signature with delegated key (plan 0013).
-    /// @param checkpointCose Decoded checkpoint COSE_Sign1.
-    /// @param size Submitted MMR size (must equal payload.mmrSize).
-    /// @param accumulator Submitted MMR peaks (commitment must match
-    ///    payload.mmrRoot).
-    /// @param delegatedKeyX Delegated key x (from delegation cert).
-    /// @param delegatedKeyY Delegated key y.
-    function verifyCheckpointBindingAndSignature(
-        LibCose.CoseSign1 memory checkpointCose,
-        uint64 size,
-        bytes32[] calldata accumulator,
-        bytes32 delegatedKeyX,
-        bytes32 delegatedKeyY
-    ) internal view {
-        LibCbor.CheckpointPayload memory p =
-            LibCbor.decodeCheckpointPayload(checkpointCose.payload);
-
-        if (p.mmrSize != size) revert CheckpointPayloadSizeMismatch();
-
-        bytes32 commitment = sha256(abi.encodePacked(accumulator));
-        if (p.mmrRoot.length != 32) revert CheckpointAccumulatorMismatch();
-        bytes memory mmrRootBytes = p.mmrRoot;
-        bytes32 payloadRoot;
-        assembly {
-            payloadRoot := mload(add(mmrRootBytes, 32))
-        }
-        if (payloadRoot != commitment) revert CheckpointAccumulatorMismatch();
-
-        bytes memory sigStructure = LibCose.buildSigStructure(
-            checkpointCose.protectedHeader,
-            checkpointCose.payload
-        );
-        bytes32 hash = sha256(sigStructure);
-        bytes memory sig = checkpointCose.signature;
-        if (sig.length != 64) revert LibCose.InvalidSignatureLength(64, sig.length);
-        bytes32 r;
-        bytes32 s;
-        assembly {
-            r := mload(add(sig, 32))
-            s := mload(add(sig, 64))
-        }
-        if (!P256.verify(hash, r, s, delegatedKeyX, delegatedKeyY)) {
-            revert CheckpointSignatureInvalid();
         }
     }
 }

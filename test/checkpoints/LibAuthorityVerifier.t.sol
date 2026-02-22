@@ -6,24 +6,7 @@ import {
     LibAuthorityVerifier
 } from "@univocity/checkpoints/lib/LibAuthorityVerifier.sol";
 
-/// @notice Harness so tests can pass proof/accumulator as calldata (external
-///    call boundary)
-contract LibAuthorityVerifierHarness {
-    function verifyReceiptInclusion(
-        bytes32 receiptHash,
-        bytes32[] calldata proof,
-        bytes32[] calldata accumulator,
-        uint64 mmrIndex
-    ) external pure returns (bool) {
-        bytes32[] memory acc = accumulator;
-        return LibAuthorityVerifier.verifyReceiptInclusion(
-            receiptHash, proof, acc, mmrIndex
-        );
-    }
-}
-
 contract LibAuthorityVerifierTest is Test {
-    LibAuthorityVerifierHarness harness = new LibAuthorityVerifierHarness();
     bytes32 constant LOG_A = keccak256("log-a");
     bytes32 constant LOG_B = keccak256("log-b");
     address constant PAYER = address(0x1234);
@@ -31,115 +14,113 @@ contract LibAuthorityVerifierTest is Test {
     function test_checkBounds_allPass() public pure {
         LibAuthorityVerifier.PaymentClaims memory claims =
             LibAuthorityVerifier.PaymentClaims({
-                targetLogId: LOG_A,
+                logId: LOG_A,
                 payer: PAYER,
                 checkpointStart: 0,
                 checkpointEnd: 10,
-                maxHeight: 1000
+                maxHeight: 1000,
+                minGrowth: 0
             });
-        assertTrue(LibAuthorityVerifier.checkBounds(claims, LOG_A, 5, 500));
+        assertTrue(LibAuthorityVerifier.checkBounds(claims, LOG_A, 5, 0, 500));
     }
 
     function test_checkBounds_logIdMismatch() public pure {
         LibAuthorityVerifier.PaymentClaims memory claims =
             LibAuthorityVerifier.PaymentClaims({
-                targetLogId: LOG_A,
+                logId: LOG_A,
                 payer: PAYER,
                 checkpointStart: 0,
                 checkpointEnd: 10,
-                maxHeight: 1000
+                maxHeight: 1000,
+                minGrowth: 0
             });
-        assertFalse(LibAuthorityVerifier.checkBounds(claims, LOG_B, 5, 500));
+        assertFalse(LibAuthorityVerifier.checkBounds(claims, LOG_B, 5, 0, 500));
     }
 
     function test_checkBounds_belowStart() public pure {
         LibAuthorityVerifier.PaymentClaims memory claims =
             LibAuthorityVerifier.PaymentClaims({
-                targetLogId: LOG_A,
+                logId: LOG_A,
                 payer: PAYER,
                 checkpointStart: 5,
                 checkpointEnd: 10,
-                maxHeight: 1000
+                maxHeight: 1000,
+                minGrowth: 0
             });
-        assertFalse(LibAuthorityVerifier.checkBounds(claims, LOG_A, 3, 500));
+        assertFalse(LibAuthorityVerifier.checkBounds(claims, LOG_A, 3, 0, 500));
     }
 
     function test_checkBounds_atOrAboveEnd() public pure {
         LibAuthorityVerifier.PaymentClaims memory claims =
             LibAuthorityVerifier.PaymentClaims({
-                targetLogId: LOG_A,
+                logId: LOG_A,
                 payer: PAYER,
                 checkpointStart: 0,
                 checkpointEnd: 10,
-                maxHeight: 1000
+                maxHeight: 1000,
+                minGrowth: 0
             });
-        assertFalse(LibAuthorityVerifier.checkBounds(claims, LOG_A, 10, 500));
-        assertFalse(LibAuthorityVerifier.checkBounds(claims, LOG_A, 11, 500));
+        assertFalse(
+            LibAuthorityVerifier.checkBounds(claims, LOG_A, 10, 0, 500)
+        );
+        assertFalse(
+            LibAuthorityVerifier.checkBounds(claims, LOG_A, 11, 0, 500)
+        );
     }
 
     function test_checkBounds_maxHeightExceeded() public pure {
         LibAuthorityVerifier.PaymentClaims memory claims =
             LibAuthorityVerifier.PaymentClaims({
-                targetLogId: LOG_A,
+                logId: LOG_A,
                 payer: PAYER,
                 checkpointStart: 0,
                 checkpointEnd: 10,
-                maxHeight: 100
+                maxHeight: 100,
+                minGrowth: 0
             });
-        assertFalse(LibAuthorityVerifier.checkBounds(claims, LOG_A, 5, 101));
+        assertFalse(LibAuthorityVerifier.checkBounds(claims, LOG_A, 5, 0, 101));
     }
 
     function test_checkBounds_maxHeightZeroUnlimited() public pure {
         LibAuthorityVerifier.PaymentClaims memory claims =
             LibAuthorityVerifier.PaymentClaims({
-                targetLogId: LOG_A,
+                logId: LOG_A,
                 payer: PAYER,
                 checkpointStart: 0,
                 checkpointEnd: 10,
-                maxHeight: 0
+                maxHeight: 0,
+                minGrowth: 0
             });
-        assertTrue(LibAuthorityVerifier.checkBounds(claims, LOG_A, 5, 1e18));
+        assertTrue(LibAuthorityVerifier.checkBounds(claims, LOG_A, 5, 0, 1e18));
     }
 
-    /// @notice Empty proof: leaf is the only node,
-    ///    so root = leafHash (SHA-256 per MMR profile)
-    function test_verifyReceiptInclusion_emptyProof_singlePeak() public view {
-        bytes32 receiptHash = sha256("receipt");
-        bytes32[] memory proof;
-        bytes32[] memory accumulator = new bytes32[](1);
-        accumulator[0] = receiptHash;
-
+    function test_checkBounds_minGrowthMet() public pure {
+        LibAuthorityVerifier.PaymentClaims memory claims =
+            LibAuthorityVerifier.PaymentClaims({
+                logId: LOG_A,
+                payer: PAYER,
+                checkpointStart: 0,
+                checkpointEnd: 10,
+                maxHeight: 1000,
+                minGrowth: 100
+            });
         assertTrue(
-            harness.verifyReceiptInclusion(receiptHash, proof, accumulator, 0)
+            LibAuthorityVerifier.checkBounds(claims, LOG_A, 5, 400, 500)
         );
     }
 
-    /// @notice Wrong receipt hash does not match peak
-    function test_verifyReceiptInclusion_wrongHash_fails() public view {
-        bytes32 receiptHash = sha256("receipt");
-        bytes32 wrongHash = sha256("wrong");
-        bytes32[] memory proof;
-        bytes32[] memory accumulator = new bytes32[](1);
-        accumulator[0] = receiptHash;
-
+    function test_checkBounds_minGrowthNotMet() public pure {
+        LibAuthorityVerifier.PaymentClaims memory claims =
+            LibAuthorityVerifier.PaymentClaims({
+                logId: LOG_A,
+                payer: PAYER,
+                checkpointStart: 0,
+                checkpointEnd: 10,
+                maxHeight: 1000,
+                minGrowth: 100
+            });
         assertFalse(
-            harness.verifyReceiptInclusion(wrongHash, proof, accumulator, 0)
-        );
-    }
-
-    /// @notice Plan 0012 §4.5: leafHash = H(idtimestampBe ‖
-    ///    sha256(receipt)) matches accumulator peak (ADR-0030).
-    function test_verifyReceiptInclusion_idtimestampLeafFormula() public view {
-        bytes memory receipt = hex"deadbeef";
-        bytes8 idtimestampBe = bytes8(uint64(1));
-        bytes32 leafHash =
-            sha256(abi.encodePacked(idtimestampBe, sha256(receipt)));
-        bytes32[] memory proof;
-        bytes32[] memory accumulator = new bytes32[](1);
-        accumulator[0] = leafHash;
-
-        assertTrue(
-            harness.verifyReceiptInclusion(leafHash, proof, accumulator, 0)
+            LibAuthorityVerifier.checkBounds(claims, LOG_A, 5, 400, 499)
         );
     }
 }

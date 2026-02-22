@@ -24,7 +24,8 @@ The verification logic implements the consistency proof format described in
 
 - **Univocity.sol**: Main contract; multi-log checkpoint state, bootstrap access control, R5 receipt verification, consistency proof verification.
 - **LibAuthorityVerifier**: Verifies SCITT-format payment receipts (COSE_Sign1 + CBOR claims) and inclusion in the authority log.
-- **LibCheckpointVerifier**: Verifies MMR consistency proofs (delegates to `consistentRoots`).
+- **LibConsistencyReceipt**: Verifies MMR consistency receipt chain (decode CBOR proofs,
+  run `consistentRoots`/`consistentRootsMemory`, build detached payload commitment).
 - **LibCose / LibCbor**: COSE_Sign1 decode/verify (ES256 and KS256) and CBOR claim extraction.
 
 ## Deployment

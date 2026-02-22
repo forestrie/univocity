@@ -38,7 +38,14 @@ interface IUnivocityErrors {
     error DelegationSignatureInvalid();
     error DelegationLogIdMismatch();
     error CheckpointIndexOutOfDelegationRange();
-    error CheckpointPayloadSizeMismatch();
-    error CheckpointAccumulatorMismatch();
-    error CheckpointSignatureInvalid();
+
+    // Plan 0014: Receipt of Consistency
+    error MissingCheckpointSignerKey();
+    error ConsistencyReceiptSignatureInvalid();
+
+    // Plan 0015: Payment receipt as Receipt of Inclusion
+    error InvalidPaymentReceipt();
+    error MinGrowthNotMet(
+        uint64 currentSize, uint64 newSize, uint64 minGrowth
+    );
 }
