@@ -13,12 +13,17 @@ contract DeployUnivocity is Script {
         bytes32 es256X = vm.envOr("ES256_X", bytes32(0));
         bytes32 es256Y = vm.envOr("ES256_Y", bytes32(0));
 
-        require(ks256Signer != address(0) || es256X != bytes32(0), "At least one of KS256_SIGNER or ES256_X/Y must be set");
+        require(
+            ks256Signer != address(0) || es256X != bytes32(0),
+            "At least one of KS256_SIGNER or ES256_X/Y must be set"
+        );
 
         vm.startBroadcast();
 
-        Univocity univocity = new Univocity(bootstrapAuthority, ks256Signer, es256X, es256Y);
-        // Authority log is set by bootstrap's first publishCheckpoint(logId, ...) call (same or separate tx).
+        Univocity univocity =
+            new Univocity(bootstrapAuthority, ks256Signer, es256X, es256Y);
+        // Authority log is set by bootstrap's first publishCheckpoint
+        // (logId, ..) call (same or separate tx).
 
         vm.stopBroadcast();
 

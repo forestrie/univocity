@@ -2,7 +2,9 @@
 pragma solidity ^0.8.24;
 
 import {P256} from "@openzeppelin/contracts/utils/cryptography/P256.sol";
-import {WitnetBuffer} from "witnet-solidity-bridge/contracts/libs/WitnetBuffer.sol";
+import {
+    WitnetBuffer
+} from "witnet-solidity-bridge/contracts/libs/WitnetBuffer.sol";
 import {LibCbor} from "@univocity/cbor/lib/LibCbor.sol";
 
 /// @title LibCose
@@ -54,7 +56,11 @@ library LibCose {
     /// @notice Decode COSE_Sign1 structure
     /// @param data Raw COSE_Sign1 bytes
     /// @return decoded The decoded structure with algorithm
-    function decodeCoseSign1(bytes calldata data) internal pure returns (CoseSign1 memory decoded) {
+    function decodeCoseSign1(bytes calldata data)
+        internal
+        pure
+        returns (CoseSign1 memory decoded)
+    {
         // COSE_Sign1 = [protected, unprotected, payload, signature]
         // It's a CBOR array with 4 elements
         WitnetBuffer.Buffer memory buf = WitnetBuffer.Buffer(data, 0);
@@ -87,12 +93,19 @@ library LibCose {
     /// @param cose Decoded COSE_Sign1 structure
     /// @param keys Bootstrap keys for verification
     /// @return True if signature valid
-    function verifySignature(CoseSign1 memory cose, BootstrapKeys memory keys) internal view returns (bool) {
+    function verifySignature(CoseSign1 memory cose, BootstrapKeys memory keys)
+        internal
+        view
+        returns (bool)
+    {
         // Build Sig_structure per RFC 9052
-        bytes memory sigStructure = buildSigStructure(cose.protectedHeader, cose.payload);
+        bytes memory sigStructure =
+            buildSigStructure(cose.protectedHeader, cose.payload);
 
         if (cose.alg == ALG_ES256) {
-            return _verifyES256(sigStructure, cose.signature, keys.es256X, keys.es256Y);
+            return _verifyES256(
+                sigStructure, cose.signature, keys.es256X, keys.es256Y
+            );
         } else if (cose.alg == ALG_KS256) {
             return _verifyKS256(sigStructure, cose.signature, keys.ks256Signer);
         } else {
@@ -105,11 +118,10 @@ library LibCose {
     /// @notice Build COSE Sig_structure for signing/verification
     /// @dev Sig_structure = ["Signature1", protected, external_aad, payload]
     /// @dev Per RFC 9052 Section 4.4
-    function buildSigStructure(bytes memory protectedHeader, bytes memory payload)
-        internal
-        pure
-        returns (bytes memory)
-    {
+    function buildSigStructure(
+        bytes memory protectedHeader,
+        bytes memory payload
+    ) internal pure returns (bytes memory) {
         // CBOR encode: ["Signature1", protected, h'', payload]
         //
         // Structure breakdown:
@@ -132,11 +144,12 @@ library LibCose {
 
     /// @notice Verify ES256 (P-256 + SHA-256)
     /// @dev Uses OpenZeppelin P256 which auto-detects RIP-7212 precompile
-    function _verifyES256(bytes memory message, bytes memory signature, bytes32 x, bytes32 y)
-        private
-        view
-        returns (bool)
-    {
+    function _verifyES256(
+        bytes memory message,
+        bytes memory signature,
+        bytes32 x,
+        bytes32 y
+    ) private view returns (bool) {
         // SHA-256 hash of Sig_structure
         bytes32 hash = sha256(message);
 
@@ -158,11 +171,11 @@ library LibCose {
 
     /// @notice Verify KS256 (secp256k1 + Keccak-256)
     /// @dev Uses native ecrecover precompile
-    function _verifyKS256(bytes memory message, bytes memory signature, address expectedSigner)
-        private
-        pure
-        returns (bool)
-    {
+    function _verifyKS256(
+        bytes memory message,
+        bytes memory signature,
+        address expectedSigner
+    ) private pure returns (bool) {
         // Keccak-256 hash of Sig_structure
         bytes32 hash = keccak256(message);
 
@@ -189,7 +202,11 @@ library LibCose {
 
     // ============ Internal CBOR Helpers ============
 
-    function _readBytes(WitnetBuffer.Buffer memory buf) private pure returns (bytes memory) {
+    function _readBytes(WitnetBuffer.Buffer memory buf)
+        private
+        pure
+        returns (bytes memory)
+    {
         uint8 initialByte = buf.readUint8();
         uint8 majorType = initialByte >> 5;
         if (majorType != MAJOR_TYPE_BYTES) revert InvalidCoseStructure();
@@ -197,7 +214,11 @@ library LibCose {
         return buf.read(uint32(len));
     }
 
-    function _readLength(WitnetBuffer.Buffer memory buf, uint8 additionalInfo) private pure returns (uint64) {
+    function _readLength(WitnetBuffer.Buffer memory buf, uint8 additionalInfo)
+        private
+        pure
+        returns (uint64)
+    {
         if (additionalInfo < 24) {
             return additionalInfo;
         } else if (additionalInfo == 24) {
@@ -242,7 +263,11 @@ library LibCose {
 
     /// @notice Encode bytes as CBOR bstr
     /// @dev Handles length encoding for various sizes
-    function _encodeBstr(bytes memory data) private pure returns (bytes memory) {
+    function _encodeBstr(bytes memory data)
+        private
+        pure
+        returns (bytes memory)
+    {
         uint256 len = data.length;
 
         if (len < 24) {

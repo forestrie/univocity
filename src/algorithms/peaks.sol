@@ -10,9 +10,9 @@ import {MAX_HEIGHT} from "@univocity/algorithms/constants.sol";
 
 /// @notice Returns the peak indices for MMR(i) in highest to lowest order.
 /// @dev Assumes MMR(i) is complete. Callers can verify completeness by
-///      checking that indexHeight(i+1) == 0.
-///      The peaks are the roots of the perfect binary trees that compose
-///      the MMR. Each peak index corresponds to an accumulator entry.
+///    checking that indexHeight(i+1) == 0.
+///    The peaks are the roots of the perfect binary trees that compose
+///    the MMR. Each peak index corresponds to an accumulator entry.
 /// @param i The index of the last node in the MMR (MMR size - 1).
 /// @return result Array of peak indices in descending height order.
 function peaks(uint256 i) pure returns (uint256[] memory result) {

@@ -8,5 +8,7 @@ interface ICheckpointEvents {
     /// @param root Root hash of the transparency log at this checkpoint.
     /// @param size Number of leaves (or log size) at this checkpoint.
     /// @param receipt Raw COSE receipt attesting to this checkpoint.
-    event CheckpointPublished(bytes32 indexed root, uint256 size, bytes receipt);
+    event CheckpointPublished(
+        bytes32 indexed root, uint256 size, bytes receipt
+    );
 }

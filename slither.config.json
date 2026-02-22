@@ -1,0 +1,13 @@
+{
+    "filter_paths": "lib/",
+    "exclude_informational": true,
+    "exclude_dependencies": true,
+    "detectors_to_exclude": "solc-version,naming-convention",
+    "solc_remaps": [
+        "forge-std/=lib/forge-std/src/",
+        "@forge-std/=lib/forge-std/src/",
+        "@univocity/=src/",
+        "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+        "witnet-solidity-bridge/=lib/witnet-solidity-bridge/"
+    ]
+}

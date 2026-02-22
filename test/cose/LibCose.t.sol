@@ -5,7 +5,11 @@ import {Test} from "forge-std/Test.sol";
 import {LibCose} from "@univocity/cose/lib/LibCose.sol";
 
 contract LibCoseHelper {
-    function decodeCoseSign1(bytes calldata data) external pure returns (LibCose.CoseSign1 memory) {
+    function decodeCoseSign1(bytes calldata data)
+        external
+        pure
+        returns (LibCose.CoseSign1 memory)
+    {
         return LibCose.decodeCoseSign1(data);
     }
 }
@@ -16,15 +20,19 @@ contract LibCoseTest is Test {
     function setUp() public {
         helper = new LibCoseHelper();
     }
-    /// @notice RFC 9052: Sig_structure = ["Signature1", protected, external_aad, payload]
-    /// protected = a10126 (map {1: -7}), payload = "This is the content."
+
+    /// @notice RFC 9052: Sig_structure = ["Signature1", protected,
+    ///    external_aad, payload]
+    ///    protected = a10126 (map {1: -7}), payload = "This is the content."
     function test_buildSigStructure_rfc9052Example() public pure {
         bytes memory protected = hex"a10126";
-        bytes memory payload = hex"546869732069732074686520636f6e74656e742e"; // "This is the content."
+        bytes memory payload = hex"546869732069732074686520636f6e74656e742e";
+        // "This is the content."
 
         bytes memory sigStruct = LibCose.buildSigStructure(protected, payload);
 
-        // 84 = array(4), 6a... = "Signature1", protected as bstr, 40 = bstr empty, payload as bstr
+        // 84 = array(4), 6a...
+        // = "Signature1", protected as bstr, 40 = bstr empty, payload as bstr
         assertEq(uint8(sigStruct[0]), 0x84);
         assertGt(sigStruct.length, 20);
         assertEq(uint8(sigStruct[1]), 0x6a); // start of "Signature1"
@@ -41,18 +49,22 @@ contract LibCoseTest is Test {
     }
 
     /// @notice Decode minimal COSE_Sign1: 4-element array
-    /// 84 43 a10126 a0 40 58 40
+    ///    84 43 a10126 a0 40 58 40
     function test_decodeCoseSign1_minimal() public {
         bytes memory cose = abi.encodePacked(
-            hex"84",           // array(4)
-            hex"43a10126",     // bstr(3) = protected {1:-7}
-            hex"a0",           // map(0) = unprotected
-            hex"40",           // bstr(0) = payload
-            hex"5840"          // bstr(64) - need 64 bytes for ES256 sig; use 58 40 = bstr(64), then 64 zero bytes
+            hex"84", // array(4)
+            hex"43a10126", // bstr(3) = protected {1:-7}
+            hex"a0", // map(0) = unprotected
+            hex"40", // bstr(0) = payload
+            hex"5840"
+            // bstr(64) - need 64 bytes for ES256 sig; 58 40 = bstr(64)
         );
-        // Fix: 58 40 = bstr with 1-byte length 0x40 = 64. So we need 64 bytes after.
+        // Fix: 58 40 = bstr with 1-byte length 0x40 = 64.
+        // So we need 64 bytes after.
         bytes memory sig64 = new bytes(64);
-        cose = abi.encodePacked(hex"84", hex"43a10126", hex"a0", hex"40", hex"5840", sig64);
+        cose = abi.encodePacked(
+            hex"84", hex"43a10126", hex"a0", hex"40", hex"5840", sig64
+        );
 
         LibCose.CoseSign1 memory decoded = helper.decodeCoseSign1(cose);
 
@@ -64,7 +76,8 @@ contract LibCoseTest is Test {
 
     /// @notice KS256: decode and verify with vm.sign
     function test_verifySignature_ks256_valid() public {
-        uint256 pk = 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
+        uint256 pk =
+            0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
         address signer = vm.addr(pk);
 
         bytes memory protected = hex"a1013a00010106"; // alg KS256
@@ -82,9 +95,7 @@ contract LibCoseTest is Test {
             alg: LibCose.ALG_KS256
         });
         LibCose.BootstrapKeys memory keys = LibCose.BootstrapKeys({
-            ks256Signer: signer,
-            es256X: bytes32(0),
-            es256Y: bytes32(0)
+            ks256Signer: signer, es256X: bytes32(0), es256Y: bytes32(0)
         });
 
         assertTrue(LibCose.verifySignature(cose, keys));
@@ -92,7 +103,8 @@ contract LibCoseTest is Test {
 
     /// @notice KS256: wrong signer fails
     function test_verifySignature_ks256_wrongSigner() public {
-        uint256 pk = 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
+        uint256 pk =
+            0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
         bytes memory protected = hex"a1013a00010106";
         bytes memory payload = hex"deadbeef";
         bytes memory sigStruct = LibCose.buildSigStructure(protected, payload);

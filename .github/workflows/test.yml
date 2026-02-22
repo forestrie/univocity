@@ -35,3 +35,11 @@ jobs:
 
       - name: Run Forge tests
         run: forge test -vvv
+
+      - name: Install mise
+        uses: jdx/mise-action@v3
+        with:
+          install: true
+
+      - name: Run slither
+        run: mise run slither-check

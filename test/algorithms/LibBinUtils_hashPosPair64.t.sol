@@ -62,7 +62,11 @@ contract LibBinUtils_hashPosPair64_Test is Test {
         assertTrue(result1 != result2);
     }
 
-    function testFuzz_hashPosPair64_matchesManualComputation(uint64 pos, bytes32 a, bytes32 b) public pure {
+    function testFuzz_hashPosPair64_matchesManualComputation(
+        uint64 pos,
+        bytes32 a,
+        bytes32 b
+    ) public pure {
         bytes32 result = LibBinUtils.hashPosPair64(pos, a, b);
         bytes32 expected = sha256(abi.encodePacked(pos, a, b));
         assertEq(result, expected);

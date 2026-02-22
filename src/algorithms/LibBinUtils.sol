@@ -4,11 +4,11 @@ pragma solidity ^0.8.24;
 /// @title LibBinUtils
 /// @notice Binary utilities for MMR (Merkle Mountain Range) algorithms.
 /// @dev Provides bit manipulation functions and the position-prefixed hash
-///      function required by MMR inclusion proof verification.
+///    function required by MMR inclusion proof verification.
 library LibBinUtils {
     /// @notice Returns the number of bits required to represent `x`.
     /// @dev Returns 0 for x == 0. Uses binary search for O(log(256)) = O(8)
-    ///      operations, which is more gas-efficient than a linear loop.
+    ///    operations, which is more gas-efficient than a linear loop.
     /// @param x The value to measure.
     /// @return n The bit length of x.
     function bitLength(uint256 x) internal pure returns (uint256 n) {
@@ -61,8 +61,8 @@ library LibBinUtils {
 
     /// @notice Checks if `x` consists entirely of 1-bits (i.e., x == 2^n - 1).
     /// @dev Uses the property that for all-ones numbers: x & (x + 1) == 0.
-    ///      Returns false for x == 0. Uses unchecked arithmetic to handle
-    ///      the edge case where x == type(uint256).max.
+    ///    Returns false for x == 0. Uses unchecked arithmetic to handle
+    ///    the edge case where x == type(uint256).max.
     /// @param x The value to check.
     /// @return True if x is of the form 2^n - 1 for some n > 0.
     function allOnes(uint256 x) internal pure returns (bool) {
@@ -74,8 +74,8 @@ library LibBinUtils {
 
     /// @notice Returns the zero-based height of MMR index `i`.
     /// @dev The height determines whether a node is a leaf (height 0) or an
-    ///      interior node. This is fundamental for determining proof traversal
-    ///      direction (left vs right child).
+    ///    interior node. This is fundamental for determining proof traversal
+    ///    direction (left vs right child).
     /// @param i The zero-based MMR index.
     /// @return The height of the node at index i.
     function indexHeight(uint256 i) internal pure returns (uint256) {
@@ -93,7 +93,7 @@ library LibBinUtils {
 
     /// @notice Returns the floor of log base 2 of `x`.
     /// @dev Equivalent to bitLength(x) - 1. Returns 0 for x == 0 (undefined
-    ///      mathematically, but returns 0 for consistency with bitLength).
+    ///    mathematically, but returns 0 for consistency with bitLength).
     /// @param x The value to compute log2 floor of.
     /// @return The floor of log2(x), or 0 if x == 0.
     function log2floor(uint256 x) internal pure returns (uint256) {
@@ -101,14 +101,19 @@ library LibBinUtils {
         return bitLength(x) - 1;
     }
 
-    /// @notice Computes SHA-256(pos || a || b) where pos is encoded as 8 bytes big-endian.
+    /// @notice Computes SHA-256(pos || a || b) where pos is encoded as 8 bytes
+    ///    big-endian.
     /// @dev This is the node hash function for MMR proofs. The position prefix
-    ///      ensures domain separation between nodes at different positions.
+    ///    ensures domain separation between nodes at different positions.
     /// @param pos The 1-based position, encoded as uint64 big-endian.
     /// @param a First 32-byte hash input.
     /// @param b Second 32-byte hash input.
     /// @return The SHA-256 digest.
-    function hashPosPair64(uint64 pos, bytes32 a, bytes32 b) internal pure returns (bytes32) {
+    function hashPosPair64(uint64 pos, bytes32 a, bytes32 b)
+        internal
+        pure
+        returns (bytes32)
+    {
         return sha256(abi.encodePacked(pos, a, b));
     }
 }

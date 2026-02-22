@@ -16,17 +16,19 @@ contract PeaksHarness {
 /// @title PeaksTest
 /// @notice Unit tests for peaks MMR peak computation.
 /// @dev Test vectors from reference Python implementation.
-///      Complete MMR indices: [0, 2, 3, 6, 7, 9, 10, 14, 15, 17, 18, 21, 22, 24, 25, 30, 31, 33, 34, 37, 38]
+///    Complete MMR indices: [0, 2, 3, 6, 7, 9, 10, 14, 15, 17, 18, 21, 22,
+///    24, 25, 30, 31, 33,
+///    34, 37, 38]
 ///
 ///      MMR structure for reference (showing first 15 nodes):
 ///
 ///                    14
-///                 /      \
-///               6          13
-///             /   \       /   \
-///           2      5     9     12
-///          / \    / \   / \   /  \
-///         0   1  3   4 7   8 10  11
+///    /      \
+///    6          13
+///    /   \       /   \
+///    2      5     9     12
+///    / \    / \   / \   /  \
+///    0   1  3   4 7   8 10  11
 contract PeaksTest is Test {
     PeaksHarness harness;
 
@@ -34,9 +36,11 @@ contract PeaksTest is Test {
         harness = new PeaksHarness();
     }
 
-    // =========================================================================
+    // ========================================================================
+    // =
     // Test vectors for complete MMR sizes
-    // =========================================================================
+    // ========================================================================
+    // =
 
     function test_peaks_singleNode() public view {
         // MMR with 1 node (index 0)
@@ -229,9 +233,11 @@ contract PeaksTest is Test {
         assertEq(result[2], 38);
     }
 
-    // =========================================================================
+    // ========================================================================
+    // =
     // Property tests
-    // =========================================================================
+    // ========================================================================
+    // =
 
     /// @dev Peak heights should be strictly decreasing
     function test_peaks_heightsDecreasing() public view {
@@ -249,7 +255,8 @@ contract PeaksTest is Test {
         uint256[] memory p;
 
         // Test various MMR sizes
-        uint256[10] memory testIndices = [uint256(0), 2, 6, 14, 30, 7, 10, 25, 38, 62];
+        uint256[10] memory testIndices =
+            [uint256(0), 2, 6, 14, 30, 7, 10, 25, 38, 62];
 
         for (uint256 j = 0; j < testIndices.length; j++) {
             p = harness.callPeaks(testIndices[j]);
@@ -269,14 +276,17 @@ contract PeaksTest is Test {
         uint256[] memory result = harness.callPeaks(i);
 
         for (uint256 j = 0; j < result.length; j++) {
-            assertTrue(result[j] <= i, "Peak index should be within MMR bounds");
+            assertTrue(
+                result[j] <= i, "Peak index should be within MMR bounds"
+            );
         }
     }
 
     /// @dev Perfect binary tree sizes should have exactly one peak
     function test_peaks_perfectTreesHaveOnePeak() public view {
         // Perfect binary tree sizes: 2^n - 1 for n >= 1
-        // MMR indices: 0 (1 node), 2 (3 nodes), 6 (7 nodes), 14 (15 nodes), etc.
+        // MMR indices: 0 (1 node), 2 (3 nodes), 6 (7 nodes), 14 (15 nodes),
+        // etc.
         for (uint256 n = 1; n <= 8; n++) {
             uint256 treeSize = (1 << n) - 1;
             uint256[] memory p = harness.callPeaks(treeSize - 1);

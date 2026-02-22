@@ -48,7 +48,10 @@ contract LibBinUtils_log2floor_Test is Test {
         assertEq(LibBinUtils.log2floor(type(uint256).max), 255);
     }
 
-    function testFuzz_log2floor_consistentWithBitLength(uint256 x) public pure {
+    function testFuzz_log2floor_consistentWithBitLength(uint256 x)
+        public
+        pure
+    {
         vm.assume(x > 0);
         assertEq(LibBinUtils.log2floor(x), LibBinUtils.bitLength(x) - 1);
     }

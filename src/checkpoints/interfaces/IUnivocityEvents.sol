@@ -2,19 +2,17 @@
 pragma solidity ^0.8.24;
 
 /// @title IUnivocityEvents
-/// @notice Events for univocity transparency log checkpoints and R5 authorization
+/// @notice Events for univocity transparency log checkpoints and R5
+///    authorization
 interface IUnivocityEvents {
     /// @notice Contract initialized
     event Initialized(
-        address indexed bootstrapAuthority,
-        bytes32 indexed authorityLogId
+        address indexed bootstrapAuthority, bytes32 indexed authorityLogId
     );
 
     /// @notice New log registered (first checkpoint)
     event LogRegistered(
-        bytes32 indexed logId,
-        address indexed registeredBy,
-        uint64 initialSize
+        bytes32 indexed logId, address indexed registeredBy, uint64 initialSize
     );
 
     /// @notice Checkpoint published (all logs including authority)
@@ -47,8 +45,6 @@ interface IUnivocityEvents {
 
     /// @notice Authorization failed (emitted before revert for debugging)
     event AuthorizationFailed(
-        bytes32 indexed logId,
-        address indexed payer,
-        string reason
+        bytes32 indexed logId, address indexed payer, string reason
     );
 }

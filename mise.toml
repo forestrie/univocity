@@ -1,0 +1,21 @@
+# Univocity: Python, go-task, uv, slither, Foundry (forge).
+# Used by direnv in this directory only; pyenv remains active elsewhere.
+
+[tools]
+# Python for scripts and for slither (slither-analyzer is Python).
+python = "3.12"
+# go-task (binary: task) for Taskfile.dist.yml / taskfiles/slither.yml
+task = "latest"
+# uv for venv and pip (taskfile uses uv venv + uv pip install slither-analyzer)
+uv = "latest"
+# Foundry: forge, cast, anvil, chisel
+foundry = "latest"
+# Slither static analyzer (pipx install; use: slither --fail-low src or mise run slither-check)
+"pipx:slither-analyzer" = "latest"
+
+# Canonical way to run slither (uses slither.config.json in project root).
+# Local: mise run slither-check (or just slither --fail-low src with direnv).
+# CI: install mise, mise install, mise run slither-check.
+[tasks.slither-check]
+description = "Run slither on src (fail on low+); uses slither.config.json"
+run = "slither --fail-low src"

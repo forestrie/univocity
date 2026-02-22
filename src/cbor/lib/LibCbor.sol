@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.24;
 
-import {WitnetBuffer} from "witnet-solidity-bridge/contracts/libs/WitnetBuffer.sol";
+import {
+    WitnetBuffer
+} from "witnet-solidity-bridge/contracts/libs/WitnetBuffer.sol";
 
 /// @title LibCbor
 /// @notice CBOR decoding for SCITT payment receipt claims
 /// @dev Custom implementation for integer-keyed maps (CWT/COSE format)
-/// @dev Uses WitnetBuffer for safe buffer operations (audited by Trail of Bits)
+/// @dev Uses WitnetBuffer for safe buffer operations (audited by Trail of
+///    Bits)
 library LibCbor {
     using WitnetBuffer for WitnetBuffer.Buffer;
 
@@ -44,7 +47,11 @@ library LibCbor {
     /// @notice Decode all payment claims from CBOR map payload
     /// @param payload Raw CBOR-encoded map with integer keys
     /// @return claims Decoded payment claims
-    function decodePaymentClaims(bytes memory payload) internal pure returns (PaymentClaims memory claims) {
+    function decodePaymentClaims(bytes memory payload)
+        internal
+        pure
+        returns (PaymentClaims memory claims)
+    {
         WitnetBuffer.Buffer memory buf = WitnetBuffer.Buffer(payload, 0);
 
         // Read map header
@@ -80,8 +87,13 @@ library LibCbor {
     /// @notice Extract algorithm ID from CBOR protected header
     /// @param protectedHeader Serialized CBOR map (protected header)
     /// @return alg Algorithm identifier (e.g., -7 for ES256)
-    function extractAlgorithm(bytes memory protectedHeader) internal pure returns (int64 alg) {
-        WitnetBuffer.Buffer memory buf = WitnetBuffer.Buffer(protectedHeader, 0);
+    function extractAlgorithm(bytes memory protectedHeader)
+        internal
+        pure
+        returns (int64 alg)
+    {
+        WitnetBuffer.Buffer memory buf =
+            WitnetBuffer.Buffer(protectedHeader, 0);
 
         // Read map header
         uint8 initialByte = buf.readUint8();
@@ -109,12 +121,20 @@ library LibCbor {
     // ============ Internal Helpers ============
 
     /// @notice Read an integer key (handles both positive and negative)
-    function _readIntegerKey(WitnetBuffer.Buffer memory buf) private pure returns (int64) {
+    function _readIntegerKey(WitnetBuffer.Buffer memory buf)
+        private
+        pure
+        returns (int64)
+    {
         return _readInteger(buf);
     }
 
     /// @notice Read any CBOR integer (major type 0 or 1)
-    function _readInteger(WitnetBuffer.Buffer memory buf) private pure returns (int64) {
+    function _readInteger(WitnetBuffer.Buffer memory buf)
+        private
+        pure
+        returns (int64)
+    {
         uint8 initialByte = buf.readUint8();
         uint8 majorType = initialByte >> 5;
         uint8 additionalInfo = initialByte & 0x1f;
@@ -132,7 +152,11 @@ library LibCbor {
     }
 
     /// @notice Read unsigned integer
-    function _readUint(WitnetBuffer.Buffer memory buf) private pure returns (uint64) {
+    function _readUint(WitnetBuffer.Buffer memory buf)
+        private
+        pure
+        returns (uint64)
+    {
         uint8 initialByte = buf.readUint8();
         uint8 majorType = initialByte >> 5;
         if (majorType != MAJOR_TYPE_UINT) {
@@ -142,7 +166,11 @@ library LibCbor {
     }
 
     /// @notice Read byte string
-    function _readBytes(WitnetBuffer.Buffer memory buf) private pure returns (bytes memory) {
+    function _readBytes(WitnetBuffer.Buffer memory buf)
+        private
+        pure
+        returns (bytes memory)
+    {
         uint8 initialByte = buf.readUint8();
         uint8 majorType = initialByte >> 5;
         if (majorType != MAJOR_TYPE_BYTES) {
@@ -153,7 +181,11 @@ library LibCbor {
     }
 
     /// @notice Read length/value based on additional info
-    function _readLength(WitnetBuffer.Buffer memory buf, uint8 additionalInfo) private pure returns (uint64) {
+    function _readLength(WitnetBuffer.Buffer memory buf, uint8 additionalInfo)
+        private
+        pure
+        returns (uint64)
+    {
         if (additionalInfo < 24) {
             return additionalInfo;
         } else if (additionalInfo == 24) {
@@ -181,7 +213,9 @@ library LibCbor {
                 uint64 bytesToSkip = uint64(1) << (additionalInfo - 24);
                 buf.cursor += uint32(bytesToSkip);
             }
-        } else if (majorType == MAJOR_TYPE_BYTES || majorType == MAJOR_TYPE_STRING) {
+        } else if (
+            majorType == MAJOR_TYPE_BYTES || majorType == MAJOR_TYPE_STRING
+        ) {
             uint64 len = _readLength(buf, additionalInfo);
             buf.cursor += uint32(len);
         } else if (majorType == MAJOR_TYPE_ARRAY) {

@@ -8,12 +8,20 @@ import {LibBinUtils} from "@univocity/algorithms/LibBinUtils.sol";
 /// @title IncludedRootHarness
 /// @notice Harness contract to expose includedRoot for testing with calldata.
 contract IncludedRootHarness {
-    function callIncludedRoot(uint256 i, bytes32 nodeHash, bytes32[] calldata proof) external pure returns (bytes32) {
+    function callIncludedRoot(
+        uint256 i,
+        bytes32 nodeHash,
+        bytes32[] calldata proof
+    ) external pure returns (bytes32) {
         return includedRoot(i, nodeHash, proof);
     }
 
     /// @notice Wrapper that accepts memory arrays for test convenience.
-    function includedRootMem(uint256 i, bytes32 nodeHash, bytes32[] memory proof) external view returns (bytes32) {
+    function includedRootMem(
+        uint256 i,
+        bytes32 nodeHash,
+        bytes32[] memory proof
+    ) external view returns (bytes32) {
         return this.callIncludedRoot(i, nodeHash, proof);
     }
 }
@@ -21,14 +29,14 @@ contract IncludedRootHarness {
 /// @title IncludedRootTest
 /// @notice Unit tests for includedRoot MMR inclusion proof verification.
 /// @dev Test vectors generated from reference Python implementation using
-///      an MMR with 4 leaves. Structure:
+///    an MMR with 4 leaves. Structure:
 ///
 ///              H6 (root, idx=6)
-///             /              \
-///          H2 (idx=2)      H5 (idx=5)
-///         /       \       /       \
-///       H0        H1    H3        H4
-///     (idx=0)  (idx=1) (idx=3)  (idx=4)
+///    /              \
+///    H2 (idx=2)      H5 (idx=5)
+///    /       \       /       \
+///    H0        H1    H3        H4
+///    (idx=0)  (idx=1) (idx=3)  (idx=4)
 contract IncludedRootTest is Test {
     IncludedRootHarness harness;
 
@@ -36,23 +44,34 @@ contract IncludedRootTest is Test {
         harness = new IncludedRootHarness();
     }
 
-    // =========================================================================
+    // ========================================================================
+    // =
     // Test vectors - MMR with 4 leaves
     // Leaf hashes are SHA256(index as 8-byte big-endian)
     // Interior hashes are SHA256(pos || left || right) where pos = index + 1
-    // =========================================================================
+    // ========================================================================
+    // =
 
-    bytes32 constant H0 = 0xaf5570f5a1810b7af78caf4bc70a660f0df51e42baf91d4de5b2328de0e83dfc;
-    bytes32 constant H1 = 0xcd2662154e6d76b2b2b92e70c0cac3ccf534f9b74eb5b89819ec509083d00a50;
-    bytes32 constant H2 = 0xad104051c516812ea5874ca3ff06d0258303623d04307c41ec80a7a18b332ef8;
-    bytes32 constant H3 = 0xd5688a52d55a02ec4aea5ec1eadfffe1c9e0ee6a4ddbe2377f98326d42dfc975;
-    bytes32 constant H4 = 0x8005f02d43fa06e7d0585fb64c961d57e318b27a145c857bcd3a6bdb413ff7fc;
-    bytes32 constant H5 = 0x9a18d3bc0a7d505ef45f985992270914cc02b44c91ccabba448c546a4b70f0f0;
-    bytes32 constant H6_ROOT = 0x827f3213c1de0d4c6277caccc1eeca325e45dfe2c65adce1943774218db61f88;
+    bytes32 constant H0 =
+        0xaf5570f5a1810b7af78caf4bc70a660f0df51e42baf91d4de5b2328de0e83dfc;
+    bytes32 constant H1 =
+        0xcd2662154e6d76b2b2b92e70c0cac3ccf534f9b74eb5b89819ec509083d00a50;
+    bytes32 constant H2 =
+        0xad104051c516812ea5874ca3ff06d0258303623d04307c41ec80a7a18b332ef8;
+    bytes32 constant H3 =
+        0xd5688a52d55a02ec4aea5ec1eadfffe1c9e0ee6a4ddbe2377f98326d42dfc975;
+    bytes32 constant H4 =
+        0x8005f02d43fa06e7d0585fb64c961d57e318b27a145c857bcd3a6bdb413ff7fc;
+    bytes32 constant H5 =
+        0x9a18d3bc0a7d505ef45f985992270914cc02b44c91ccabba448c546a4b70f0f0;
+    bytes32 constant H6_ROOT =
+        0x827f3213c1de0d4c6277caccc1eeca325e45dfe2c65adce1943774218db61f88;
 
-    // =========================================================================
+    // ========================================================================
+    // =
     // Empty proof tests
-    // =========================================================================
+    // ========================================================================
+    // =
 
     function test_includedRoot_emptyProof_returnsNodeHash() public view {
         bytes32[] memory proof = new bytes32[](0);
@@ -66,15 +85,17 @@ contract IncludedRootTest is Test {
         assertEq(result, H6_ROOT, "Empty proof for root should return root");
     }
 
-    // =========================================================================
+    // ========================================================================
+    // =
     // Left child proofs (node is left child at first step)
-    // =========================================================================
+    // ========================================================================
+    // =
 
     /// @dev Node 0 is a left child. Proof: [H1, H5]
-    ///      Step 1: i=0, g=0, indexHeight(1)=0 (not > g), left child
-    ///              i = 0 + (2 << 0) = 2, root = H(3 || H0 || H1) = H2
-    ///      Step 2: i=2, g=1, indexHeight(3)=0 (not > g), left child
-    ///              i = 2 + (2 << 1) = 6, root = H(7 || H2 || H5) = H6
+    ///    Step 1: i=0, g=0, indexHeight(1)=0 (not > g), left child
+    ///    i = 0 + (2 << 0) = 2, root = H(3 || H0 || H1) = H2
+    ///    Step 2: i=2, g=1, indexHeight(3)=0 (not > g), left child
+    ///    i = 2 + (2 << 1) = 6, root = H(7 || H2 || H5) = H6
     function test_includedRoot_leftLeaf_node0() public view {
         bytes32[] memory proof = new bytes32[](2);
         proof[0] = H1;
@@ -85,10 +106,10 @@ contract IncludedRootTest is Test {
     }
 
     /// @dev Node 3 is a left child. Proof: [H4, H2]
-    ///      Step 1: i=3, g=0, indexHeight(4)=0 (not > g), left child
-    ///              i = 3 + (2 << 0) = 5, root = H(6 || H3 || H4) = H5
-    ///      Step 2: i=5, g=1, indexHeight(6)=2 (> g), right child
-    ///              i = 5 + 1 = 6, root = H(7 || H2 || H5) = H6
+    ///    Step 1: i=3, g=0, indexHeight(4)=0 (not > g), left child
+    ///    i = 3 + (2 << 0) = 5, root = H(6 || H3 || H4) = H5
+    ///    Step 2: i=5, g=1, indexHeight(6)=2 (> g), right child
+    ///    i = 5 + 1 = 6, root = H(7 || H2 || H5) = H6
     function test_includedRoot_leftLeaf_node3() public view {
         bytes32[] memory proof = new bytes32[](2);
         proof[0] = H4;
@@ -99,8 +120,8 @@ contract IncludedRootTest is Test {
     }
 
     /// @dev Node 2 is left interior node. Proof: [H5]
-    ///      Step 1: i=2, g=1, indexHeight(3)=0 (not > g), left child
-    ///              i = 2 + (2 << 1) = 6, root = H(7 || H2 || H5) = H6
+    ///    Step 1: i=2, g=1, indexHeight(3)=0 (not > g), left child
+    ///    i = 2 + (2 << 1) = 6, root = H(7 || H2 || H5) = H6
     function test_includedRoot_leftInterior_node2() public view {
         bytes32[] memory proof = new bytes32[](1);
         proof[0] = H5;
@@ -109,15 +130,17 @@ contract IncludedRootTest is Test {
         assertEq(result, H6_ROOT, "Proof for node 2 should produce root");
     }
 
-    // =========================================================================
+    // ========================================================================
+    // =
     // Right child proofs (node is right child at first step)
-    // =========================================================================
+    // ========================================================================
+    // =
 
     /// @dev Node 1 is a right child. Proof: [H0, H5]
-    ///      Step 1: i=1, g=0, indexHeight(2)=1 (> g), right child
-    ///              i = 1 + 1 = 2, root = H(3 || H0 || H1) = H2
-    ///      Step 2: i=2, g=1, indexHeight(3)=0 (not > g), left child
-    ///              i = 2 + (2 << 1) = 6, root = H(7 || H2 || H5) = H6
+    ///    Step 1: i=1, g=0, indexHeight(2)=1 (> g), right child
+    ///    i = 1 + 1 = 2, root = H(3 || H0 || H1) = H2
+    ///    Step 2: i=2, g=1, indexHeight(3)=0 (not > g), left child
+    ///    i = 2 + (2 << 1) = 6, root = H(7 || H2 || H5) = H6
     function test_includedRoot_rightLeaf_node1() public view {
         bytes32[] memory proof = new bytes32[](2);
         proof[0] = H0;
@@ -128,10 +151,10 @@ contract IncludedRootTest is Test {
     }
 
     /// @dev Node 4 is a right child. Proof: [H3, H2]
-    ///      Step 1: i=4, g=0, indexHeight(5)=1 (> g), right child
-    ///              i = 4 + 1 = 5, root = H(6 || H3 || H4) = H5
-    ///      Step 2: i=5, g=1, indexHeight(6)=2 (> g), right child
-    ///              i = 5 + 1 = 6, root = H(7 || H2 || H5) = H6
+    ///    Step 1: i=4, g=0, indexHeight(5)=1 (> g), right child
+    ///    i = 4 + 1 = 5, root = H(6 || H3 || H4) = H5
+    ///    Step 2: i=5, g=1, indexHeight(6)=2 (> g), right child
+    ///    i = 5 + 1 = 6, root = H(7 || H2 || H5) = H6
     function test_includedRoot_rightLeaf_node4() public view {
         bytes32[] memory proof = new bytes32[](2);
         proof[0] = H3;
@@ -142,8 +165,8 @@ contract IncludedRootTest is Test {
     }
 
     /// @dev Node 5 is right interior node. Proof: [H2]
-    ///      Step 1: i=5, g=1, indexHeight(6)=2 (> g), right child
-    ///              i = 5 + 1 = 6, root = H(7 || H2 || H5) = H6
+    ///    Step 1: i=5, g=1, indexHeight(6)=2 (> g), right child
+    ///    i = 5 + 1 = 6, root = H(7 || H2 || H5) = H6
     function test_includedRoot_rightInterior_node5() public view {
         bytes32[] memory proof = new bytes32[](1);
         proof[0] = H2;
@@ -152,9 +175,11 @@ contract IncludedRootTest is Test {
         assertEq(result, H6_ROOT, "Proof for node 5 should produce root");
     }
 
-    // =========================================================================
+    // ========================================================================
+    // =
     // Verification of hash construction
-    // =========================================================================
+    // ========================================================================
+    // =
 
     /// @dev Verify that our test vector hashes are correctly computed
     function test_verifyTestVectorHashes() public pure {
@@ -170,9 +195,11 @@ contract IncludedRootTest is Test {
         assertEq(LibBinUtils.hashPosPair64(7, H2, H5), H6_ROOT, "H6 mismatch");
     }
 
-    // =========================================================================
+    // ========================================================================
+    // =
     // Invalid proof detection
-    // =========================================================================
+    // ========================================================================
+    // =
 
     /// @dev Wrong sibling should produce different root
     function test_includedRoot_wrongSibling_differentRoot() public view {
@@ -181,7 +208,9 @@ contract IncludedRootTest is Test {
         proof[1] = H5;
 
         bytes32 result = harness.callIncludedRoot(0, H0, proof);
-        assertTrue(result != H6_ROOT, "Wrong sibling should not produce correct root");
+        assertTrue(
+            result != H6_ROOT, "Wrong sibling should not produce correct root"
+        );
     }
 
     /// @dev Wrong node hash should produce different root
@@ -192,10 +221,13 @@ contract IncludedRootTest is Test {
 
         bytes32 wrongHash = bytes32(uint256(H0) ^ 1);
         bytes32 result = harness.callIncludedRoot(0, wrongHash, proof);
-        assertTrue(result != H6_ROOT, "Wrong nodeHash should not produce correct root");
+        assertTrue(
+            result != H6_ROOT, "Wrong nodeHash should not produce correct root"
+        );
     }
 
-    /// @dev Wrong index should produce different root (or same if it happens to work out)
+    /// @dev Wrong index should produce different root (or same if it happens
+    ///    to work out)
     function test_includedRoot_wrongIndex_differentRoot() public view {
         bytes32[] memory proof = new bytes32[](2);
         proof[0] = H1;
@@ -203,12 +235,16 @@ contract IncludedRootTest is Test {
 
         // Using index 1 with H0 and proof [H1, H5] should not work
         bytes32 result = harness.callIncludedRoot(1, H0, proof);
-        assertTrue(result != H6_ROOT, "Wrong index should not produce correct root");
+        assertTrue(
+            result != H6_ROOT, "Wrong index should not produce correct root"
+        );
     }
 
-    // =========================================================================
+    // ========================================================================
+    // =
     // Edge cases
-    // =========================================================================
+    // ========================================================================
+    // =
 
     /// @dev Single node MMR (just a leaf, proof is empty)
     function test_includedRoot_singleNodeMMR() public view {
@@ -229,17 +265,27 @@ contract IncludedRootTest is Test {
         // Prove leaf 0
         bytes32[] memory proof0 = new bytes32[](1);
         proof0[0] = leaf1;
-        assertEq(harness.callIncludedRoot(0, leaf0, proof0), root, "Proof for leaf 0");
+        assertEq(
+            harness.callIncludedRoot(0, leaf0, proof0),
+            root,
+            "Proof for leaf 0"
+        );
 
         // Prove leaf 1
         bytes32[] memory proof1 = new bytes32[](1);
         proof1[0] = leaf0;
-        assertEq(harness.callIncludedRoot(1, leaf1, proof1), root, "Proof for leaf 1");
+        assertEq(
+            harness.callIncludedRoot(1, leaf1, proof1),
+            root,
+            "Proof for leaf 1"
+        );
     }
 
-    // =========================================================================
+    // ========================================================================
+    // =
     // Gas benchmarking
-    // =========================================================================
+    // ========================================================================
+    // =
 
     function test_includedRoot_gas_twoSiblingProof() public view {
         bytes32[] memory proof = new bytes32[](2);

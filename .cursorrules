@@ -1,0 +1,56 @@
+# Univocity Cursor Rules
+
+## Solidity imports
+
+**Always use explicit named imports.** Do not use wild/namespace imports.
+
+- **Do:** `import {LibCose, TypeName} from "@univocity/cose/lib/LibCose.sol";`
+- **Do:** `import {IUnivocity} from "@univocity/checkpoints/interfaces/IUnivocity.sol";`
+- **Do not:** `import "@univocity/cose/lib/LibCose.sol";`
+- **Do not:** `import "forge-std/Script.sol";` (without naming what you use)
+
+Import only the types, libraries, interfaces, constants, or functions you need by name (e.g. `{P256}`, `{WitnetBuffer}`, `{LibCbor}`, `{peaks}`). This keeps dependencies visible and avoids pulling in unused symbols.
+
+Apply this in:
+- `src/**/*.sol`
+- `script/**/*.sol`
+- `test/**/*.sol`
+
+## Comment wrapping (Solidity)
+
+**All comments in Solidity source files** (including NatSpec, block comments, and
+line comments) must follow these line-length rules:
+
+- **Soft wrap at 79 characters.** Prefer breaking at punctuation boundaries
+  (e.g. after a comma, period, or colon) so that lines stay at or under 79
+  characters where possible.
+- **Hard wrap at 100 characters.** No comment line may exceed 100 characters.
+  If a line would exceed 100 characters, put the first word that extends beyond
+  the limit on the next line (i.e. break so that the overflow word starts the
+  new line). **Never split a word** (e.g. mid-identifier or mid-token) to meet
+  the character limit; move the whole word to the next line.
+- **URLs are exempt** from the 79/100 limit only when the URL starts on or
+  before column 40 on that line. Exempt URLs may extend past 100 characters.
+  If a URL would start after column 40, break the line so the URL starts on or
+  before column 40 on the next line, then the URL may run long.
+- **Tag continuation indent:** When wrapping comments for `@param`, `@return`,
+  `@notice`, or `@dev`, continuation lines must be indented by 4 spaces
+  relative to the line that introduces the tag. So the second and subsequent
+  wrapped lines for that tag start 4 characters to the right of the content
+  on the first line.
+- **Second pass — re-join short lines:** After applying the 79-character soft
+  wrap, do a final pass over the file. Where consecutive lines (comments or
+  code) were split but the result is shorter than the 79-character target,
+  re-join them into a single line so long as the joined line stays at or
+  under 79 characters. Prefer fuller lines over unnecessarily broken ones.
+- **Very long names are exempt.** Identifiers (function names, variable names,
+  etc.) must not be split to satisfy the line limit. If the only way to stay
+  under 79 characters would be to break in the middle of a name, leave the
+  line as-is and allow it to exceed the limit for that line only.
+- **Run forge fmt last.** After all manual formatting (wrapping, second pass,
+  and any edits) is settled, run `forge fmt`. Do not manually re-wrap or
+  “fix” formatting after running forge fmt; the canonical format is whatever
+  forge fmt produces with `line_length = 79` in `foundry.toml`. Use
+  `forge fmt --check` in CI to ensure the tree stays formatted.
+
+Apply in: `src/**/*.sol`, `script/**/*.sol`, `test/**/*.sol`.

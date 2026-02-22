@@ -1,3 +1,7 @@
+[fmt]
+# Match standing formatting rules: soft 79, hard 100 for comments (.cursorrules)
+line_length = 79
+
 [lint]
 # Disable automatic linting during builds
 lint_on_build = false
