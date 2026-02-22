@@ -43,10 +43,13 @@ contract UnivocityHandler is Test {
             1,
             acc,
             receipt,
-            new bytes32[][](0),
-            0,
-            new bytes32[](0),
-            bytes8(0)
+            IUnivocity.ProofAndCoseCalldata({
+                consistencyProof: new bytes32[][](0),
+                receiptMmrIndex: 0,
+                receiptInclusionProof: new bytes32[](0),
+                receiptIdtimestampBe: bytes8(0),
+                checkpointCoseSign1: bytes("")
+            })
         );
         initialized = true;
     }
@@ -132,10 +135,13 @@ contract UnivocityHandler is Test {
             size,
             acc,
             receipt,
-            new bytes32[][](0),
-            0,
-            new bytes32[](0),
-            bytes8(0)
+            IUnivocity.ProofAndCoseCalldata({
+                consistencyProof: new bytes32[][](0),
+                receiptMmrIndex: 0,
+                receiptInclusionProof: new bytes32[](0),
+                receiptIdtimestampBe: bytes8(0),
+                checkpointCoseSign1: bytes("")
+            })
         );
 
         IUnivocity.LogState memory s = univocity.getLogState(logId);

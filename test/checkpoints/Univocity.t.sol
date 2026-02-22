@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {Univocity} from "@univocity/contracts/Univocity.sol";
 import {LibBinUtils} from "@univocity/algorithms/LibBinUtils.sol";
 import {LibCose} from "@univocity/cose/lib/LibCose.sol";
+import {IUnivocity} from "@univocity/checkpoints/interfaces/IUnivocity.sol";
 import {
     IUnivocityEvents
 } from "@univocity/checkpoints/interfaces/IUnivocityEvents.sol";
@@ -41,10 +42,9 @@ contract UnivocityTest is Test, IUnivocityEvents {
             1,
             acc,
             receipt,
-            new bytes32[][](0),
-            0,
-            new bytes32[](0),
-            IDTIMESTAMP_AUTH
+            _proofAndCose(
+                new bytes32[][](0), 0, new bytes32[](0), IDTIMESTAMP_AUTH
+            )
         );
 
         // Second checkpoint to authority: add TEST_LOG receipt at index 1
@@ -64,14 +64,44 @@ contract UnivocityTest is Test, IUnivocityEvents {
             2,
             accSize2,
             receipt,
-            consistencyProof,
-            0,
-            new bytes32[](0),
-            IDTIMESTAMP_AUTH
+            _proofAndCose(
+                consistencyProof, 0, new bytes32[](0), IDTIMESTAMP_AUTH
+            )
         );
     }
 
     bytes internal testLogReceipt;
+
+    function _proofAndCose(
+        bytes32[][] memory consistencyProof,
+        uint64 receiptMmrIndex,
+        bytes32[] memory receiptInclusionProof,
+        bytes8 receiptIdtimestampBe
+    ) internal pure returns (IUnivocity.ProofAndCoseCalldata memory) {
+        return _proofAndCose(
+            consistencyProof,
+            receiptMmrIndex,
+            receiptInclusionProof,
+            receiptIdtimestampBe,
+            bytes("")
+        );
+    }
+
+    function _proofAndCose(
+        bytes32[][] memory consistencyProof,
+        uint64 receiptMmrIndex,
+        bytes32[] memory receiptInclusionProof,
+        bytes8 receiptIdtimestampBe,
+        bytes memory checkpointCoseSign1
+    ) internal pure returns (IUnivocity.ProofAndCoseCalldata memory) {
+        return IUnivocity.ProofAndCoseCalldata({
+            consistencyProof: consistencyProof,
+            receiptMmrIndex: receiptMmrIndex,
+            receiptInclusionProof: receiptInclusionProof,
+            receiptIdtimestampBe: receiptIdtimestampBe,
+            checkpointCoseSign1: checkpointCoseSign1
+        });
+    }
 
     /// @notice Build a bootstrap receipt and accumulator;
     ///    leaf = H(receiptIdtimestampBe ‖ sha256(receipt)) per ADR-0030.
@@ -180,10 +210,9 @@ contract UnivocityTest is Test, IUnivocityEvents {
             0,
             new bytes32[](0),
             receipt,
-            new bytes32[][](0),
-            0,
-            new bytes32[](0),
-            IDTIMESTAMP_AUTH
+            _proofAndCose(
+                new bytes32[][](0), 0, new bytes32[](0), IDTIMESTAMP_AUTH
+            )
         );
     }
 
@@ -200,10 +229,9 @@ contract UnivocityTest is Test, IUnivocityEvents {
             1,
             acc,
             receipt,
-            new bytes32[][](0),
-            1,
-            new bytes32[](0),
-            IDTIMESTAMP_AUTH
+            _proofAndCose(
+                new bytes32[][](0), 1, new bytes32[](0), IDTIMESTAMP_AUTH
+            )
         );
     }
 
@@ -224,10 +252,9 @@ contract UnivocityTest is Test, IUnivocityEvents {
             1,
             acc,
             receipt,
-            new bytes32[][](0),
-            0,
-            proof,
-            IDTIMESTAMP_AUTH
+            _proofAndCose(
+                new bytes32[][](0), 0, proof, IDTIMESTAMP_AUTH
+            )
         );
     }
 
@@ -248,10 +275,9 @@ contract UnivocityTest is Test, IUnivocityEvents {
             1,
             acc,
             "",
-            new bytes32[][](0),
-            0,
-            new bytes32[](0),
-            IDTIMESTAMP_AUTH
+            _proofAndCose(
+                new bytes32[][](0), 0, new bytes32[](0), IDTIMESTAMP_AUTH
+            )
         );
     }
 
@@ -278,10 +304,9 @@ contract UnivocityTest is Test, IUnivocityEvents {
             1,
             acc,
             receipt,
-            new bytes32[][](0),
-            0,
-            new bytes32[](0),
-            IDTIMESTAMP_AUTH
+            _proofAndCose(
+                new bytes32[][](0), 0, new bytes32[](0), IDTIMESTAMP_AUTH
+            )
         );
     }
 
@@ -302,10 +327,9 @@ contract UnivocityTest is Test, IUnivocityEvents {
             1,
             wrongAcc,
             receipt,
-            new bytes32[][](0),
-            0,
-            new bytes32[](0),
-            IDTIMESTAMP_AUTH
+            _proofAndCose(
+                new bytes32[][](0), 0, new bytes32[](0), IDTIMESTAMP_AUTH
+            )
         );
     }
 
@@ -323,10 +347,9 @@ contract UnivocityTest is Test, IUnivocityEvents {
             1,
             acc,
             receipt,
-            new bytes32[][](0),
-            0,
-            new bytes32[](0),
-            IDTIMESTAMP_AUTH
+            _proofAndCose(
+                new bytes32[][](0), 0, new bytes32[](0), IDTIMESTAMP_AUTH
+            )
         );
 
         assertEq(fresh.authorityLogId(), AUTHORITY_LOG_ID);
@@ -355,10 +378,9 @@ contract UnivocityTest is Test, IUnivocityEvents {
             2,
             accSize2,
             receipt,
-            new bytes32[][](0),
-            0,
-            inclusionProof,
-            IDTIMESTAMP_AUTH
+            _proofAndCose(
+                new bytes32[][](0), 0, inclusionProof, IDTIMESTAMP_AUTH
+            )
         );
         assertEq(fresh.authorityLogId(), AUTHORITY_LOG_ID);
         assertEq(fresh.getLogState(AUTHORITY_LOG_ID).size, 2);
@@ -388,10 +410,9 @@ contract UnivocityTest is Test, IUnivocityEvents {
             3,
             accumulator,
             receipt,
-            proofs,
-            0,
-            new bytes32[](0),
-            IDTIMESTAMP_AUTH
+            _proofAndCose(
+                proofs, 0, new bytes32[](0), IDTIMESTAMP_AUTH
+            )
         );
         assertEq(univocity.getLogState(AUTHORITY_LOG_ID).size, 3);
     }
@@ -412,10 +433,9 @@ contract UnivocityTest is Test, IUnivocityEvents {
             1,
             acc,
             receipt,
-            new bytes32[][](0),
-            0,
-            new bytes32[](0),
-            IDTIMESTAMP_AUTH
+            _proofAndCose(
+                new bytes32[][](0), 0, new bytes32[](0), IDTIMESTAMP_AUTH
+            )
         );
         bytes32[] memory stored =
         fresh.getLogState(AUTHORITY_LOG_ID).accumulator;
@@ -451,10 +471,9 @@ contract UnivocityTest is Test, IUnivocityEvents {
             3,
             accumulator,
             receipt,
-            proofs,
-            0,
-            new bytes32[](0),
-            IDTIMESTAMP_AUTH
+            _proofAndCose(
+                proofs, 0, new bytes32[](0), IDTIMESTAMP_AUTH
+            )
         );
 
         assertTrue(univocity.isLogInitialized(AUTHORITY_LOG_ID));
@@ -470,10 +489,9 @@ contract UnivocityTest is Test, IUnivocityEvents {
             1,
             accumulator,
             testLogReceipt,
-            new bytes32[][](0),
-            1,
-            new bytes32[](0),
-            IDTIMESTAMP_TEST
+            _proofAndCose(
+                new bytes32[][](0), 1, new bytes32[](0), IDTIMESTAMP_TEST
+            )
         );
 
         assertTrue(univocity.isLogInitialized(TEST_LOG_ID));
@@ -491,10 +509,9 @@ contract UnivocityTest is Test, IUnivocityEvents {
             1,
             accumulator,
             testLogReceipt,
-            new bytes32[][](0),
-            1,
-            new bytes32[](0),
-            IDTIMESTAMP_TEST
+            _proofAndCose(
+                new bytes32[][](0), 1, new bytes32[](0), IDTIMESTAMP_TEST
+            )
         );
     }
 
@@ -512,10 +529,9 @@ contract UnivocityTest is Test, IUnivocityEvents {
             1,
             accumulator,
             testLogReceipt,
-            new bytes32[][](0),
-            1,
-            new bytes32[](0),
-            IDTIMESTAMP_TEST
+            _proofAndCose(
+                new bytes32[][](0), 1, new bytes32[](0), IDTIMESTAMP_TEST
+            )
         );
     }
 
@@ -531,10 +547,9 @@ contract UnivocityTest is Test, IUnivocityEvents {
             1,
             accumulator,
             testLogReceipt,
-            new bytes32[][](0),
-            1,
-            new bytes32[](0),
-            IDTIMESTAMP_TEST
+            _proofAndCose(
+                new bytes32[][](0), 1, new bytes32[](0), IDTIMESTAMP_TEST
+            )
         );
 
         assertEq(univocity.getLogState(TEST_LOG_ID).checkpointCount, 1);
@@ -556,10 +571,9 @@ contract UnivocityTest is Test, IUnivocityEvents {
             3,
             accumulator2,
             testLogReceipt,
-            proofs,
-            1,
-            new bytes32[](0),
-            IDTIMESTAMP_TEST
+            _proofAndCose(
+                proofs, 1, new bytes32[](0), IDTIMESTAMP_TEST
+            )
         );
 
         assertEq(univocity.getLogState(TEST_LOG_ID).checkpointCount, 2);
@@ -577,10 +591,9 @@ contract UnivocityTest is Test, IUnivocityEvents {
             3,
             accumulator,
             testLogReceipt,
-            new bytes32[][](0),
-            1,
-            new bytes32[](0),
-            IDTIMESTAMP_TEST
+            _proofAndCose(
+                new bytes32[][](0), 1, new bytes32[](0), IDTIMESTAMP_TEST
+            )
         );
 
         // size=2 has 2 peaks; try to publish smaller size
@@ -598,10 +611,9 @@ contract UnivocityTest is Test, IUnivocityEvents {
             2,
             accumulator2,
             testLogReceipt,
-            new bytes32[][](0),
-            1,
-            new bytes32[](0),
-            IDTIMESTAMP_TEST
+            _proofAndCose(
+                new bytes32[][](0), 1, new bytes32[](0), IDTIMESTAMP_TEST
+            )
         );
     }
 
@@ -623,10 +635,9 @@ contract UnivocityTest is Test, IUnivocityEvents {
             3,
             wrongAccumulator,
             testLogReceipt,
-            new bytes32[][](0),
-            1,
-            new bytes32[](0),
-            IDTIMESTAMP_TEST
+            _proofAndCose(
+                new bytes32[][](0), 1, new bytes32[](0), IDTIMESTAMP_TEST
+            )
         );
     }
 
@@ -640,10 +651,9 @@ contract UnivocityTest is Test, IUnivocityEvents {
             1,
             acc1,
             testLogReceipt,
-            new bytes32[][](0),
-            1,
-            new bytes32[](0),
-            IDTIMESTAMP_TEST
+            _proofAndCose(
+                new bytes32[][](0), 1, new bytes32[](0), IDTIMESTAMP_TEST
+            )
         );
 
         // Second checkpoint size=3 (1 peak) with wrong proof (wrong sibling
@@ -663,10 +673,9 @@ contract UnivocityTest is Test, IUnivocityEvents {
             3,
             acc2,
             testLogReceipt,
-            wrongProofs,
-            1,
-            new bytes32[](0),
-            IDTIMESTAMP_TEST
+            _proofAndCose(
+                wrongProofs, 1, new bytes32[](0), IDTIMESTAMP_TEST
+            )
         );
     }
 
@@ -689,10 +698,9 @@ contract UnivocityTest is Test, IUnivocityEvents {
             3,
             accumulator,
             "",
-            proofs,
-            0,
-            new bytes32[](0),
-            IDTIMESTAMP_AUTH
+            _proofAndCose(
+                proofs, 0, new bytes32[](0), IDTIMESTAMP_AUTH
+            )
         );
     }
 
@@ -710,10 +718,9 @@ contract UnivocityTest is Test, IUnivocityEvents {
             1,
             accumulator,
             "",
-            new bytes32[][](0),
-            0,
-            new bytes32[](0),
-            IDTIMESTAMP_TEST
+            _proofAndCose(
+                new bytes32[][](0), 0, new bytes32[](0), IDTIMESTAMP_TEST
+            )
         );
     }
 
@@ -735,10 +742,9 @@ contract UnivocityTest is Test, IUnivocityEvents {
             1,
             acc1,
             bootstrapReceipt,
-            new bytes32[][](0),
-            0,
-            new bytes32[](0),
-            IDTIMESTAMP_AUTH
+            _proofAndCose(
+                new bytes32[][](0), 0, new bytes32[](0), IDTIMESTAMP_AUTH
+            )
         );
 
         (bytes memory receiptEnd1,,) = _buildBootstrapReceiptAndAccWithBounds(
@@ -759,10 +765,9 @@ contract UnivocityTest is Test, IUnivocityEvents {
             2,
             acc2,
             bootstrapReceipt,
-            consistencyProof,
-            0,
-            new bytes32[](0),
-            IDTIMESTAMP_AUTH
+            _proofAndCose(
+                consistencyProof, 0, new bytes32[](0), IDTIMESTAMP_AUTH
+            )
         );
 
         bytes32[] memory targetAcc = new bytes32[](1);
@@ -773,10 +778,9 @@ contract UnivocityTest is Test, IUnivocityEvents {
             1,
             targetAcc,
             receiptEnd1,
-            new bytes32[][](0),
-            1,
-            new bytes32[](0),
-            IDTIMESTAMP_TEST
+            _proofAndCose(
+                new bytes32[][](0), 1, new bytes32[](0), IDTIMESTAMP_TEST
+            )
         );
         assertEq(fresh.getLogState(logId).checkpointCount, 1);
 
@@ -799,10 +803,9 @@ contract UnivocityTest is Test, IUnivocityEvents {
             3,
             accSize3,
             receiptEnd1,
-            proofs,
-            1,
-            new bytes32[](0),
-            IDTIMESTAMP_TEST
+            _proofAndCose(
+                proofs, 1, new bytes32[](0), IDTIMESTAMP_TEST
+            )
         );
     }
 
@@ -833,10 +836,9 @@ contract UnivocityTest is Test, IUnivocityEvents {
             2,
             accSize2,
             receipt,
-            consistencyProof,
-            1,
-            new bytes32[](0),
-            IDTIMESTAMP_TEST
+            _proofAndCose(
+                consistencyProof, 1, new bytes32[](0), IDTIMESTAMP_TEST
+            )
         );
     }
 
@@ -864,10 +866,9 @@ contract UnivocityTest is Test, IUnivocityEvents {
             1,
             accumulator,
             receipt,
-            new bytes32[][](0),
-            1,
-            new bytes32[](0),
-            IDTIMESTAMP_TEST
+            _proofAndCose(
+                new bytes32[][](0), 1, new bytes32[](0), IDTIMESTAMP_TEST
+            )
         );
     }
 
@@ -882,10 +883,9 @@ contract UnivocityTest is Test, IUnivocityEvents {
             1,
             accumulator,
             testLogReceipt,
-            new bytes32[][](0),
-            1,
-            new bytes32[](0),
-            IDTIMESTAMP_TEST
+            _proofAndCose(
+                new bytes32[][](0), 1, new bytes32[](0), IDTIMESTAMP_TEST
+            )
         );
 
         Univocity.LogState memory state = univocity.getLogState(TEST_LOG_ID);
@@ -968,10 +968,9 @@ contract UnivocityTest is Test, IUnivocityEvents {
             1,
             acc,
             receipt,
-            new bytes32[][](0),
-            0,
-            new bytes32[](0),
-            idtimestampBe
+            _proofAndCose(
+                new bytes32[][](0), 0, new bytes32[](0), idtimestampBe
+            )
         );
 
         assertEq(es256Univocity.authorityLogId(), AUTHORITY_LOG_ID);
@@ -1048,10 +1047,9 @@ contract UnivocityTest is Test, IUnivocityEvents {
             1,
             acc1,
             receipt0,
-            new bytes32[][](0),
-            0,
-            new bytes32[](0),
-            bytes8(0)
+            _proofAndCose(
+                new bytes32[][](0), 0, new bytes32[](0), bytes8(0)
+            )
         );
         assertEq(fresh.authorityLogId(), AUTHORITY_LOG_ID);
 
@@ -1070,10 +1068,9 @@ contract UnivocityTest is Test, IUnivocityEvents {
             2,
             acc2,
             receipt0,
-            consistencyProof,
-            0,
-            new bytes32[](0),
-            bytes8(0)
+            _proofAndCose(
+                consistencyProof, 0, new bytes32[](0), bytes8(0)
+            )
         );
 
         bytes32[] memory targetAcc = new bytes32[](1);
@@ -1083,10 +1080,9 @@ contract UnivocityTest is Test, IUnivocityEvents {
             1,
             targetAcc,
             receipt1,
-            new bytes32[][](0),
-            1,
-            new bytes32[](0),
-            bytes8(uint64(1))
+            _proofAndCose(
+                new bytes32[][](0), 1, new bytes32[](0), bytes8(uint64(1))
+            )
         );
         assertEq(fresh.getLogState(logId).checkpointCount, 1);
     }

@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {Test} from "forge-std/Test.sol";
 import {Univocity} from "@univocity/contracts/Univocity.sol";
 import {LibCose} from "@univocity/cose/lib/LibCose.sol";
+import {IUnivocity} from "@univocity/checkpoints/interfaces/IUnivocity.sol";
 import {
     IUnivocityEvents
 } from "@univocity/checkpoints/interfaces/IUnivocityEvents.sol";
@@ -53,10 +54,9 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
             1,
             authorityAcc,
             receipt,
-            new bytes32[][](0),
-            0,
-            inclusionProofPath,
-            IDTIMESTAMP_0
+            _proofAndCose(
+                new bytes32[][](0), 0, inclusionProofPath, IDTIMESTAMP_0
+            )
         );
 
         assertEq(fresh.authorityLogId(), authorityLogId);
@@ -72,6 +72,21 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
 
     bytes8 internal constant IDTIMESTAMP_0 = bytes8(0);
     bytes8 internal constant IDTIMESTAMP_1 = bytes8(uint64(1));
+
+    function _proofAndCose(
+        bytes32[][] memory consistencyProof,
+        uint64 receiptMmrIndex,
+        bytes32[] memory receiptInclusionProof,
+        bytes8 receiptIdtimestampBe
+    ) internal pure returns (IUnivocity.ProofAndCoseCalldata memory) {
+        return IUnivocity.ProofAndCoseCalldata({
+            consistencyProof: consistencyProof,
+            receiptMmrIndex: receiptMmrIndex,
+            receiptInclusionProof: receiptInclusionProof,
+            receiptIdtimestampBe: receiptIdtimestampBe,
+            checkpointCoseSign1: bytes("")
+        });
+    }
 
     /// @notice Build a minimal KS256-signed receipt and authority state;
     ///    leaf = H(idtimestampBe ‖
@@ -160,10 +175,9 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
             1,
             authorityAcc,
             authorityReceipt,
-            new bytes32[][](0),
-            0,
-            authInclusionPath,
-            IDTIMESTAMP_0
+            _proofAndCose(
+                new bytes32[][](0), 0, authInclusionPath, IDTIMESTAMP_0
+            )
         );
 
         // Second checkpoint to authority log:
@@ -186,10 +200,9 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
             2,
             accSize2,
             authorityReceipt,
-            consistencyProof,
-            0,
-            new bytes32[](0),
-            IDTIMESTAMP_0
+            _proofAndCose(
+                consistencyProof, 0, new bytes32[](0), IDTIMESTAMP_0
+            )
         );
 
         // User checkpoint: receipt for TARGET_LOG at index 1 (peak;
@@ -203,10 +216,9 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
             1,
             targetAcc,
             targetReceipt,
-            new bytes32[][](0),
-            1,
-            new bytes32[](0),
-            IDTIMESTAMP_1
+            _proofAndCose(
+                new bytes32[][](0), 1, new bytes32[](0), IDTIMESTAMP_1
+            )
         );
 
         assertTrue(univocity.isLogInitialized(TARGET_LOG));
@@ -228,10 +240,9 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
             1,
             authorityAcc,
             authorityReceipt,
-            new bytes32[][](0),
-            0,
-            authInclusionPath,
-            IDTIMESTAMP_0
+            _proofAndCose(
+                new bytes32[][](0), 0, authInclusionPath, IDTIMESTAMP_0
+            )
         );
 
         // Second checkpoint to authority:
@@ -252,10 +263,9 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
             2,
             accSize2,
             authorityReceipt,
-            consistencyProof,
-            0,
-            new bytes32[](0),
-            IDTIMESTAMP_0
+            _proofAndCose(
+                consistencyProof, 0, new bytes32[](0), IDTIMESTAMP_0
+            )
         );
 
         // First checkpoint (known vector from consistentRoots_0_to_2);
@@ -270,10 +280,9 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
             1,
             acc1,
             receipt,
-            new bytes32[][](0),
-            1,
-            new bytes32[](0),
-            IDTIMESTAMP_1
+            _proofAndCose(
+                new bytes32[][](0), 1, new bytes32[](0), IDTIMESTAMP_1
+            )
         );
 
         // Second checkpoint size=3 (1 peak; peaks(2).
@@ -293,10 +302,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
             3,
             acc2,
             receipt,
-            proofs,
-            1,
-            new bytes32[](0),
-            IDTIMESTAMP_1
+            _proofAndCose(proofs, 1, new bytes32[](0), IDTIMESTAMP_1)
         );
 
         assertEq(univocity.getLogState(TARGET_LOG).checkpointCount, 2);
