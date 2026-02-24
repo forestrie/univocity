@@ -1049,3 +1049,177 @@ COSE Receipt of Consistency and verifies its signature in all cases.
   fuzz/invariants where appropriate.
 - [ ] NatSpec and errors document the new behaviour; ADR-0032 and ARC-0010
   referenced.
+
+## Appendix B: Implementation review, gaps, and test coverage
+
+**Status:** Reflects code and tests as of 2026-02-22. This appendix reviews the
+Univocity codebase against this plan, related plans (0014, 0015), ADRs
+(0030, 0032), and ARCs (0008, 0010); summarizes remaining gaps and
+divergences; and assesses test coverage.
+
+### B.1 Reference documents
+
+| Document | Role |
+|----------|------|
+| **This plan (0013)** | Phases 1–5 (per-log root, COSE/CBOR, delegation verify, binding +
+  checkpoint sig, integration); Phase 6 ES256K optional; §3 delegation
+  root-key enforcement. |
+| **ADR-0032** | Option 2: contract verifies checkpoint COSE_Sign1 and delegation
+  chain; binding of (size, accumulator) to signed payload. |
+| **ADR-0030** | Leaf = H(idtimestamp ‖ H(receipt/grant)); compatibility with
+  Forestrie ledger. |
+| **ARC-0008** | Delegation architecture: root → delegation cert → delegated
+  key → checkpoint. |
+| **ARC-0010** | COSE/CBOR profiles: delegation cert payload (keys 1–5, 11),
+  checkpoint payload (log_id, massif_id, mmr_size, mmr_root, mmr_index). |
+| **Plan 0014** | Consistency receipt as single COSE parameter; calldata. |
+| **Plan 0015** | publishCheckpoint API: payment receipt as Receipt of
+  Inclusion; PaymentGrant; leaf commitment formula. |
+
+### B.2 Implemented behaviour (summary)
+
+**API (plan 0015):** `publishCheckpoint(consistencyReceipt, paymentReceipt,
+paymentIDTimestampBe, paymentGrant)` is implemented. There is **no** separate
+`checkpointCoseSign1` parameter. The consistency receipt carries optional
+delegation cert bytes in unprotected label 1000.
+
+**Consistency receipt (plan 0014, Appendix A):** Decode COSE Receipt of
+Consistency via LibCoseReceipt; extract consistency-proof list and optional
+delegation cert. LibConsistencyReceipt runs the consistency proof chain
+(consistentRoots / consistentRootsMemory), yields (size, accumulator). Build
+detached payload commitment; verify **consistency receipt** signature with
+bootstrap keys or, when delegation cert is present, with the delegated key
+from LibDelegationVerifier. Root is established from the first checkpoint
+when delegation is present (recover or included key per §3).
+
+**Delegation (plan 0013 Phase 2–3):** LibDelegationVerifier decodes
+delegation cert (LibCose.decodeDelegationCert), enforces signature length
+64/65, recovery id (1001 or 65-byte sig), optional root in header 1002 or
+payload key 11, and valid-combinations table (§3). Validates scope (logId,
+mmrIndex in [mmr_start, mmr_end]); returns root key and delegated key. The
+**delegated key is used to verify the consistency receipt signature**, not a
+separate checkpoint COSE_Sign1.
+
+**Per-log root (Phase 1):** LogState has rootKeyX, rootKeyY; getLogRootKey
+(logId); root set when first checkpoint includes delegation and
+LibDelegationVerifier returns root.
+
+**Payment and first-checkpoint (plan 0015, ADR-0030):** Leaf commitment =
+SHA256(paymentIDTimestampBe ‖ SHA256(grant)). First checkpoint: verify
+inclusion of that leaf in the new accumulator via verifyInclusion (no
+paymentReceipt). Delegated (non-authority) logs: paymentReceipt required;
+LibInclusionReceipt.verifyReceiptOfInclusion verifies RoI and inclusion in
+authority log.
+
+**Algorithms:** verifyInclusion, peakIndexForInclusionProof, includedRoot,
+consistentRoots, consistentRootsMemory, peaks — implemented and used.
+
+### B.3 Gaps and divergences
+
+**1. No checkpoint COSE_Sign1 or checkpoint payload binding (plan Phase 4)**
+
+The plan and ADR-0032 Option 2 assume a **checkpoint** COSE_Sign1 (signed by
+the delegated key, payload with log_id, massif_id, mmr_size, mmr_root,
+mmr_index) and **binding** of the **submitted** (size, accumulator) to that
+payload (e.g. payload.mmrSize == size, accumulator matches payload or
+derived commitment).
+
+**Implementation:** There is no checkpoint COSE_Sign1 parameter. Size and
+accumulator are derived **only** from the consistency proof chain. The
+signed artifact that binds to the new accumulator is the **consistency
+receipt** (detached payload = commitment to that accumulator); the
+consistency receipt is verified with the delegated key when delegation cert
+is present. So the trust model is: “consistency receipt signed by delegated
+key commits to (size, accumulator); we derive (size, accumulator) from the
+receipt’s consistency proofs.” There is no second, separate “checkpoint”
+signature over a checkpoint payload.
+
+**Gap:** Phase 4 tasks 4.1 (binding checks: mmrSize == size, accumulator
+match) and 4.2 (verify **checkpoint** signature with delegated key) are not
+implemented. Phase 2 tasks 2.4 (CheckpointPayload decode) and 2.5 (checkpoint
+COSE_Sign1 decode) are not implemented. Acceptance criteria that require
+“checkpoint COSE_Sign1”, “CheckpointPayloadSizeMismatch”,
+“CheckpointAccumulatorMismatch”, “CheckpointSignatureInvalid” are **not**
+met.
+
+**Divergence:** The implemented design deliberately uses the consistency
+receipt as the single signed commitment to the new state; delegation cert
+identifies the key that must sign that receipt. This achieves binding of
+(size, accumulator) to the signer without a separate checkpoint COSE
+artifact. If the plan is to be followed literally (separate checkpoint
+COSE + binding), a follow-up phase would add checkpoint COSE decode,
+payload binding, and checkpoint signature verification.
+
+**2. Delegation cert enforcement (§3) — implemented but under-tested**
+
+LibDelegationVerifier implements the §3 valid/invalid combinations (signature
+length, recovery id, included root key, duplicate recovery, duplicate root
+key, recovered vs included key mismatch). Reverts: InvalidDelegationSignatureLength,
+InvalidRecoveryId, RecoveryIdDuplicate, RecoveredKeyMismatchIncludedKey,
+DuplicateRootKeyInDelegation, MissingRootKeyForRecovery, DelegationLogIdMismatch,
+CheckpointIndexOutOfDelegationRange, DelegationSignatureInvalid. There are
+**no** dedicated unit or integration tests that exercise the delegation
+cert path (consistency receipt with unprotected 1000) or that trigger these
+reverts. ES256 first-checkpoint test uses bootstrap keys only, not delegation.
+
+**3. ES256K (Phase 6)**  
+Not implemented. Only ES256 is supported for delegation.
+
+**4. Single consistency-proof blob (Appendix A)**  
+The API passes a full COSE Receipt of Consistency, not a raw
+consistency-proof CBOR blob. Appendix A describes feasibility of a
+single-blob parameter; the current implementation uses the signed receipt
+form.
+
+### B.4 Alignment with ADR-0030 and plan 0015
+
+- **Leaf formula (ADR-0030 / plan 0015):** Implemented: inner =
+  SHA256(logId‖payer‖checkpointStart‖checkpointEnd‖maxHeight‖minGrowth);
+  leafCommitment = SHA256(paymentIDTimestampBe ‖ inner). Used for first-checkpoint
+  inclusion and for payment receipt RoI.
+- **Payment receipt as RoI:** Implemented via LibInclusionReceipt; authority
+  log accumulator and size used for inclusion check.
+- **PaymentGrant struct and bounds:** Implemented; checkpoint range,
+  maxHeight, minGrowth enforced.
+
+### B.5 Test coverage assessment
+
+**Algorithms (unit):** Strong. peaks.t.sol (many sizes, heights, perfect
+trees); includedRoot.t.sol (verifyInclusion, includedRoot, wrong sibling/
+index/hash); consistentRoots.t.sol (multiple from/to sizes, reverts);
+LibBinUtils (log2floor, hashPosPair64, indexHeight, bitLength, mostSigBit,
+allOnes) each with dedicated test files; fuzz where appropriate.
+
+**COSE/CBOR (unit):** LibCose.t.sol: buildSigStructure, decodeCoseSign1,
+verifySignature (KS256). LibCbor.t.sol: extractAlgorithm, decodePaymentClaims.
+No dedicated unit tests for LibConsistencyReceipt, LibInclusionReceipt, or
+LibDelegationVerifier; they are exercised only through Univocity and
+CheckpointFlow integration tests.
+
+**Univocity (integration):** Broad. First checkpoint (size zero revert,
+receipt empty, wrong log, inclusion failure, size-two, non-bootstrap sender,
+ADR-0030 leaf formula); authority log (bootstrap-only second checkpoint,
+bootstrap can publish to any log); receipt and bounds (checkpoint count,
+maxHeight, minGrowth, grant range); consistency (invalid proof revert);
+invalid COSE revert; ES256 first-checkpoint (bootstrap keys, no delegation);
+getLogState, isLogInitialized; error-coverage matrix for reachable errors.
+**Missing:** Tests that pass a consistency receipt **with** delegation cert
+(unprotected 1000) and verify root storage and subsequent use of stored
+root; tests that trigger delegation-specific reverts (InvalidRecoveryId,
+RecoveryIdDuplicate, RecoveredKeyMismatchIncludedKey, etc.).
+
+**Integration (CheckpointFlow):** Bootstrap init and publish; user
+checkpoints with receipt; same receipt different submitters. No
+delegation or payment RoI failure paths in this file.
+
+**Invariants:** Univocity.invariants.sol — checkpoint count monotonic, size
+monotonic; handler uses bootstrap-only with valid accumulators. No
+invariants that involve delegation or payment receipt.
+
+**Summary:** Algorithm and core contract paths are well covered. Delegation
+cert path (presence of delegation, root establishment, §3 enforcement
+reverts) and LibConsistencyReceipt / LibInclusionReceipt as standalone
+libraries lack dedicated tests. Adding integration tests for consistency
+receipts with delegation (happy path + invalid recovery id, duplicate root
+key, log id mismatch, index out of range) would close the main coverage
+gaps relative to this plan.
