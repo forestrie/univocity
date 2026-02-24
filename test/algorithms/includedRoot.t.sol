@@ -9,14 +9,29 @@ import {
 import {LibBinUtils} from "@univocity/algorithms/LibBinUtils.sol";
 
 /// @title IncludedRootHarness
-/// @notice Harness contract to expose includedRoot for testing (memory).
+/// @notice Harness contract to expose includedRoot for testing (calldata).
 contract IncludedRootHarness {
     function callIncludedRoot(
         uint256 i,
         bytes32 nodeHash,
-        bytes32[] memory proof
+        bytes32[] calldata proof
     ) external pure returns (bytes32) {
         return includedRoot(i, nodeHash, proof);
+    }
+}
+
+/// @notice Harness to call verifyInclusion (proof as calldata).
+contract VerifyInclusionHarness {
+    function callVerifyInclusion(
+        uint256 leafIndex,
+        bytes32 nodeHash,
+        bytes32[] calldata proof,
+        bytes32[] memory accumulator,
+        uint256 mmrSize
+    ) external pure returns (bool) {
+        return verifyInclusion(
+            leafIndex, nodeHash, proof, accumulator, mmrSize
+        );
     }
 }
 
@@ -33,9 +48,11 @@ contract IncludedRootHarness {
 ///    (idx=0)  (idx=1) (idx=3)  (idx=4)
 contract IncludedRootTest is Test {
     IncludedRootHarness harness;
+    VerifyInclusionHarness verifyHarness;
 
     function setUp() public {
         harness = new IncludedRootHarness();
+        verifyHarness = new VerifyInclusionHarness();
     }
 
     // ========================================================================
@@ -304,28 +321,36 @@ contract IncludedRootTest is Test {
     // =
 
     /// @notice Empty proof: leaf is the only node, root = leafHash.
-    function test_verifyInclusion_emptyProof_singlePeak() public pure {
+    function test_verifyInclusion_emptyProof_singlePeak() public view {
         bytes32 receiptHash = sha256("receipt");
         bytes32[] memory proof;
         bytes32[] memory accumulator = new bytes32[](1);
         accumulator[0] = receiptHash;
 
-        assertTrue(verifyInclusion(0, receiptHash, proof, accumulator, 1));
+        assertTrue(
+            verifyHarness.callVerifyInclusion(
+                0, receiptHash, proof, accumulator, 1
+            )
+        );
     }
 
     /// @notice Wrong node hash does not match peak.
-    function test_verifyInclusion_wrongHash_fails() public pure {
+    function test_verifyInclusion_wrongHash_fails() public view {
         bytes32 receiptHash = sha256("receipt");
         bytes32 wrongHash = sha256("wrong");
         bytes32[] memory proof;
         bytes32[] memory accumulator = new bytes32[](1);
         accumulator[0] = receiptHash;
 
-        assertFalse(verifyInclusion(0, wrongHash, proof, accumulator, 1));
+        assertFalse(
+            verifyHarness.callVerifyInclusion(
+                0, wrongHash, proof, accumulator, 1
+            )
+        );
     }
 
     /// @notice ADR-0030 leaf formula: H(idtimestampBe ‖ sha256(receipt)).
-    function test_verifyInclusion_idtimestampLeafFormula() public pure {
+    function test_verifyInclusion_idtimestampLeafFormula() public view {
         bytes memory receipt = hex"deadbeef";
         bytes8 idtimestampBe = bytes8(uint64(1));
         bytes32 leafHash =
@@ -334,6 +359,10 @@ contract IncludedRootTest is Test {
         bytes32[] memory accumulator = new bytes32[](1);
         accumulator[0] = leafHash;
 
-        assertTrue(verifyInclusion(0, leafHash, proof, accumulator, 1));
+        assertTrue(
+            verifyHarness.callVerifyInclusion(
+                0, leafHash, proof, accumulator, 1
+            )
+        );
     }
 }

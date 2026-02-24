@@ -1111,7 +1111,7 @@ paymentReceipt). Delegated (non-authority) logs: paymentReceipt required;
 LibInclusionReceipt.verifyReceiptOfInclusion verifies RoI and inclusion in
 authority log.
 
-**Algorithms:** verifyInclusion, peakIndexForInclusionProof, includedRoot,
+**Algorithms:** verifyInclusion, includedRoot,
 consistentRoots, consistentRootsMemory, peaks — implemented and used.
 
 ### B.3 Gaps and divergences

@@ -16,13 +16,16 @@ interface IUnivocityEvents {
     );
 
     /// @notice Checkpoint published (all logs including authority)
-    /// @dev Block number recoverable from tx receipt
+    /// @dev Block number recoverable from tx receipt. paymentIndex and
+    ///    paymentPath are the inclusion proof payload (empty path when no
+    ///    payment receipt).
     event CheckpointPublished(
         bytes32 indexed logId,
         uint64 indexed size,
         uint64 checkpointCount,
         bytes32[] accumulator,
-        bytes receipt
+        uint64 paymentIndex,
+        bytes32[] paymentPath
     );
 
     /// @notice R5 authorization verified (not emitted for bootstrap)

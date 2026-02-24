@@ -6,16 +6,14 @@ import {
     IUnivocityErrors
 } from "@univocity/checkpoints/interfaces/IUnivocityErrors.sol";
 import {LibCose} from "@univocity/cose/lib/LibCose.sol";
-import {LibCoseReceipt} from "@univocity/cose/lib/LibCoseReceipt.sol";
+import {LibCbor} from "@univocity/cbor/lib/LibCbor.sol";
 import {
     LibDelegationVerifier
 } from "@univocity/checkpoints/lib/LibDelegationVerifier.sol";
 import {
     LibConsistencyReceipt
 } from "@univocity/checkpoints/lib/LibConsistencyReceipt.sol";
-import {
-    LibInclusionReceipt
-} from "@univocity/checkpoints/lib/LibInclusionReceipt.sol";
+import {MAX_HEIGHT} from "@univocity/algorithms/constants.sol";
 import {verifyInclusion} from "@univocity/algorithms/includedRoot.sol";
 import {peaks} from "@univocity/algorithms/peaks.sol";
 
@@ -100,7 +98,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
 
     /// @notice Returns the bootstrap keys used to verify COSE_Sign1 receipt
     ///    signatures.
-    /// @dev Used by LibAuthorityVerifier and LibCose for KS256 (ecrecover) and
+    /// @dev Used by LibCose for KS256 (ecrecover) and
     ///    ES256 (P-256)
     ///    verification.
     /// @return A struct containing ks256Signer, es256X,
@@ -159,8 +157,8 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         return _logs[logId];
     }
 
-    /// @notice Returns the per-log root public key for delegation cert
-    ///    verification (ADR-0032).
+    /// @notice Returns the per-log root public key for delegation
+    ///    verification (ADR-0032). Decodes stored opaque rootKey.
     /// @param logId The 32-byte log identifier.
     /// @return rootKeyX P-256 x-coordinate; zero if root not yet established.
     /// @return rootKeyY P-256 y-coordinate; zero if root not yet established.
@@ -169,8 +167,22 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         view
         returns (bytes32 rootKeyX, bytes32 rootKeyY)
     {
+        return _decodeLogRootKey(_logs[logId]);
+    }
+
+    /// @notice Set the root public key for a log (bootstrap only). Plan 0016:
+    ///    root is never derived from a delegation cert. P-256 only: 64 bytes.
+    /// @param logId The 32-byte log identifier.
+    /// @param rootKey Opaque key; must be 64 bytes (P-256 x || y).
+    function setLogRoot(bytes32 logId, bytes calldata rootKey)
+        external
+        onlyBootstrap
+    {
+        if (rootKey.length != 64) {
+            revert InvalidRootKeyLength(rootKey.length);
+        }
         LogState storage log = _logs[logId];
-        return (log.rootKeyX, log.rootKeyY);
+        log.rootKey = rootKey;
     }
 
     /// @notice Returns whether a log has received at least one checkpoint.
@@ -183,12 +195,11 @@ contract Univocity is IUnivocity, IUnivocityErrors {
 
     // === Checkpoint Publishing ===
 
-    /// @notice Plan 0014/0015: publish checkpoint from consistency receipt and
-    ///    payment receipt (RoI or bootstrap). Log is paymentGrant.logId.
-    ///    Delegation from consistency receipt unprotected 1000 when present.
+    /// @notice Plan 0016: publish checkpoint from pre-decoded consistency
+    ///    receipt and optional pre-decoded inclusion proof.
     function publishCheckpoint(
-        bytes calldata consistencyReceipt,
-        bytes calldata paymentReceipt,
+        IUnivocity.ConsistencyReceipt calldata consistencyParts,
+        IUnivocity.InclusionProof calldata paymentInclusionProof,
         bytes8 paymentIDTimestampBe,
         IUnivocity.PaymentGrant calldata paymentGrant
     ) external {
@@ -197,16 +208,9 @@ contract Univocity is IUnivocity, IUnivocityErrors {
 
         _checkPaymentGrantBoundsCheckpointRange(log, paymentGrant);
 
-        (
-            LibCose.CoseSign1 memory decodedConsistency,
-            bytes[] memory consistencyProofsList,
-            bytes memory delegationCertBytes
-        ) = LibCoseReceipt.decodeConsistencyReceiptCoseSign1(
-            consistencyReceipt
-        );
-
+        _validateConsistencyProofBounds(consistencyParts.consistencyProofs);
         (bytes32[] memory accMem, uint64 size) = LibConsistencyReceipt.verifyConsistencyProofChain(
-            log.accumulator, consistencyProofsList
+            log.accumulator, consistencyParts.consistencyProofs
         );
 
         _validateCheckpointSizeIncrease(log, size);
@@ -219,48 +223,70 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         bytes memory detachedPayload =
             LibConsistencyReceipt.buildDetachedPayloadCommitment(accMem);
 
-        if (delegationCertBytes.length > 0) {
+        bool useDelegation =
+            consistencyParts.delegationProof.signature.length > 0;
+
+        // Decode log root key at most once per transaction (P-256: 64 bytes).
+        (bytes32 rootKeyX, bytes32 rootKeyY) = _decodeLogRootKey(log);
+
+        if (useDelegation) {
             LibDelegationVerifier.DelegationResult memory delResult =
-                LibDelegationVerifier.verifyDelegationCert(
-                    delegationCertBytes,
+                LibDelegationVerifier.verifyDelegationProof(
+                    consistencyParts.delegationProof.delegationKey,
+                    consistencyParts.delegationProof.mmrStart,
+                    consistencyParts.delegationProof.mmrEnd,
+                    consistencyParts.delegationProof.alg,
+                    consistencyParts.delegationProof.signature,
                     logId,
                     size > 0 ? size - 1 : 0,
-                    log.rootKeyX,
-                    log.rootKeyY
+                    rootKeyX,
+                    rootKeyY
                 );
             if (!LibCose.verifySignatureDetachedPayload(
-                    decodedConsistency,
+                    consistencyParts.protectedHeader,
+                    consistencyParts.signature,
                     detachedPayload,
+                    LibCbor.extractAlgorithm(consistencyParts.protectedHeader),
                     LibCose.fromDelegatedEs256(
                         delResult.delegatedKeyX, delResult.delegatedKeyY
                     )
                 )) {
                 revert ConsistencyReceiptSignatureInvalid();
             }
-            if (log.rootKeyX == 0 && log.rootKeyY == 0) {
-                log.rootKeyX = delResult.rootKeyX;
-                log.rootKeyY = delResult.rootKeyY;
-            }
         } else {
-            bytes32 keyX = log.rootKeyX;
-            bytes32 keyY = log.rootKeyY;
             if (authorityLogId == bytes32(0)) {
                 if (!LibCose.verifySignatureDetachedPayload(
-                        decodedConsistency, detachedPayload, getBootstrapKeys()
+                        consistencyParts.protectedHeader,
+                        consistencyParts.signature,
+                        detachedPayload,
+                        LibCbor.extractAlgorithm(
+                            consistencyParts.protectedHeader
+                        ),
+                        getBootstrapKeys()
                     )) {
                     revert ConsistencyReceiptSignatureInvalid();
                 }
-            } else if (keyX == bytes32(0) && keyY == bytes32(0)) {
+            } else if (rootKeyX == bytes32(0) && rootKeyY == bytes32(0)) {
                 if (!LibCose.verifySignatureDetachedPayload(
-                        decodedConsistency, detachedPayload, getBootstrapKeys()
+                        consistencyParts.protectedHeader,
+                        consistencyParts.signature,
+                        detachedPayload,
+                        LibCbor.extractAlgorithm(
+                            consistencyParts.protectedHeader
+                        ),
+                        getBootstrapKeys()
                     )) {
                     revert ConsistencyReceiptSignatureInvalid();
                 }
             } else {
                 if (!LibCose.verifySignatureDetachedPayload(
-                        decodedConsistency,
+                        consistencyParts.protectedHeader,
+                        consistencyParts.signature,
                         detachedPayload,
-                        LibCose.fromDelegatedEs256(keyX, keyY)
+                        LibCbor.extractAlgorithm(
+                            consistencyParts.protectedHeader
+                        ),
+                        LibCose.fromDelegatedEs256(rootKeyX, rootKeyY)
                     )) {
                     revert ConsistencyReceiptSignatureInvalid();
                 }
@@ -269,31 +295,40 @@ contract Univocity is IUnivocity, IUnivocityErrors {
 
         if (authorityLogId == bytes32(0)) {
             if (size < 1) revert FirstCheckpointSizeTooSmall();
-            if (paymentReceipt.length != 0) revert InvalidPaymentReceipt();
+            if (paymentInclusionProof.path.length != 0) {
+                revert InvalidPaymentReceipt();
+            }
             bytes32 leafCommitment =
                 _leafCommitment(paymentIDTimestampBe, paymentGrant);
             if (!verifyInclusion(
-                    0, leafCommitment, new bytes32[](0), accMem, size
+                    0, leafCommitment, paymentInclusionProof.path, accMem, size
                 )) {
                 revert InvalidReceiptInclusionProof();
             }
             _initializeAuthorityLog(logId);
         } else if (paymentGrant.logId == authorityLogId) {
-            if (paymentReceipt.length != 0) revert InvalidPaymentReceipt();
+            if (paymentInclusionProof.path.length != 0) {
+                revert InvalidPaymentReceipt();
+            }
             if (msg.sender != bootstrapAuthority) {
                 revert OnlyBootstrapAuthority();
             }
         } else {
-            if (paymentReceipt.length == 0) revert InvalidPaymentReceipt();
+            if (paymentInclusionProof.path.length == 0) {
+                revert InvalidPaymentReceipt();
+            }
+            if (paymentInclusionProof.path.length > MAX_HEIGHT) {
+                revert ProofPayloadExceedsMaxHeight();
+            }
             bytes32 leafCommitment =
                 _leafCommitment(paymentIDTimestampBe, paymentGrant);
             LogState storage authorityLog = _logs[authorityLogId];
-            if (!LibInclusionReceipt.verifyReceiptOfInclusion(
-                    paymentReceipt,
+            if (!verifyInclusion(
+                    paymentInclusionProof.index,
                     leafCommitment,
+                    paymentInclusionProof.path,
                     authorityLog.accumulator,
-                    authorityLog.size,
-                    getBootstrapKeys()
+                    authorityLog.size
                 )) {
                 revert InvalidPaymentReceipt();
             }
@@ -301,7 +336,50 @@ contract Univocity is IUnivocity, IUnivocityErrors {
 
         _validateCheckpointAccumulatorLength(size, accMem);
 
-        _updateLogState(logId, log, size, accMem, paymentReceipt);
+        _updateLogState(
+            logId,
+            log,
+            size,
+            accMem,
+            paymentInclusionProof.index,
+            paymentInclusionProof.path
+        );
+    }
+
+    /// @notice Revert if any consistency proof payload array length exceeds
+    ///    MAX_HEIGHT (read from calldata; no copy).
+    function _validateConsistencyProofBounds(IUnivocity
+                .ConsistencyProof[] calldata decodedProofs) private pure {
+        for (uint256 i = 0; i < decodedProofs.length; i++) {
+            IUnivocity.ConsistencyProof calldata p = decodedProofs[i];
+            if (p.paths.length > MAX_HEIGHT) {
+                revert ProofPayloadExceedsMaxHeight();
+            }
+            if (p.rightPeaks.length > MAX_HEIGHT) {
+                revert ProofPayloadExceedsMaxHeight();
+            }
+            for (uint256 j = 0; j < p.paths.length; j++) {
+                if (p.paths[j].length > MAX_HEIGHT) {
+                    revert ProofPayloadExceedsMaxHeight();
+                }
+            }
+        }
+    }
+
+    /// @notice Decode stored opaque root key to P-256 (x, y). Once per tx.
+    /// @return keyX First 32 bytes, or 0 if root not set / invalid length.
+    /// @return keyY Next 32 bytes, or 0 if root not set / invalid length.
+    function _decodeLogRootKey(LogState storage log)
+        private
+        view
+        returns (bytes32 keyX, bytes32 keyY)
+    {
+        bytes memory rk = log.rootKey;
+        if (rk.length != 64) return (bytes32(0), bytes32(0));
+        assembly {
+            keyX := mload(add(rk, 32))
+            keyY := mload(add(rk, 64))
+        }
     }
 
     function _leafCommitment(
@@ -370,12 +448,15 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         }
     }
 
+    /// @notice Update log storage and emit CheckpointPublished with
+    ///    payment receipt index and path from InclusionProof.
     function _updateLogState(
         bytes32 logId,
         LogState storage log,
         uint64 size,
         bytes32[] memory accumulator,
-        bytes calldata receipt
+        uint64 paymentIndex,
+        bytes32[] calldata paymentPath
     ) private {
         bool isNewLog = log.initializedAt == 0;
 
@@ -396,7 +477,12 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         }
 
         emit CheckpointPublished(
-            logId, size, log.checkpointCount, accumulator, receipt
+            logId,
+            size,
+            log.checkpointCount,
+            accumulator,
+            paymentIndex,
+            paymentPath
         );
     }
 }

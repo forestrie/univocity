@@ -8,8 +8,8 @@ pragma solidity ^0.8.24;
 // the returned roots can be used as the
 // detached payload to verify the receipt's signature.
 
-import {peaks} from "@univocity/algorithms/peaks.sol";
 import {includedRoot} from "@univocity/algorithms/includedRoot.sol";
+import {peaks} from "@univocity/algorithms/peaks.sol";
 
 /// @notice Computes the implied roots from consistency proofs for each peak.
 /// @dev Applies inclusion proof paths for each origin accumulator peak.
@@ -23,8 +23,9 @@ import {includedRoot} from "@univocity/algorithms/includedRoot.sol";
 ///
 /// @param ifrom The MMR index of the origin state (must be a complete MMR).
 /// @param accumulatorFrom The peak hashes of MMR(ifrom),
-///    in descending height order (storage).
-/// @param proofs Inclusion proofs for each peak, one per accumulator entry.
+///    in descending height order (storage). Read in place; not copied.
+/// @param proofs Inclusion proofs for each peak, one per accumulator entry
+///    (calldata; no copy).
 /// @return roots The unique roots proven, in descending height order.
 ///
 /// @custom:throws If accumulatorFrom.length != peaks(ifrom).length
@@ -32,21 +33,40 @@ import {includedRoot} from "@univocity/algorithms/includedRoot.sol";
 function consistentRoots(
     uint256 ifrom,
     bytes32[] storage accumulatorFrom,
-    bytes32[][] memory proofs
+    bytes32[][] calldata proofs
 ) view returns (bytes32[] memory roots) {
-    bytes32[] memory accMem = new bytes32[](accumulatorFrom.length);
-    for (uint256 i = 0; i < accMem.length; i++) {
-        accMem[i] = accumulatorFrom[i];
+    uint256[] memory fromPeaks = peaks(ifrom);
+
+    require(fromPeaks.length == accumulatorFrom.length, "Peak count mismatch");
+    require(fromPeaks.length == proofs.length, "Proof count mismatch");
+
+    roots = new bytes32[](fromPeaks.length);
+    uint256 rootCount = 0;
+
+    for (uint256 i = 0; i < fromPeaks.length; i++) {
+        bytes32 root =
+            includedRoot(fromPeaks[i], accumulatorFrom[i], proofs[i]);
+
+        if (rootCount > 0 && roots[rootCount - 1] == root) {
+            continue;
+        }
+
+        roots[rootCount] = root;
+        rootCount++;
     }
-    return consistentRootsMemory(ifrom, accMem, proofs);
+
+    assembly {
+        mstore(roots, rootCount)
+    }
 }
 
 /// @notice Same as consistentRoots with memory accumulator (for chained
 ///    verification per draft "Verifying the Receipt of consistency").
+///    proofs is calldata to avoid copy when called from LibConsistencyReceipt.
 function consistentRootsMemory(
     uint256 ifrom,
     bytes32[] memory accumulatorFrom,
-    bytes32[][] memory proofs
+    bytes32[][] calldata proofs
 ) pure returns (bytes32[] memory roots) {
     uint256[] memory fromPeaks = peaks(ifrom);
 

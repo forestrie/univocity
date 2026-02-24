@@ -102,6 +102,69 @@ library LibBinUtils {
         return bitLength(x) - 1;
     }
 
+    /// @notice Returns the number of set bits in the low 64 bits of `x`.
+    /// @dev Optimised for leaf count / peak bitmap (go-merklelog uint64).
+    ///    Table via if/else (no storage): 16 nibble counts, sum over 16 nibbles.
+    /// @param x Value whose low 64 bits are to be counted.
+    /// @return n The number of 1-bits in x & 0xFFFFFFFFFFFFFFFF.
+    function popcount64(uint256 x) internal pure returns (uint256 n) {
+        x = x & 0xFFFFFFFFFFFFFFFF;
+        unchecked {
+            n = _nibblePopcount(x & 0xF);
+            n += _nibblePopcount((x >> 4) & 0xF);
+            n += _nibblePopcount((x >> 8) & 0xF);
+            n += _nibblePopcount((x >> 12) & 0xF);
+            n += _nibblePopcount((x >> 16) & 0xF);
+            n += _nibblePopcount((x >> 20) & 0xF);
+            n += _nibblePopcount((x >> 24) & 0xF);
+            n += _nibblePopcount((x >> 28) & 0xF);
+            n += _nibblePopcount((x >> 32) & 0xF);
+            n += _nibblePopcount((x >> 36) & 0xF);
+            n += _nibblePopcount((x >> 40) & 0xF);
+            n += _nibblePopcount((x >> 44) & 0xF);
+            n += _nibblePopcount((x >> 48) & 0xF);
+            n += _nibblePopcount((x >> 52) & 0xF);
+            n += _nibblePopcount((x >> 56) & 0xF);
+            n += _nibblePopcount((x >> 60) & 0xF);
+        }
+    }
+
+    /// @dev Population count for one nibble (0..15). Table via if/else.
+    function _nibblePopcount(uint256 v) private pure returns (uint256) {
+        if (v == 0) return 0;
+        if (v == 1) return 1;
+        if (v == 2) return 1;
+        if (v == 3) return 2;
+        if (v == 4) return 1;
+        if (v == 5) return 2;
+        if (v == 6) return 2;
+        if (v == 7) return 3;
+        if (v == 8) return 1;
+        if (v == 9) return 2;
+        if (v == 10) return 2;
+        if (v == 11) return 3;
+        if (v == 12) return 2;
+        if (v == 13) return 3;
+        if (v == 14) return 3;
+        return 4; // 15
+    }
+
+    /// @notice Returns the number of set bits (population count) in `x`.
+    /// @dev General-purpose; for values known to fit in 64 bits prefer
+    ///    popcount64. Uses Brian Kernighan's method.
+    /// @param x The value to count.
+    /// @return The number of 1-bits in x.
+    function popcount(uint256 x) internal pure returns (uint256) {
+        uint256 n = 0;
+        while (x != 0) {
+            x = x & (x - 1);
+            unchecked {
+                n++;
+            }
+        }
+        return n;
+    }
+
     /// @notice Computes SHA-256(pos || a || b) where pos is encoded as 8 bytes
     ///    big-endian.
     /// @dev This is the node hash function for MMR proofs. The position prefix

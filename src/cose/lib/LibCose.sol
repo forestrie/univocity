@@ -35,16 +35,8 @@ library LibCose {
     error InvalidSignatureLength(uint256 expected, uint256 actual);
     error InvalidCoseStructure();
     error SignatureVerificationFailed();
-    error DuplicateRootKeyInDelegation();
 
     // ============ Structs ============
-
-    struct CoseSign1 {
-        bytes protectedHeader;
-        bytes payload;
-        bytes signature;
-        int64 alg;
-    }
 
     /// @notice Keys for COSE_Sign1 verification (ES256 and/or KS256).
     ///    Can be from bootstrap config or from delegation/receipt (e.g. P-256
@@ -56,81 +48,8 @@ library LibCose {
         bytes32 es256Y;
     }
 
-    /// @notice Decoded delegation cert (COSE_Sign1) plus optional recovery id
-    ///    and root key (plan 0013).
-    struct DelegationCertDecoded {
-        CoseSign1 cose;
-        bool hasRecoveryId;
-        uint8 recoveryId;
-        bool hasRootKeyInHeader;
-        bytes rootKeyInHeader;
-        bool hasRootKeyInPayload;
-        bytes rootKeyInPayload;
-    }
-
     // ============ Main Functions ============
 
-    /// @notice Decode COSE_Sign1 structure
-    /// @param data Raw COSE_Sign1 bytes
-    /// @return decoded The decoded structure with algorithm
-    function decodeCoseSign1(bytes calldata data)
-        internal
-        pure
-        returns (CoseSign1 memory decoded)
-    {
-        // COSE_Sign1 = [protected, unprotected, payload, signature]
-        // It's a CBOR array with 4 elements
-        WitnetBuffer.Buffer memory buf = WitnetBuffer.Buffer(data, 0);
-
-        // Read array header
-        uint8 initialByte = buf.readUint8();
-        uint8 majorType = initialByte >> 5;
-        if (majorType != MAJOR_TYPE_ARRAY) revert InvalidCoseStructure();
-
-        uint64 arrayLen = _readLength(buf, initialByte & 0x1f);
-        if (arrayLen != 4) revert InvalidCoseStructure();
-
-        // Element 0: protected (bstr containing serialized CBOR map)
-        decoded.protectedHeader = _readBytes(buf);
-
-        // Element 1: unprotected (map) - skip
-        _skipValue(buf);
-
-        // Element 2: payload (bstr or nil)
-        decoded.payload = _readBytes(buf);
-
-        // Element 3: signature (bstr)
-        decoded.signature = _readBytes(buf);
-
-        // Extract algorithm from protected header (uses LibCbor)
-        decoded.alg = LibCbor.extractAlgorithm(decoded.protectedHeader);
-    }
-
-    /// @notice Decode COSE_Sign1 and return decoded structure plus raw
-    ///    unprotected header bytes for receipt-specific parsing (MMR profile).
-    /// @param data Raw COSE_Sign1 bytes.
-    /// @return decoded Protected, payload, signature, alg.
-    /// @return unprotectedRaw Serialized CBOR of the unprotected map (element 1).
-    function decodeCoseSign1WithUnprotected(bytes calldata data)
-        internal
-        pure
-        returns (CoseSign1 memory decoded, bytes memory unprotectedRaw)
-    {
-        WitnetBuffer.Buffer memory buf = WitnetBuffer.Buffer(data, 0);
-        uint8 initialByte = buf.readUint8();
-        uint8 majorType = initialByte >> 5;
-        if (majorType != MAJOR_TYPE_ARRAY) revert InvalidCoseStructure();
-        uint64 arrayLen = _readLength(buf, initialByte & 0x1f);
-        if (arrayLen != 4) revert InvalidCoseStructure();
-
-        decoded.protectedHeader = _readBytes(buf);
-        unprotectedRaw = _readValueToBytes(buf);
-        decoded.payload = _readBytes(buf);
-        decoded.signature = _readBytes(buf);
-        decoded.alg = LibCbor.extractAlgorithm(decoded.protectedHeader);
-    }
-
-    /// @notice Verify Receipt of Consistency signature with detached payload
     /// @notice Build verifier keys from a single P-256 public key (e.g.
     ///    delegated key from consistency receipt). Use with
     ///    verifySignature/verifySignatureDetachedPayload for ES256 COSE.
@@ -144,89 +63,56 @@ library LibCose {
         keys.es256Y = keyY;
     }
 
-    /// @notice Decode delegation cert COSE_Sign1 and extract unprotected
-    ///    labels 1001, 1002 and payload key 11 (plan 0013).
-    /// @param certBytes Raw delegation cert (COSE_Sign1) bytes.
-    /// @return d Struct with cose, optional recovery id, optional root key.
-    function decodeDelegationCert(bytes memory certBytes)
-        internal
-        pure
-        returns (DelegationCertDecoded memory d)
-    {
-        WitnetBuffer.Buffer memory buf = WitnetBuffer.Buffer(certBytes, 0);
-
-        uint8 initialByte = buf.readUint8();
-        uint8 majorType = initialByte >> 5;
-        if (majorType != MAJOR_TYPE_ARRAY) revert InvalidCoseStructure();
-        uint64 arrayLen = _readLength(buf, initialByte & 0x1f);
-        if (arrayLen != 4) revert InvalidCoseStructure();
-
-        d.cose.protectedHeader = _readBytes(buf);
-
-        (
-            d.hasRecoveryId,
-            d.recoveryId,
-            d.hasRootKeyInHeader,
-            d.rootKeyInHeader
-        ) = LibCbor.readMapExtractDelegationUnprotected(buf);
-
-        d.cose.payload = _readBytes(buf);
-        d.cose.signature = _readBytes(buf);
-        d.cose.alg = LibCbor.extractAlgorithm(d.cose.protectedHeader);
-
-        (d.hasRootKeyInPayload, d.rootKeyInPayload) = LibCbor.readMapLookupBstr(
-            WitnetBuffer.Buffer(d.cose.payload, 0), 11
-        );
-        if (d.hasRootKeyInHeader && d.hasRootKeyInPayload) {
-            revert DuplicateRootKeyInDelegation();
-        }
-    }
-
-    /// @notice Verify COSE_Sign1 signature with algorithm dispatch
-    /// @param cose Decoded COSE_Sign1 structure
-    /// @param keys Verifier keys (bootstrap or fromDelegatedEs256)
-    /// @return True if signature valid
+    /// @notice Verify COSE_Sign1 signature with algorithm dispatch.
+    /// @param protectedHeader CBOR-encoded protected header.
+    /// @param payload Payload used in Sig_structure.
+    /// @param signature Raw signature (r||s||v for KS256, r||s for ES256).
+    /// @param alg Algorithm ID (e.g. ALG_ES256, ALG_KS256).
+    /// @param keys Verifier keys (bootstrap or fromDelegatedEs256).
     function verifySignature(
-        CoseSign1 memory cose,
+        bytes memory protectedHeader,
+        bytes memory payload,
+        bytes memory signature,
+        int64 alg,
         CoseVerifierKeys memory keys
     ) internal view returns (bool) {
-        // Build Sig_structure per RFC 9052
-        bytes memory sigStructure =
-            buildSigStructure(cose.protectedHeader, cose.payload);
+        bytes memory sigStructure = buildSigStructure(protectedHeader, payload);
 
-        if (cose.alg == ALG_ES256) {
-            return _verifyES256(
-                sigStructure, cose.signature, keys.es256X, keys.es256Y
-            );
-        } else if (cose.alg == ALG_KS256) {
-            return _verifyKS256(sigStructure, cose.signature, keys.ks256Signer);
+        if (alg == ALG_ES256) {
+            return
+                _verifyES256(sigStructure, signature, keys.es256X, keys.es256Y);
+        } else if (alg == ALG_KS256) {
+            return _verifyKS256(sigStructure, signature, keys.ks256Signer);
         } else {
-            revert UnsupportedAlgorithm(cose.alg);
+            revert UnsupportedAlgorithm(alg);
         }
     }
 
     /// @notice Verify COSE_Sign1 signature with detached payload (e.g. RoI
     ///    root). Plan 0015.
-    /// @param cose Decoded COSE_Sign1 (payload field ignored).
+    /// @param protectedHeader CBOR-encoded protected header.
+    /// @param signature Raw signature (r||s||v for KS256, r||s for ES256).
     /// @param detachedPayload The payload used in Sig_structure (e.g. 32-byte
     ///    root).
+    /// @param alg Algorithm ID (e.g. ALG_ES256, ALG_KS256).
     /// @param keys Verifier keys (bootstrap or fromDelegatedEs256).
     function verifySignatureDetachedPayload(
-        CoseSign1 memory cose,
+        bytes memory protectedHeader,
+        bytes memory signature,
         bytes memory detachedPayload,
+        int64 alg,
         CoseVerifierKeys memory keys
     ) internal view returns (bool) {
         bytes memory sigStructure =
-            buildSigStructure(cose.protectedHeader, detachedPayload);
+            buildSigStructure(protectedHeader, detachedPayload);
 
-        if (cose.alg == ALG_ES256) {
-            return _verifyES256(
-                sigStructure, cose.signature, keys.es256X, keys.es256Y
-            );
-        } else if (cose.alg == ALG_KS256) {
-            return _verifyKS256(sigStructure, cose.signature, keys.ks256Signer);
+        if (alg == ALG_ES256) {
+            return
+                _verifyES256(sigStructure, signature, keys.es256X, keys.es256Y);
+        } else if (alg == ALG_KS256) {
+            return _verifyKS256(sigStructure, signature, keys.ks256Signer);
         } else {
-            revert UnsupportedAlgorithm(cose.alg);
+            revert UnsupportedAlgorithm(alg);
         }
     }
 
@@ -378,22 +264,6 @@ library LibCose {
                 _skipValue(buf);
             }
         }
-    }
-
-    /// @notice Read one CBOR value and return its raw bytes (for re-parsing).
-    function _readValueToBytes(WitnetBuffer.Buffer memory buf)
-        private
-        pure
-        returns (bytes memory)
-    {
-        uint256 start = buf.cursor;
-        _skipValue(buf);
-        uint256 len = buf.cursor - start;
-        bytes memory out = new bytes(len);
-        for (uint256 i = 0; i < len; i++) {
-            out[i] = buf.data[start + i];
-        }
-        return out;
     }
 
     /// @notice Encode bytes as CBOR bstr

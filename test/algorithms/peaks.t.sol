@@ -2,7 +2,12 @@
 pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
-import {peaks} from "@univocity/algorithms/peaks.sol";
+import {
+    leafCount,
+    peakIndex,
+    peaks,
+    peaksBitmap
+} from "@univocity/algorithms/peaks.sol";
 import {LibBinUtils} from "@univocity/algorithms/LibBinUtils.sol";
 
 /// @title PeaksHarness
@@ -10,6 +15,22 @@ import {LibBinUtils} from "@univocity/algorithms/LibBinUtils.sol";
 contract PeaksHarness {
     function callPeaks(uint256 i) external pure returns (uint256[] memory) {
         return peaks(i);
+    }
+
+    function callPeaksBitmap(uint256 mmrSize) external pure returns (uint256) {
+        return peaksBitmap(mmrSize);
+    }
+
+    function callLeafCount(uint256 mmrSize) external pure returns (uint256) {
+        return leafCount(mmrSize);
+    }
+
+    function callPeakIndex(uint256 leafCountVal, uint256 d)
+        external
+        pure
+        returns (uint256)
+    {
+        return peakIndex(leafCountVal, d);
     }
 }
 
@@ -293,5 +314,218 @@ contract PeaksTest is Test {
             uint256[] memory p = harness.callPeaks(treeSize - 1);
             assertEq(p.length, 1, "Perfect tree should have exactly one peak");
         }
+    }
+
+    // ========================================================================
+    // =
+    // peaksBitmap / leafCount / peakIndex (go-merklelog/mmr parity)
+    // ========================================================================
+    // =
+
+    /// @dev PeaksBitmap vectors from go-merklelog/mmr/peaks_test.go TestPeaksBitmap
+    function test_peaksBitmap_goVectors() public view {
+        assertEq(harness.callPeaksBitmap(10), 6);
+        assertEq(harness.callPeaksBitmap(1), 1);
+        assertEq(harness.callPeaksBitmap(3), 2);
+        assertEq(harness.callPeaksBitmap(4), 3);
+        assertEq(harness.callPeaksBitmap(7), 4);
+        assertEq(harness.callPeaksBitmap(8), 5);
+        assertEq(harness.callPeaksBitmap(11), 7);
+        assertEq(harness.callPeaksBitmap(15), 8);
+        assertEq(harness.callPeaksBitmap(16), 9);
+        assertEq(harness.callPeaksBitmap(18), 10);
+    }
+
+    /// @dev leafCount(mmrSize) == peaksBitmap(mmrSize)
+    function test_leafCount_equalsPeaksBitmap() public view {
+        for (uint256 mmrSize = 1; mmrSize <= 25; mmrSize++) {
+            assertEq(
+                harness.callLeafCount(mmrSize),
+                harness.callPeaksBitmap(mmrSize)
+            );
+        }
+    }
+
+    /// @dev PeakIndex vectors from go-merklelog/mmr/peaks_test.go TestPeakIndex
+    ///     (subset; full 43-case table covered by Go). Go: peakBits := LeafCount
+    ///     (tt.mmrIndex + 1); PeakIndex(peakBits, proofLength)
+    function test_peakIndex_goVectors() public view {
+        uint256 lc;
+        // mmrIndex 0 -> mmrSize 1
+        assertEq(harness.callPeakIndex(harness.callLeafCount(1), 0), 0);
+        // mmrIndex 2 (perfect)
+        lc = harness.callLeafCount(3);
+        assertEq(harness.callPeakIndex(lc, 1), 0);
+        // mmrIndex 3
+        lc = harness.callLeafCount(4);
+        assertEq(harness.callPeakIndex(lc, 1), 0);
+        assertEq(harness.callPeakIndex(lc, 0), 1);
+        // mmrIndex 6 (perfect)
+        assertEq(harness.callPeakIndex(harness.callLeafCount(7), 2), 0);
+        // mmrIndex 7
+        lc = harness.callLeafCount(8);
+        assertEq(harness.callPeakIndex(lc, 2), 0);
+        assertEq(harness.callPeakIndex(lc, 0), 1);
+        // mmrIndex 9
+        lc = harness.callLeafCount(10);
+        assertEq(harness.callPeakIndex(lc, 2), 0);
+        assertEq(harness.callPeakIndex(lc, 1), 1);
+        // mmrIndex 10 (leafCount(11)=111 binary)
+        lc = harness.callLeafCount(11);
+        assertEq(harness.callPeakIndex(lc, 2), 0);
+        assertEq(harness.callPeakIndex(lc, 1), 1);
+        assertEq(harness.callPeakIndex(lc, 0), 2);
+        // mmrIndex 14 (perfect)
+        assertEq(harness.callPeakIndex(harness.callLeafCount(15), 3), 0);
+        // mmrIndex 18 (leafCount(19)=1011 binary, 3 peaks)
+        lc = harness.callLeafCount(19);
+        assertEq(harness.callPeakIndex(lc, 3), 0);
+        assertEq(harness.callPeakIndex(lc, 1), 1);
+        assertEq(harness.callPeakIndex(lc, 0), 2);
+        // mmrIndex 25 (leafCount(26)=1111 binary, 4 peaks)
+        lc = harness.callLeafCount(26);
+        assertEq(harness.callPeakIndex(lc, 3), 0);
+        assertEq(harness.callPeakIndex(lc, 2), 1);
+        assertEq(harness.callPeakIndex(lc, 1), 2);
+        assertEq(harness.callPeakIndex(lc, 0), 3);
+    }
+
+    /// @dev peakIndex(leafCount(mmrSize), proofLen) matches accumulator slot of peak
+    function test_peakIndex_accumulatorSlotMatchesPeaksOrder() public view {
+        uint256 mmrSize = 19;
+        uint256[] memory peakIndices = harness.callPeaks(mmrSize - 1);
+        uint256 lc = harness.callLeafCount(mmrSize);
+        // For each proof length that appears in this MMR, peakIndex should
+        // point into peakIndices. We only check a few (proof len 0,1,3).
+        assertEq(harness.callPeakIndex(lc, 3), 0);
+        assertEq(harness.callPeakIndex(lc, 1), 1);
+        assertEq(harness.callPeakIndex(lc, 0), 2);
+        assertEq(peakIndices.length, 3);
+    }
+
+    // ========================================================================
+    // =
+    // Go parity: TestLeafCount, TestLeafCountFirst26, TestPeakIndex full,
+    // TestPeaks
+    // ========================================================================
+    // =
+
+    /// @dev Go TestLeafCount: size 15 -> 8 leaves, size 11 -> 7, invalid 12 -> 7
+    function test_leafCount_goTestLeafCount() public view {
+        assertEq(harness.callLeafCount(15), 8, "size 15 has 8 leaves");
+        assertEq(harness.callLeafCount(11), 7, "size 11 has 7 leaves");
+        assertEq(harness.callLeafCount(12), 7, "invalid size 12 has 7 leaves");
+    }
+
+    /// @dev Go TestLeafCountFirst26: expectLeafCounts for mmrIndex 0..25
+    ///     (mmrSize = mmrIndex+1). LeafCount returns bitmap for largest valid
+    ///     MMR with size <= mmrSize.
+    function test_leafCount_goFirst26() public view {
+        uint256[26] memory expect = [
+            uint256(1), // 0b1
+            1,
+            2, // 0b10
+            3,
+            3,
+            3,
+            4, // 0b100
+            5,
+            5,
+            6,
+            7,
+            7,
+            7,
+            7,
+            8, // 0b1000
+            9, // mmrIndex 15, mmrSize 16 -> 9
+            9,
+            10, // 0b1010
+            11,
+            11,
+            11,
+            12, // 0b1100
+            13,
+            13,
+            14,
+            15
+        ];
+        for (uint256 mmrIndex = 0; mmrIndex < 26; mmrIndex++) {
+            uint256 mmrSize = mmrIndex + 1;
+            assertEq(
+                harness.callLeafCount(mmrSize),
+                expect[mmrIndex],
+                "LeafCount(mmrSize) at mmrIndex"
+            );
+        }
+    }
+
+    /// @dev Go TestPeaks: (mmrIndex, want peaks). We use 0-based indices;
+    ///     Go Peaks returns same. Nil/invalid -> we skip (no nil in Solidity).
+    function test_peaks_goTestPeaks() public view {
+        // complete index 10 gives three peaks [6, 9, 10]
+        _assertPeaks(10, _arr(6, 9, 10));
+        // complete index 25 gives 4 peaks [14, 21, 24, 25]
+        _assertPeaks(25, _arr(14, 21, 24, 25));
+        // complete index 9 gives two peaks [6, 9]
+        _assertPeaks(9, _arr(6, 9));
+        // complete index 14 (perfect) gives single peak [14]
+        _assertPeaks(14, _arr(14));
+        // complete index 17 gives two peaks [14, 17]
+        _assertPeaks(17, _arr(14, 17));
+        // complete index 21 gives two peaks [14, 21]
+        _assertPeaks(21, _arr(14, 21));
+    }
+
+    function _assertPeaks(uint256 mmrIndex, uint256[] memory want)
+        internal
+        view
+    {
+        uint256[] memory got = harness.callPeaks(mmrIndex);
+        assertEq(got.length, want.length, "peaks length");
+        for (uint256 j = 0; j < want.length; j++) {
+            assertEq(got[j], want[j], "peaks[j]");
+        }
+    }
+
+    function _arr(uint256 a) internal pure returns (uint256[] memory) {
+        uint256[] memory r = new uint256[](1);
+        r[0] = a;
+        return r;
+    }
+
+    function _arr(uint256 a, uint256 b)
+        internal
+        pure
+        returns (uint256[] memory)
+    {
+        uint256[] memory r = new uint256[](2);
+        r[0] = a;
+        r[1] = b;
+        return r;
+    }
+
+    function _arr(uint256 a, uint256 b, uint256 c)
+        internal
+        pure
+        returns (uint256[] memory)
+    {
+        uint256[] memory r = new uint256[](3);
+        r[0] = a;
+        r[1] = b;
+        r[2] = c;
+        return r;
+    }
+
+    function _arr(uint256 a, uint256 b, uint256 c, uint256 d)
+        internal
+        pure
+        returns (uint256[] memory)
+    {
+        uint256[] memory r = new uint256[](4);
+        r[0] = a;
+        r[1] = b;
+        r[2] = c;
+        r[3] = d;
+        return r;
     }
 }

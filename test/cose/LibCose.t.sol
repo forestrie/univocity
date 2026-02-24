@@ -4,23 +4,7 @@ pragma solidity ^0.8.24;
 import {Test} from "forge-std/Test.sol";
 import {LibCose} from "@univocity/cose/lib/LibCose.sol";
 
-contract LibCoseHelper {
-    function decodeCoseSign1(bytes calldata data)
-        external
-        pure
-        returns (LibCose.CoseSign1 memory)
-    {
-        return LibCose.decodeCoseSign1(data);
-    }
-}
-
 contract LibCoseTest is Test {
-    LibCoseHelper internal helper;
-
-    function setUp() public {
-        helper = new LibCoseHelper();
-    }
-
     /// @notice RFC 9052: Sig_structure = ["Signature1", protected,
     ///    external_aad, payload]
     ///    protected = a10126 (map {1: -7}), payload = "This is the content."
@@ -48,32 +32,6 @@ contract LibCoseTest is Test {
         assertEq(uint8(sigStruct[3 + 13]), 0x40); // empty bstr for payload
     }
 
-    /// @notice Decode minimal COSE_Sign1: 4-element array
-    ///    84 43 a10126 a0 40 58 40
-    function test_decodeCoseSign1_minimal() public view {
-        bytes memory cose = abi.encodePacked(
-            hex"84", // array(4)
-            hex"43a10126", // bstr(3) = protected {1:-7}
-            hex"a0", // map(0) = unprotected
-            hex"40", // bstr(0) = payload
-            hex"5840"
-            // bstr(64) - need 64 bytes for ES256 sig; 58 40 = bstr(64)
-        );
-        // Fix: 58 40 = bstr with 1-byte length 0x40 = 64.
-        // So we need 64 bytes after.
-        bytes memory sig64 = new bytes(64);
-        cose = abi.encodePacked(
-            hex"84", hex"43a10126", hex"a0", hex"40", hex"5840", sig64
-        );
-
-        LibCose.CoseSign1 memory decoded = helper.decodeCoseSign1(cose);
-
-        assertEq(decoded.protectedHeader, hex"a10126");
-        assertEq(decoded.payload.length, 0);
-        assertEq(decoded.signature.length, 64);
-        assertEq(decoded.alg, -7);
-    }
-
     /// @notice KS256: decode and verify with vm.sign
     function test_verifySignature_ks256_valid() public view {
         uint256 pk =
@@ -88,17 +46,15 @@ contract LibCoseTest is Test {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, hash);
         bytes memory sig = abi.encodePacked(r, s, v);
 
-        LibCose.CoseSign1 memory cose = LibCose.CoseSign1({
-            protectedHeader: protected,
-            payload: payload,
-            signature: sig,
-            alg: LibCose.ALG_KS256
-        });
         LibCose.CoseVerifierKeys memory keys = LibCose.CoseVerifierKeys({
             ks256Signer: signer, es256X: bytes32(0), es256Y: bytes32(0)
         });
 
-        assertTrue(LibCose.verifySignature(cose, keys));
+        assertTrue(
+            LibCose.verifySignature(
+                protected, payload, sig, LibCose.ALG_KS256, keys
+            )
+        );
     }
 
     /// @notice KS256: wrong signer fails
@@ -112,25 +68,16 @@ contract LibCoseTest is Test {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, hash);
         bytes memory sig = abi.encodePacked(r, s, v);
 
-        LibCose.CoseSign1 memory cose = LibCose.CoseSign1({
-            protectedHeader: protected,
-            payload: payload,
-            signature: sig,
-            alg: LibCose.ALG_KS256
-        });
         LibCose.CoseVerifierKeys memory keys = LibCose.CoseVerifierKeys({
             ks256Signer: address(0xbad), // wrong
             es256X: bytes32(0),
             es256Y: bytes32(0)
         });
 
-        assertFalse(LibCose.verifySignature(cose, keys));
-    }
-
-    /// @notice Decode COSE_Sign1 with wrong array length reverts
-    function test_decodeCoseSign1_wrongArrayLength_reverts() public {
-        bytes memory notFour = hex"83a101264040"; // array(3)
-        vm.expectRevert();
-        helper.decodeCoseSign1(notFour);
+        assertFalse(
+            LibCose.verifySignature(
+                protected, payload, sig, LibCose.ALG_KS256, keys
+            )
+        );
     }
 }

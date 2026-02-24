@@ -102,29 +102,24 @@ possible.
 
 ### Phase 2 — Calldata and storage for consistency proofs
 
-5. **LibCbor — calldata decoder:** Add
+**Revision (A.6a):** We use the memory path only: caller copies
+consistencyProofs from calldata to memory; verifyConsistencyProofChain takes
+bytes[] memory; decodeConsistencyProofPayload(bytes memory) is the single
+decoder. The following steps 5–8 are superseded and left for reference only.
+
+5. **LibCbor — calldata decoder:** *(Superseded: removed; memory path only.)* Add
    `decodeConsistencyProofPayload(bytes calldata data)` returning
    `ConsistencyProofPayload memory`. Raw bytes must not be copied wholesale;
    use a cursor-over-calldata (or calldata buffer) and only allocate memory
    for decoded paths and rightPeaks. Match existing decoder’s revert behaviour
    (UnexpectedMajorType, InvalidCborStructure). Test with same fixtures as
    memory decoder.
-6. **consistentRoots — no copy from storage:** In
-   `src/algorithms/consistentRoots.sol`, refactor `consistentRoots` so it
-   does **not** copy `accumulatorFrom` to memory. Implement the same loop as
-   `consistentRootsMemory` in place: `fromPeaks = peaks(ifrom)`, then for each
-   i call `includedRoot(fromPeaks[i], accumulatorFrom[i], proofs[i])` with
-   duplicate collapsing. Leave `consistentRootsMemory` unchanged (used for
-   chained steps).
-7. **LibConsistencyReceipt:** Change
-   `verifyConsistencyProofChain(bytes32[] storage initialAccumulator, bytes[] memory rawProofPayloads)`
-   to
-   `verifyConsistencyProofChain(bytes32[] storage initialAccumulator, bytes[] calldata rawProofPayloads)`.
-   In the loop call `decodeConsistencyProofPayload(rawProofPayloads[idx])`
-   (calldata overload). Keep idx==0 using `consistentRoots(..., initialAccumulator, p.paths)` and idx>=1 using `consistentRootsMemory(..., accumulatorFrom, p.paths)`.
-8. **Cleanup:** Once all call sites use calldata, remove
-   `decodeConsistencyProofPayload(bytes memory)` (and any helpers that become
-   dead) unless tests still need it; then prefer a test-only helper.
+6. **consistentRoots — no copy from storage:** Done. `consistentRoots` takes
+   `bytes32[] storage accumulatorFrom` and reads in place in the loop.
+7. **LibConsistencyReceipt:** *(Superseded: chain takes bytes[] memory; no
+   calldata overload.)*
+8. **Cleanup:** *(Superseded: single decoder is decodeConsistencyProofPayload(bytes
+   memory); no calldata decoder to remove.)*
 9. **Tests:** Consistency chain with calldata inputs; regression that first
    proof does not copy initial accumulator; full flow with pre-decoded
    receipt.
@@ -146,7 +141,7 @@ possible.
     readUnprotectedMapInclusionProofs, _readBstrOrArrayOfBstr;
     VDP_VERIFIABLE_PROOFS, CONSISTENCY_PROOF_LABEL, INCLUSION_PROOF_LABEL;
     decodePaymentClaims, PaymentClaims. Retain: extractAlgorithm,
-    decodeConsistencyProofPayload (calldata path), decodeInclusionProofPayload,
+    decodeConsistencyProofPayload (memory), decodeInclusionProofPayload,
     ConsistencyProofPayload, InclusionProofPayload, and internal helpers used
     only by those.
 13. **Tests:** Remove or repurpose LibCoseReceipt.t.sol,
@@ -185,14 +180,73 @@ possible.
     updates and signature verification.
 19. **Lint and format:** Run `forge fmt`; fix comment line length per
     project rules (79/100, tag continuation); resolve warnings.
-20. **NatSpec:** Document that verifyConsistencyProofChain takes calldata
-    and does not copy raw proof bytes; that consistentRoots reads storage in
-    place and does not copy the accumulator. Keep comments
-    implementation-focused.
+20. **NatSpec:** Document that verifyConsistencyProofChain takes
+    bytes[] memory (caller copies from calldata at entry point); that
+    consistentRoots reads storage in place and does not copy the accumulator.
+    Keep comments implementation-focused.
 
 **Done criteria:** Single entry point live; payment plain inclusion only;
 delegation minimal proof only; all listed code removed; raw proof bytes
 calldata and first proof uses storage; tests pass; format and lint clean.
+
+### Implementation status (as of plan revision)
+
+- **Phase 1:** Steps 1–2 done (setLogRoot, verifyDelegationProof in place and
+  used from publishCheckpoint). Step 3–4 not done: delegation cert decode
+  path (decodeDelegationCert, verifyDelegationCert, _establishRoot,
+  _parseUncompressedPoint, decodeDelegationPayload, etc.) still present;
+  removal is part of Phase 3.
+- **Phase 2:** Revised per Appendix A.6a. We do **not** use a calldata
+  decoder; we use the memory path only. Caller copies
+  consistencyParts.consistencyProofs from calldata to memory, then calls
+  verifyConsistencyProofChain(bytes[] memory). Steps 5–8 (add calldata
+  decoder, switch chain to calldata, remove memory decoder) are superseded.
+  Step 6 (consistentRoots no copy from storage) is done: consistentRoots
+  already takes storage and reads in place.
+- **Phase 3:** Not done. LibCoseReceipt, LibInclusionReceipt,
+  LibAuthorityVerifier still exist. Tests use LibCoseReceipt for
+  _toConsistencyReceipt (decode raw receipt → struct for publishCheckpoint).
+  LibCose/LibCbor/LibDelegationVerifier still contain the receipt/cert/decode
+  code listed in §4.
+- **Phase 4:** Done. Single publishCheckpoint(ConsistencyReceipt calldata,
+  paymentInclusionProof, paymentIDTimestampBe, paymentGrant); consistency
+  path copies proofs and uses verifyConsistencyProofChain; payment path uses
+  decodeInclusionProofPayload + verifyInclusion; delegation uses
+  verifyDelegationProof. Univocity does not import LibCoseReceipt,
+  LibInclusionReceipt, or LibAuthorityVerifier.
+- **Phase 5:** Partial. NatSpec for verifyConsistencyProofChain should say it
+  takes memory (caller copies from calldata); step 20 referred to calldata
+  and is obsolete.
+
+**Next steps (recommended order):**
+
+1. **Align plan text with decisions:** In §5 "What to retain", change
+   "decodeConsistencyProofPayload (calldata path)" to "(memory path)". Add a
+   one-line note under Phase 2 that it was revised per A.6a (memory path,
+   copy at boundary).
+2. **Phase 3 — removals:** Delete LibCoseReceipt.sol, LibInclusionReceipt.sol,
+   LibAuthorityVerifier.sol. Strip LibCose (decodeCoseSign1,
+   decodeCoseSign1WithUnprotected, _readValueToBytes, decodeDelegationCert,
+   DelegationCertDecoded), LibCbor (readUnprotectedMap*,
+   decodePaymentClaims, PaymentClaims, decodeDelegationPayload,
+   DelegationPayload, readMapExtractDelegationUnprotected, readMapLookupBstr,
+   readMapExtractCoseKeyEc2, constants), LibDelegationVerifier
+   (verifyDelegationCert, _establishRoot, _parseUncompressedPoint). Retain
+   only what §5 lists.
+3. **Tests without LibCoseReceipt:** Tests currently use
+   _toConsistencyReceipt(raw) → LibCoseReceipt.decodeConsistencyReceiptCoseSign1FromMemory.
+   Either (a) add a test-only helper (e.g. in test/ or a test helper contract)
+   that decodes raw COSE receipt bytes to ConsistencyReceipt so tests keep
+   passing without LibCoseReceipt in src, or (b) refactor tests to build
+   ConsistencyReceipt (protectedHeader, signature, consistencyProofs,
+   delegationProof) directly from test data and remove the raw-receipt
+   decode path entirely. Option (b) is cleaner long-term but requires more
+   test refactor.
+4. **Phase 5 — quality:** Update NatSpec (verifyConsistencyProofChain takes
+   memory; caller copies from calldata). Run full test suite, forge fmt, fix
+   comment line length per project rules. Fix or remove Univocity.sol
+   comment that references LibAuthorityVerifier (e.g. ks256Signer "Used by
+   LibAuthorityVerifier").
 
 ## 4. Code to remove (consolidated)
 
@@ -224,8 +278,9 @@ any helpers that become dead, unless kept as test-only.
 
 ## 5. What to retain
 
-- **Consistency:** decodeConsistencyProofPayload (calldata path),
-  ConsistencyProofPayload; verifyConsistencyProofChain,
+- **Consistency:** decodeConsistencyProofPayload (memory path; caller copies
+  from calldata at entry point), ConsistencyProofPayload;
+  verifyConsistencyProofChain,
   buildDetachedPayloadCommitment; consistentRoots (storage, no copy),
   consistentRootsMemory, peaks, includedRoot.
 - **Inclusion (payment):** decodeInclusionProofPayload, InclusionProofPayload,
@@ -309,6 +364,60 @@ delegated key (existing COSE path). No COSE/CBOR for delegation; only
 P256.verify, sha256, canonical message encoding, and alg-specific signature
 unpacking.
 
+### A.5a. Assessment: key format vs alg; one alg or two?
+
+**1. Should the delegated key format be contingent on alg?**
+
+Yes. The delegated key representation should be defined by the algorithm.
+
+- **Today (P-256 only):** We use `(delegatedKeyX, delegatedKeyY)` — uncompressed
+  P-256 point. That matches `alg` indicating ES256/P-256.
+- **Future algs:** Other algorithms use different key formats (e.g. Ed25519:
+  single 32-byte public key; compressed EC: 33 bytes). So key layout is
+  alg-specific.
+- **Recommendation:** Keep the current struct for the initial P-256-only
+  design. Document that `alg` defines both the delegation-signature algorithm
+  and the delegated-key format. If a second algorithm family is added later,
+  either (a) extend the struct with alg-specific key fields (e.g. optional
+  `bytes delegatedKeyRaw` for non-P-256), or (b) use a single `bytes
+  delegatedKeyMaterial` plus `alg` and decode in an alg-specific way. No
+  change required for the current single-alg design; just document the
+  dependency.
+
+**2. Do we need distinct algs for the delegation signature and the delegated
+key?**
+
+No, for the current design. One `alg` in DelegationProof is enough.
+
+- **What the single `alg` is used for today:**
+  - (a) **Delegation proof signature:** The *root* signs the canonical message
+    with this algorithm. We require alg = ES256, unpack (r, s), and call
+    P256.verify. So `alg` identifies the algorithm used for the delegation
+    signature.
+  - (b) **Delegated key type:** We pass `(delegatedKeyX, delegatedKeyY)` to
+    `fromDelegatedEs256` when verifying the consistency receipt. So we
+    implicitly assume the delegated key is a P-256 key. That matches the same
+    alg.
+- **Consistency receipt algorithm:** The algorithm used to *sign the
+  consistency receipt* is **not** in DelegationProof; it is in the receipt’s
+  protected header. The contract reads it via
+  `extractAlgorithm(consistencyParts.protectedHeader)` and uses it in
+  `verifySignatureDetachedPayload`. So the receipt can in principle declare
+  ES256 or KS256; for the delegation path we currently supply a P-256 key
+  (fromDelegatedEs256), so the receipt must use ES256 for that key to be
+  valid. No second alg field is needed for “receipt signature alg” because
+  that is carried by the receipt.
+- **When would two algs be useful?** Only if we ever support a split such as:
+  “root signs the delegation message with algorithm A (e.g. P-256), and the
+  delegated key is of type B (e.g. Ed25519).” Then we’d want one identifier
+  for the delegation-signature algorithm (and signature layout) and one for
+  the delegated-key type (and key format). For P-256-only, A and B are the
+  same, so one `alg` suffices.
+- **Decision (applied):** Keep a single `alg` in DelegationProof. Document that
+  it specifies (1) the root's delegation-signature algorithm and (2) the
+  delegated key's type/format. Add a second field (e.g. `delegatedKeyAlg`)
+  only if you introduce another key/signature family later.
+
 ## A.6 Calldata and storage (proof data and accumulatorFrom)
 
 **Proof data:** The entry point receives ConsistencyReceipt calldata, so
@@ -326,6 +435,144 @@ calls includedRoot(fromPeaks[i], accumulatorFrom[i], proofs[i]). For
 **subsequent** proofs (idx >= 1), the input is the previous step’s result
 (accMem), which is necessarily in memory; consistentRootsMemory remains the
 path for chained steps.
+
+### A.6a. Assessment: calldata vs memory consistency-proof decoder
+
+We previously had two decoders: `decodeConsistencyProofPayload(bytes memory)`
+(WitnetBuffer-based) and `decodeConsistencyProofPayloadFromCalldata(bytes
+calldata)` (cursor over calldata). The calldata path produced signature
+verification failures in practice. The contract copies
+`consistencyParts.consistencyProofs` into memory and uses the single memory
+path; the calldata decoder and verifyConsistencyProofChainCalldata have been
+removed.
+
+**Efficiency.** The calldata decoder avoids copying the raw proof bytes from
+calldata to memory before decoding; only the decoded outputs (paths,
+rightPeaks, sizes) are allocated in memory. So when the source is calldata,
+the calldata path is more gas- and memory-efficient at the boundary. When
+the source is already memory (e.g. tests building payloads in memory), there
+is no efficiency gain from a calldata decoder.
+
+**Simplicity and robustness.** The memory decoder shares the same helpers
+(`_readLength`, `_readUint`, `_readBytes`, `_readArrayOfBstr32`,
+`_readArrayOfArrayOfBstr32`) with the rest of LibCbor (payment claims,
+delegation payload, inclusion proof, COSE map reading). One code path, one
+mental model, one set of edge cases. WitnetBuffer is audited (Trail of Bits)
+and used consistently. The calldata decoder duplicates CBOR reading logic
+with cursor-based, calldata-specific helpers; we have two implementations
+to maintain and have already seen a failure (wrong decoded accumulator →
+detached payload mismatch → ConsistencyReceiptSignatureInvalid) when using the
+calldata path, which suggests higher risk of off-by-one or layout bugs.
+
+**Complexity of implementation.** Memory: single decoder plus shared helpers;
+dependency on WitnetBuffer is consistent with the rest of the library.
+Calldata: a second, parallel implementation (length decoding, uint decoding,
+bstr32 and array-of-bstr32 reading) with assembly for calldataload in
+`_readBstr32Calldata`. More code, more surface area, and no reuse of the
+audited buffer logic.
+
+**WitnetBuffer and eliminability.** The consistency-proof decoder is only one
+of several LibCbor entry points. `decodePaymentClaims`, `decodeDelegationPayload`,
+`decodeInclusionProofPayload`, and COSE map reading (e.g. for protected
+header, inclusion proofs, EC2 key) all use WitnetBuffer. Adopting the
+calldata decoder for consistency proofs alone does **not** allow removing the
+WitnetBuffer dependency; we would still need it for every other decoder. To
+eliminate WitnetBuffer we would have to reimplement or duplicate all of those
+paths with calldata- or custom-memory cursors, which would be a large,
+risky change and would lose the benefit of the audited dependency. So the
+calldata consistency decoder does not materially move the needle on
+dependency reduction, and eliminating WitnetBuffer is not a good trade for
+this use case.
+
+**Reality of "proofs as calldata".** The original goal of having low-level
+algorithms work exclusively on proofs as calldata cannot be met. The
+algorithms (`consistentRoots`, `consistentRootsMemory`, `includedRoot`) take
+decoded data: `bytes32[][] memory` paths, `bytes32[] memory` peaks/accumulator.
+Those structures are built and passed in memory. So at best we keep the *raw*
+proof bytes in calldata until the moment we decode; after that, everything
+is in memory. The only benefit of the calldata decoder is avoiding the copy
+of those raw bytes from calldata to memory before decoding. That is a
+bounded saving (one copy per proof payload), not a structural guarantee that
+"proofs stay in calldata."
+
+**Recommendation.** Prefer the **memory-based `decodeConsistencyProofPayload`**
+and treat it as the single path for consistency-proof decoding. The calldata
+decoder and `verifyConsistencyProofChainCalldata` have been removed. The contract should continue to copy
+`consistencyParts.consistencyProofs` from calldata into a `bytes[] memory`
+and call `verifyConsistencyProofChain` (memory). Reasons: (1) One
+implementation, one set of helpers, one dependency (WitnetBuffer) shared with
+all other CBOR decoding. (2) Proven, audited buffer behaviour; no duplicate
+cursor logic. (3) The "proofs only in calldata" goal is unattainable for the
+algorithms anyway; we only gain avoiding one copy per payload, at the cost of
+duplicate code and observed bugs. (4) WitnetBuffer cannot be removed by this
+choice alone, so the calldata path does not simplify the dependency graph.
+Accepting the copy at the boundary is the simpler and more robust choice.
+
+## A.6b Pre-decode consistency (and inclusion) proof elements
+
+**Question.** The decoding of `bytes[] consistencyProofs` on-chain (each
+element = bstr .cbor [ tree-size-1, tree-size-2, consistency-paths,
+right-peaks ]) is redundant if the client can decode CBOR off-chain. Can we
+pre-decode those elements and pass decoded data so the contract never runs
+`decodeConsistencyProofPayload`, and thus remove more CBOR support?
+
+**Assessment: yes.** We can change the receipt and entry point so that
+consistency proof *payloads* are supplied already decoded.
+
+**Proposed change (consistency only):**
+
+- Replace `bytes[] consistencyProofs` in `ConsistencyReceipt` with an array
+  of decoded payloads, e.g. a struct matching the current
+  `ConsistencyProofPayload` (treeSize1, treeSize2, paths, rightPeaks).
+- Contract then never calls `decodeConsistencyProofPayload`; it passes the
+  decoded array directly into the consistency chain (e.g.
+  `verifyConsistencyProofChain(initialAccumulator, decodedProofs)` where
+  `decodedProofs` is `ConsistencyProofPayload[]`).
+- **Removable from LibCbor:** `decodeConsistencyProofPayload`,
+  `_readArrayOfArrayOfBstr32`, and (if only used there) `_readArrayOfBstr32`
+  for the consistency path. Note: `_readArrayOfBstr32` is also used by
+  `decodeInclusionProofPayload`; see below.
+
+**Inclusion proof.** The same idea applies to the payment inclusion proof:
+today the contract receives `bytes paymentInclusionProof` (bstr .cbor [
+index, path ]) and decodes it with `decodeInclusionProofPayload`. If we
+pre-decode, the entry point can take (e.g.) optional `(uint64 index,
+bytes32[] path)` or a small struct instead of raw bytes. Then the contract
+never calls `decodeInclusionProofPayload`.
+
+**If both are pre-decoded:**
+
+- **Removable from LibCbor:** `decodeConsistencyProofPayload`,
+  `decodeInclusionProofPayload`, `_readArrayOfBstr32`,
+  `_readArrayOfArrayOfBstr32`, `_readUint`, `_readBytes`, `_bytesToBytes32`,
+  and the structs `ConsistencyProofPayload` / `InclusionProofPayload` (move
+  to interface or shared types as the pre-decoded shapes).
+- **Remaining in LibCbor:** Only what is needed for the protected header:
+  `extractAlgorithm` and its helpers: `_readLength`, `_readIntegerKey`,
+  `_readInteger`, `_skipValue`. No WitnetBuffer use for proof decoding; only
+  for the small protected-header map read.
+
+**ABI / calldata.** Passing decoded consistency proofs means
+`ConsistencyProofPayload[]` (or equivalent) in the receipt. Each element has
+`uint64 treeSize1`, `uint64 treeSize2`, `bytes32[][] paths`, `bytes32[]
+rightPeaks`. Solidity and the ABI support nested dynamic arrays in structs
+in calldata. So the receipt can be e.g.
+`ConsistencyProofPayload[] decodedConsistencyProofs` instead of
+`bytes[] consistencyProofs`. Same for payment: instead of
+`bytes paymentInclusionProof`, use e.g. `InclusionProofPayload calldata` (or
+two args `uint64 index`, `bytes32[] path`) when non-empty.
+
+**Recommendation.** Pre-decoding the referenced elements (consistency proof
+payloads and, optionally, the payment inclusion proof) is feasible and
+reduces on-chain CBOR to the minimum: only the protected header map for
+`extractAlgorithm`. That eliminates the “redundant” decoding described in
+the diff (decodeConsistencyProofPayload and the right-peaks/paths decoding).
+Implement as a follow-on to the current plan: (1) Add
+`ConsistencyProofPayload[]` (or a type alias) to the receipt and
+`verifyConsistencyProofChain(..., ConsistencyProofPayload[] memory)`; remove
+on-chain consistency proof decoding. (2) Optionally add pre-decoded
+inclusion proof to the entry point and remove
+`decodeInclusionProofPayload`.
 
 ## A.7 Payment by plain inclusion: why safe and advantageous
 

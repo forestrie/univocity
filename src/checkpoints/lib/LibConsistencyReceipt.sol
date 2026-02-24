@@ -1,29 +1,29 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.24;
 
-import {LibCbor} from "@univocity/cbor/lib/LibCbor.sol";
+import {IUnivocity} from "@univocity/checkpoints/interfaces/IUnivocity.sol";
 import {
     consistentRoots,
     consistentRootsMemory
 } from "@univocity/algorithms/consistentRoots.sol";
 
 /// @title LibConsistencyReceipt
-/// @notice MMR profile: decode and verify a series of consistency proofs per
-///    draft "Verifying the Receipt of consistency". Uses algorithms from
-///    src/algorithms (consistentRoots, consistentRootsMemory).
+/// @notice MMR profile: verify a series of pre-decoded consistency proofs per
+///    draft "Verifying the Receipt of consistency". No CBOR decode on-chain.
 library LibConsistencyReceipt {
-    /// @notice Run the consistency proof chain from stored initial accumulator.
+    /// @notice Run the consistency proof chain from stored initial
+    ///    accumulator. Caller supplies pre-decoded proof payloads (calldata).
     /// @param initialAccumulator Peaks of the log state (tree-size before
     ///    first proof).
-    /// @param rawProofPayloads One or more bstr .cbor consistency-proof
-    ///    payloads (order preserved).
-    /// @return finalAccumulator Peaks after applying all proofs.
+    /// @param decodedProofs Pre-decoded consistency proof payloads (order
+    ///    preserved). Passed as calldata; no copy of proof material.
+    /// @return finalAccumulator Peaks after applying all proofs (memory).
     /// @return size Tree size (leaf count) after the last proof.
     function verifyConsistencyProofChain(
         bytes32[] storage initialAccumulator,
-        bytes[] memory rawProofPayloads
+        IUnivocity.ConsistencyProof[] calldata decodedProofs
     ) internal view returns (bytes32[] memory finalAccumulator, uint64 size) {
-        uint256 n = rawProofPayloads.length;
+        uint256 n = decodedProofs.length;
         if (n == 0) {
             finalAccumulator = new bytes32[](0);
             size = 0;
@@ -34,8 +34,7 @@ library LibConsistencyReceipt {
         bytes32[] memory accumulatorFrom;
 
         for (uint256 idx = 0; idx < n; idx++) {
-            LibCbor.ConsistencyProofPayload memory p =
-                LibCbor.decodeConsistencyProofPayload(rawProofPayloads[idx]);
+            IUnivocity.ConsistencyProof calldata p = decodedProofs[idx];
 
             if (idx == 0) {
                 accumulatorFrom = initialAccumulator;
@@ -44,7 +43,7 @@ library LibConsistencyReceipt {
             }
 
             if (p.treeSize1 == 0) {
-                accMem = p.rightPeaks;
+                accMem = _copyPeaks(p.rightPeaks);
             } else {
                 uint256 ifrom = uint256(p.treeSize1) - 1;
                 bytes32[] memory roots = idx == 0
@@ -56,6 +55,19 @@ library LibConsistencyReceipt {
         }
 
         finalAccumulator = accMem;
+    }
+
+    /// @notice Copy rightPeaks from calldata to memory (only when treeSize1==0;
+    ///    we need a mutable accumulator for the chain).
+    function _copyPeaks(bytes32[] calldata peaksIn)
+        private
+        pure
+        returns (bytes32[] memory out)
+    {
+        out = new bytes32[](peaksIn.length);
+        for (uint256 i = 0; i < peaksIn.length; i++) {
+            out[i] = peaksIn[i];
+        }
     }
 
     /// @notice Build the detached payload (commitment) for consistency receipt
@@ -73,7 +85,7 @@ library LibConsistencyReceipt {
 
     function _concatAccumulator(
         bytes32[] memory roots,
-        bytes32[] memory rightPeaks
+        bytes32[] calldata rightPeaks
     ) private pure returns (bytes32[] memory out) {
         out = new bytes32[](roots.length + rightPeaks.length);
         for (uint256 i = 0; i < roots.length; i++) {

@@ -15,6 +15,7 @@ interface IUnivocityErrors {
     error LogNotFound(bytes32 logId);
     error SizeMustIncrease(uint64 current, uint64 proposed);
     error InvalidAccumulatorLength(uint256 expected, uint256 actual);
+    error InvalidRootKeyLength(uint256 length);
 
     // Proofs
     error InvalidConsistencyProof();
@@ -42,6 +43,8 @@ interface IUnivocityErrors {
     // Plan 0014: Receipt of Consistency
     error MissingCheckpointSignerKey();
     error ConsistencyReceiptSignatureInvalid();
+    /// @notice Consistency or inclusion proof array length exceeds MAX_HEIGHT
+    error ProofPayloadExceedsMaxHeight();
 
     // Plan 0015: Payment receipt as Receipt of Inclusion
     error InvalidPaymentReceipt();
