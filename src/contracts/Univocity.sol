@@ -5,8 +5,13 @@ import {IUnivocity} from "@univocity/checkpoints/interfaces/IUnivocity.sol";
 import {
     IUnivocityErrors
 } from "@univocity/checkpoints/interfaces/IUnivocityErrors.sol";
-import {LibCose} from "@univocity/cose/lib/LibCose.sol";
-import {LibCbor} from "@univocity/cbor/lib/LibCbor.sol";
+import {ALG_ES256, ALG_KS256} from "@univocity/cosecbor/constants.sol";
+import {
+    extractAlgorithm,
+    verifyES256DetachedPayload,
+    verifyKS256DetachedPayload,
+    UnsupportedAlgorithm
+} from "@univocity/cosecbor/cosecbor.sol";
 import {
     verifyDelegationProof,
     DelegationResult
@@ -75,13 +80,10 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         if (_bootstrapAuthority == address(0)) {
             revert OnlyBootstrapAuthority();
         }
-        if (
-            _bootstrapAlg != LibCose.ALG_KS256
-                && _bootstrapAlg != LibCose.ALG_ES256
-        ) {
+        if (_bootstrapAlg != ALG_KS256 && _bootstrapAlg != ALG_ES256) {
             revert InvalidBootstrapAlgorithm(_bootstrapAlg);
         }
-        if (_bootstrapAlg == LibCose.ALG_KS256) {
+        if (_bootstrapAlg == ALG_KS256) {
             if (_bootstrapKey.length != 20) {
                 revert InvalidBootstrapKeyLength(
                     _bootstrapAlg, _bootstrapKey.length
@@ -125,9 +127,9 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         returns (int64 bootstrapAlg, bytes memory bootstrapKey)
     {
         if (ks256Signer != address(0)) {
-            return (LibCose.ALG_KS256, abi.encodePacked(ks256Signer));
+            return (ALG_KS256, abi.encodePacked(ks256Signer));
         }
-        return (LibCose.ALG_ES256, abi.encodePacked(es256X, es256Y));
+        return (ALG_ES256, abi.encodePacked(es256X, es256Y));
     }
 
     // === Modifiers ===
@@ -246,11 +248,11 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         // Decode log root key at most once per transaction (P-256: 64 bytes).
         (bytes32 rootKeyX, bytes32 rootKeyY) = _decodeLogRootKey(log);
 
-        int64 alg = LibCbor.extractAlgorithm(consistencyParts.protectedHeader);
+        int64 alg = extractAlgorithm(consistencyParts.protectedHeader);
         bool sigOk = false;
         if (useDelegation) {
-            if (alg != LibCose.ALG_ES256) {
-                revert LibCose.UnsupportedAlgorithm(alg);
+            if (alg != ALG_ES256) {
+                revert UnsupportedAlgorithm(alg);
             }
             DelegationResult memory delResult = verifyDelegationProof(
                 consistencyParts.delegationProof.delegationKey,
@@ -263,7 +265,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
                 rootKeyX,
                 rootKeyY
             );
-            sigOk = LibCose.verifyES256DetachedPayload(
+            sigOk = verifyES256DetachedPayload(
                 consistencyParts.protectedHeader,
                 consistencyParts.signature,
                 detachedPayload,
@@ -271,23 +273,23 @@ contract Univocity is IUnivocity, IUnivocityErrors {
                 delResult.delegatedKeyY
             );
         } else {
-            if (alg == LibCose.ALG_ES256) {
-                sigOk = LibCose.verifyES256DetachedPayload(
+            if (alg == ALG_ES256) {
+                sigOk = verifyES256DetachedPayload(
                     consistencyParts.protectedHeader,
                     consistencyParts.signature,
                     detachedPayload,
                     es256X,
                     es256Y
                 );
-            } else if (alg == LibCose.ALG_KS256) {
-                sigOk = LibCose.verifyKS256DetachedPayload(
+            } else if (alg == ALG_KS256) {
+                sigOk = verifyKS256DetachedPayload(
                     consistencyParts.protectedHeader,
                     consistencyParts.signature,
                     detachedPayload,
                     ks256Signer
                 );
             } else {
-                revert LibCose.UnsupportedAlgorithm(alg);
+                revert UnsupportedAlgorithm(alg);
             }
         }
         if (!sigOk) revert ConsistencyReceiptSignatureInvalid();

@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 import {Univocity} from "@univocity/contracts/Univocity.sol";
-import {LibCose} from "@univocity/cose/lib/LibCose.sol";
+import {ALG_ES256, ALG_KS256} from "@univocity/cosecbor/constants.sol";
 
 contract DeployUnivocity is Script {
     function run() external {
@@ -26,10 +26,10 @@ contract DeployUnivocity is Script {
         int64 bootstrapAlg;
         bytes memory bootstrapKey;
         if (ks256Signer != address(0)) {
-            bootstrapAlg = LibCose.ALG_KS256;
+            bootstrapAlg = ALG_KS256;
             bootstrapKey = abi.encodePacked(ks256Signer);
         } else {
-            bootstrapAlg = LibCose.ALG_ES256;
+            bootstrapAlg = ALG_ES256;
             bootstrapKey = abi.encodePacked(es256X, es256Y);
         }
 

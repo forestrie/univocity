@@ -3,7 +3,8 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 import {Univocity} from "@univocity/contracts/Univocity.sol";
-import {LibCose} from "@univocity/cose/lib/LibCose.sol";
+import {ALG_KS256} from "@univocity/cosecbor/constants.sol";
+import {buildSigStructure} from "@univocity/cosecbor/cosecbor.sol";
 import {IUnivocity} from "@univocity/checkpoints/interfaces/IUnivocity.sol";
 import {includedRoot} from "@univocity/algorithms/includedRoot.sol";
 import {
@@ -72,9 +73,8 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
         commitmentHarness = new ConsistencyCommitmentHarness();
 
         vm.prank(BOOTSTRAP);
-        univocity = new Univocity(
-            BOOTSTRAP, LibCose.ALG_KS256, abi.encodePacked(ks256Signer)
-        );
+        univocity =
+            new Univocity(BOOTSTRAP, ALG_KS256, abi.encodePacked(ks256Signer));
         // Authority log is established by first bootstrap publishCheckpoint in
         // tests that need it
     }
@@ -86,9 +86,8 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
     ///    authority accumulator
     ///    commits to that leaf.
     function test_fullFlow_bootstrapInitializesAndPublishesAuthority() public {
-        Univocity fresh = new Univocity(
-            BOOTSTRAP, LibCose.ALG_KS256, abi.encodePacked(ks256Signer)
-        );
+        Univocity fresh =
+            new Univocity(BOOTSTRAP, ALG_KS256, abi.encodePacked(ks256Signer));
         IUnivocity.PaymentGrant memory g =
             _paymentGrant(authorityLogId, ks256Signer, 0, 10, 0, 0);
         bytes32 leaf0 = _leafCommitment(IDTIMESTAMP_0, g);
@@ -186,7 +185,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
         bytes memory protected = hex"a1013a00010106";
         bytes32 commitment = sha256(abi.encodePacked(accMem));
         bytes memory sigStruct =
-            LibCose.buildSigStructure(protected, abi.encodePacked(commitment));
+            buildSigStructure(protected, abi.encodePacked(commitment));
         (uint8 v, bytes32 r, bytes32 s) =
             vm.sign(SIGNER_PK, keccak256(sigStruct));
         return IUnivocity.ConsistencyReceipt({
@@ -222,7 +221,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
         });
         bytes memory protected = hex"a1013a00010106";
         bytes memory sigStruct =
-            LibCose.buildSigStructure(protected, abi.encodePacked(commitment));
+            buildSigStructure(protected, abi.encodePacked(commitment));
         (uint8 v, bytes32 r, bytes32 s) =
             vm.sign(SIGNER_PK, keccak256(sigStruct));
         return IUnivocity.ConsistencyReceipt({
@@ -262,7 +261,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
         bytes32 root =
             includedRootHarness.callIncludedRoot(index, leafCommitment, path);
         bytes memory sigStruct =
-            LibCose.buildSigStructure(protected, abi.encodePacked(root));
+            buildSigStructure(protected, abi.encodePacked(root));
         (uint8 v, bytes32 r, bytes32 s) =
             vm.sign(SIGNER_PK, keccak256(sigStruct));
         return abi.encodePacked(
@@ -339,7 +338,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
         );
 
         bytes memory protected = hex"a1013a00010106"; // KS256
-        bytes memory sigStruct = LibCose.buildSigStructure(protected, payload);
+        bytes memory sigStruct = buildSigStructure(protected, payload);
         bytes32 hash = keccak256(sigStruct);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(SIGNER_PK, hash);
         bytes memory sig = abi.encodePacked(r, s, v);
@@ -481,7 +480,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
         });
         bytes memory protected = hex"a1013a00010106";
         bytes memory sigStruct =
-            LibCose.buildSigStructure(protected, abi.encodePacked(commitment));
+            buildSigStructure(protected, abi.encodePacked(commitment));
         (uint8 v, bytes32 r, bytes32 s) =
             vm.sign(SIGNER_PK, keccak256(sigStruct));
         return IUnivocity.ConsistencyReceipt({

@@ -26,7 +26,8 @@ The verification logic implements the consistency proof format described in
 - **LibAuthorityVerifier**: Verifies SCITT-format payment receipts (COSE_Sign1 + CBOR claims) and inclusion in the authority log.
 - **consistencyReceipt**: Verifies MMR consistency receipt chain (decode CBOR proofs,
   run `consistentRoots`/`consistentRootsMemory`, build detached payload commitment).
-- **LibCose / LibCbor**: COSE_Sign1 decode/verify (ES256 and KS256) and CBOR claim extraction.
+- **cosecbor**: COSE_Sign1 Sig_structure and verify (ES256, KS256); CBOR
+  extractAlgorithm from protected header (constants and free functions).
 
 ## Deployment
 

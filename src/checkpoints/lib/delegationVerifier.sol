@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.24;
 
-import {LibCose} from "@univocity/cose/lib/LibCose.sol";
+import {ALG_ES256} from "@univocity/cosecbor/constants.sol";
+import {UnsupportedAlgorithm} from "@univocity/cosecbor/cosecbor.sol";
 import {P256} from "@openzeppelin/contracts/utils/cryptography/P256.sol";
 
 /// @notice Verifies delegation: minimal proof (no COSE cert decode). Plan 0016.
@@ -47,8 +48,8 @@ function verifyDelegationProof(
     bytes32 storedRootX,
     bytes32 storedRootY
 ) view returns (DelegationResult memory result) {
-    if (int64(alg) != LibCose.ALG_ES256) {
-        revert LibCose.UnsupportedAlgorithm(int64(alg));
+    if (int64(alg) != ALG_ES256) {
+        revert UnsupportedAlgorithm(int64(alg));
     }
     if (delegationKey.length != 64) {
         revert InvalidDelegationKeyLength(delegationKey.length);

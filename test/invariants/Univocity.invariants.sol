@@ -3,7 +3,8 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 import {Univocity} from "@univocity/contracts/Univocity.sol";
-import {LibCose} from "@univocity/cose/lib/LibCose.sol";
+import {ALG_KS256} from "@univocity/cosecbor/constants.sol";
+import {buildSigStructure} from "@univocity/cosecbor/cosecbor.sol";
 import {IUnivocity} from "@univocity/checkpoints/interfaces/IUnivocity.sol";
 import {hashPosPair64} from "@univocity/algorithms/binUtils.sol";
 import {peaks} from "@univocity/algorithms/peaks.sol";
@@ -28,9 +29,8 @@ contract UnivocityHandler is Test {
         ks256Signer = vm.addr(SIGNER_PK);
         authorityLogId = keccak256("authority");
         vm.prank(bootstrap);
-        univocity = new Univocity(
-            bootstrap, LibCose.ALG_KS256, abi.encodePacked(ks256Signer)
-        );
+        univocity =
+            new Univocity(bootstrap, ALG_KS256, abi.encodePacked(ks256Signer));
     }
 
     function initialize() external {
@@ -122,7 +122,7 @@ contract UnivocityHandler is Test {
         bytes memory protected = hex"a1013a00010106";
         bytes32 commitment = sha256(abi.encodePacked(accMem));
         bytes memory sigStruct =
-            LibCose.buildSigStructure(protected, abi.encodePacked(commitment));
+            buildSigStructure(protected, abi.encodePacked(commitment));
         (uint8 v, bytes32 r, bytes32 s) =
             vm.sign(SIGNER_PK, keccak256(sigStruct));
         return IUnivocity.ConsistencyReceipt({
@@ -162,7 +162,7 @@ contract UnivocityHandler is Test {
             _uintCbor(0)
         );
         bytes memory protected = hex"a1013a00010106";
-        bytes memory sigStruct = LibCose.buildSigStructure(protected, payload);
+        bytes memory sigStruct = buildSigStructure(protected, payload);
         (uint8 v, bytes32 r, bytes32 s) =
             vm.sign(SIGNER_PK, keccak256(sigStruct));
         receipt = abi.encodePacked(
@@ -246,7 +246,7 @@ contract UnivocityHandler is Test {
         bytes memory protected = hex"a1013a00010106";
         bytes32 commitment = sha256(abi.encodePacked(toAcc));
         bytes memory sigStruct =
-            LibCose.buildSigStructure(protected, abi.encodePacked(commitment));
+            buildSigStructure(protected, abi.encodePacked(commitment));
         (uint8 v, bytes32 r, bytes32 s) =
             vm.sign(SIGNER_PK, keccak256(sigStruct));
         return IUnivocity.ConsistencyReceipt({

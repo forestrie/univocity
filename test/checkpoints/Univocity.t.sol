@@ -5,7 +5,8 @@ import {Test} from "forge-std/Test.sol";
 import {Univocity} from "@univocity/contracts/Univocity.sol";
 import {hashPosPair64} from "@univocity/algorithms/binUtils.sol";
 import {includedRoot} from "@univocity/algorithms/includedRoot.sol";
-import {LibCose} from "@univocity/cose/lib/LibCose.sol";
+import {ALG_ES256, ALG_KS256} from "@univocity/cosecbor/constants.sol";
+import {buildSigStructure} from "@univocity/cosecbor/cosecbor.sol";
 import {IUnivocity} from "@univocity/checkpoints/interfaces/IUnivocity.sol";
 import {
     IUnivocityEvents
@@ -78,7 +79,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
         commitmentHarness = new ConsistencyCommitmentHarness();
         vm.prank(BOOTSTRAP);
         univocity = new Univocity(
-            BOOTSTRAP, LibCose.ALG_KS256, abi.encodePacked(KS256_SIGNER)
+            BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
         );
 
         // First checkpoint: leaf = leafCommitment(paymentGrant + idtimestamp).
@@ -172,7 +173,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
         bytes memory protected = hex"a1013a00010106";
         bytes32 commitment = sha256(abi.encodePacked(accMem));
         bytes memory sigStruct =
-            LibCose.buildSigStructure(protected, abi.encodePacked(commitment));
+            buildSigStructure(protected, abi.encodePacked(commitment));
         (uint8 v, bytes32 r, bytes32 s) =
             vm.sign(SIGNER_PK, keccak256(sigStruct));
         return IUnivocity.ConsistencyReceipt({
@@ -210,7 +211,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
         bytes memory protected = hex"a1013a00010106";
         bytes32 commitment = sha256(abi.encodePacked());
         bytes memory sigStruct =
-            LibCose.buildSigStructure(protected, abi.encodePacked(commitment));
+            buildSigStructure(protected, abi.encodePacked(commitment));
         (uint8 v, bytes32 r, bytes32 s) =
             vm.sign(SIGNER_PK, keccak256(sigStruct));
         return IUnivocity.ConsistencyReceipt({
@@ -265,7 +266,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
         bytes memory protected = hex"a1013a00010106";
         bytes32 commitment = sha256(abi.encodePacked(toAcc));
         bytes memory sigStruct =
-            LibCose.buildSigStructure(protected, abi.encodePacked(commitment));
+            buildSigStructure(protected, abi.encodePacked(commitment));
         (uint8 v, bytes32 r, bytes32 s) =
             vm.sign(SIGNER_PK, keccak256(sigStruct));
         return IUnivocity.ConsistencyReceipt({
@@ -295,7 +296,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
         bytes32 root =
             includedRootHarness.callIncludedRoot(index, leafCommitment, path);
         bytes memory sigStruct =
-            LibCose.buildSigStructure(protected, abi.encodePacked(root));
+            buildSigStructure(protected, abi.encodePacked(root));
         (uint8 v, bytes32 r, bytes32 s) =
             vm.sign(SIGNER_PK, keccak256(sigStruct));
         return abi.encodePacked(
@@ -327,7 +328,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
         bytes memory protected = hex"a1013a00010106";
         bytes32 commitment = sha256(abi.encodePacked(toAcc));
         bytes memory sigStruct =
-            LibCose.buildSigStructure(protected, abi.encodePacked(commitment));
+            buildSigStructure(protected, abi.encodePacked(commitment));
         (uint8 v, bytes32 r, bytes32 s) =
             vm.sign(SIGNER_PK, keccak256(sigStruct));
         return IUnivocity.ConsistencyReceipt({
@@ -364,7 +365,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
         });
         bytes memory protected = hex"a1013a00010106";
         bytes memory sigStruct =
-            LibCose.buildSigStructure(protected, abi.encodePacked(commitment));
+            buildSigStructure(protected, abi.encodePacked(commitment));
         (uint8 v, bytes32 r, bytes32 s) =
             vm.sign(SIGNER_PK, keccak256(sigStruct));
         return IUnivocity.ConsistencyReceipt({
@@ -394,8 +395,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
         });
         bytes memory protected = hex"a1013a00010106";
         bytes memory wrongPayload = abi.encodePacked(keccak256("wrong"));
-        bytes memory sigStruct =
-            LibCose.buildSigStructure(protected, wrongPayload);
+        bytes memory sigStruct = buildSigStructure(protected, wrongPayload);
         (uint8 v, bytes32 r, bytes32 s) =
             vm.sign(SIGNER_PK, keccak256(sigStruct));
         return IUnivocity.ConsistencyReceipt({
@@ -431,7 +431,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
         bytes memory protected = hex"a1013a00010106";
         bytes32 commitment = sha256(abi.encodePacked(rightPeaksWrong));
         bytes memory sigStruct =
-            LibCose.buildSigStructure(protected, abi.encodePacked(commitment));
+            buildSigStructure(protected, abi.encodePacked(commitment));
         (uint8 v, bytes32 r, bytes32 s) =
             vm.sign(SIGNER_PK, keccak256(sigStruct));
         return IUnivocity.ConsistencyReceipt({
@@ -472,7 +472,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
         });
         bytes memory protected = hex"a1013a00010106";
         bytes memory sigStruct =
-            LibCose.buildSigStructure(protected, abi.encodePacked(commitment));
+            buildSigStructure(protected, abi.encodePacked(commitment));
         (uint8 v, bytes32 r, bytes32 s) =
             vm.sign(SIGNER_PK, keccak256(sigStruct));
         return IUnivocity.ConsistencyReceipt({
@@ -584,7 +584,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
             _uintCbor(maxHeight)
         );
         bytes memory protected = hex"a1013a00010106";
-        bytes memory sigStruct = LibCose.buildSigStructure(protected, payload);
+        bytes memory sigStruct = buildSigStructure(protected, payload);
         (uint8 v, bytes32 r, bytes32 s) =
             vm.sign(SIGNER_PK, keccak256(sigStruct));
         receipt = abi.encodePacked(
@@ -671,7 +671,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
 
     function test_firstCheckpoint_revertsIfSizeZero() public {
         Univocity fresh = new Univocity(
-            BOOTSTRAP, LibCose.ALG_KS256, abi.encodePacked(KS256_SIGNER)
+            BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
         );
         IUnivocity.PaymentGrant memory g =
             _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0);
@@ -692,7 +692,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
         // New API has no receiptMmrIndex; first leaf must equal leafCommitment.
         // So we use wrong leaf in accumulator => InvalidReceiptInclusionProof.
         Univocity fresh = new Univocity(
-            BOOTSTRAP, LibCose.ALG_KS256, abi.encodePacked(KS256_SIGNER)
+            BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
         );
         IUnivocity.PaymentGrant memory g =
             _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0);
@@ -711,7 +711,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
 
     function test_firstPublish_emitsInitialized() public {
         Univocity newUnivocity = new Univocity(
-            BOOTSTRAP, LibCose.ALG_KS256, abi.encodePacked(KS256_SIGNER)
+            BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
         );
         IUnivocity.PaymentGrant memory g =
             _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0);
@@ -733,7 +733,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
 
     function test_firstPublish_revertsIfReceiptEmpty() public {
         Univocity newUnivocity = new Univocity(
-            BOOTSTRAP, LibCose.ALG_KS256, abi.encodePacked(KS256_SIGNER)
+            BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
         );
         IUnivocity.ConsistencyReceipt memory consistency =
             _buildConsistencyReceipt(_toAcc(keccak256("peak")));
@@ -751,7 +751,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
         // Receipt built for authority log; grant targets other-log so
         // first leaf != leafCommitment(IDTIMESTAMP_AUTH, g) => inclusion fails.
         Univocity fresh = new Univocity(
-            BOOTSTRAP, LibCose.ALG_KS256, abi.encodePacked(KS256_SIGNER)
+            BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
         );
         bytes32 otherLogId = keccak256("other-log");
         IUnivocity.PaymentGrant memory gAuthority =
@@ -771,7 +771,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
         public
     {
         Univocity fresh = new Univocity(
-            BOOTSTRAP, LibCose.ALG_KS256, abi.encodePacked(KS256_SIGNER)
+            BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
         );
         IUnivocity.PaymentGrant memory g =
             _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0);
@@ -786,7 +786,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
 
     function test_firstCheckpoint_succeedsFromNonBootstrapSender() public {
         Univocity fresh = new Univocity(
-            BOOTSTRAP, LibCose.ALG_KS256, abi.encodePacked(KS256_SIGNER)
+            BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
         );
         IUnivocity.PaymentGrant memory g =
             _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0);
@@ -805,7 +805,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
 
     function test_firstCheckpoint_sizeTwo_succeeds() public {
         Univocity fresh = new Univocity(
-            BOOTSTRAP, LibCose.ALG_KS256, abi.encodePacked(KS256_SIGNER)
+            BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
         );
         IUnivocity.PaymentGrant memory g0 =
             _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0);
@@ -851,7 +851,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
         public
     {
         Univocity fresh = new Univocity(
-            BOOTSTRAP, LibCose.ALG_KS256, abi.encodePacked(KS256_SIGNER)
+            BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
         );
         IUnivocity.PaymentGrant memory g =
             _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0);
@@ -1092,7 +1092,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
         public
     {
         Univocity fresh = new Univocity(
-            BOOTSTRAP, LibCose.ALG_KS256, abi.encodePacked(KS256_SIGNER)
+            BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
         );
         bytes32 logId = keccak256("other-target");
         IUnivocity.PaymentGrant memory g0 =
@@ -1215,7 +1215,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
         public
     {
         Univocity fresh = new Univocity(
-            BOOTSTRAP, LibCose.ALG_KS256, abi.encodePacked(KS256_SIGNER)
+            BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
         );
         IUnivocity.PaymentGrant memory g0 =
             _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0);
@@ -1343,9 +1343,8 @@ contract UnivocityTest is Test, IUnivocityEvents {
         uint256 es256Pk = 1;
         (uint256 pubX, uint256 pubY) = vm.publicKeyP256(es256Pk);
         vm.prank(BOOTSTRAP);
-        Univocity es256Univocity = new Univocity(
-            BOOTSTRAP, LibCose.ALG_ES256, abi.encodePacked(pubX, pubY)
-        );
+        Univocity es256Univocity =
+            new Univocity(BOOTSTRAP, ALG_ES256, abi.encodePacked(pubX, pubY));
 
         bytes8 idtimestampBe = bytes8(0);
         IUnivocity.PaymentGrant memory g =
@@ -1371,7 +1370,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
         bytes memory protected = hex"a10126";
         bytes32 commitment = sha256(abi.encodePacked(accMem));
         bytes memory sigStruct =
-            LibCose.buildSigStructure(protected, abi.encodePacked(commitment));
+            buildSigStructure(protected, abi.encodePacked(commitment));
         bytes32 hash = sha256(sigStruct);
         (bytes32 r, bytes32 s) = vm.signP256(es256Pk, hash);
         s = _ensureP256LowerS(s);
@@ -1413,7 +1412,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
             _uintCbor(0)
         );
         bytes memory protected = hex"a10126"; // ES256
-        bytes memory sigStruct = LibCose.buildSigStructure(protected, payload);
+        bytes memory sigStruct = buildSigStructure(protected, payload);
         bytes32 hash = sha256(sigStruct);
         (bytes32 r, bytes32 s) = vm.signP256(es256PrivateKey, hash);
         s = _ensureP256LowerS(s);
@@ -1458,7 +1457,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
             rightPeaks: new bytes32[](0)
         });
         bytes32 commitment = sha256(abi.encodePacked());
-        bytes memory sigStruct = LibCose.buildSigStructure(
+        bytes memory sigStruct = buildSigStructure(
             hex"a1013a00010106", abi.encodePacked(commitment)
         );
         (uint8 v, bytes32 r, bytes32 s) =
@@ -1494,7 +1493,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
     // === Plan 0012 Phase C: Idtimestamp optional test (4.3 item 7) ===
     function test_twoCheckpoints_differentIdtimestamps_bothSucceed() public {
         Univocity fresh = new Univocity(
-            BOOTSTRAP, LibCose.ALG_KS256, abi.encodePacked(KS256_SIGNER)
+            BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
         );
         bytes32 logId = keccak256("multi-idts");
         bytes8 idt0 = bytes8(0);
