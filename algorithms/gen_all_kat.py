@@ -16,7 +16,18 @@ import argparse
 import sys
 
 from .binutils import index_height
-from .peaks import leaf_count, peaks
+from .peaks import leaf_count, peak_index, peaks
+
+# Go TestPeakIndex rows (mmrIndex, proofLength); mmrSize = mmrIndex + 1.
+# Expected = peak_index(leaf_count(mmrSize), d). Same formula as Go PeakIndex.
+PEAK_INDEX_GO_ROWS = [
+    (0, 0), (2, 1), (3, 1), (3, 0), (6, 2), (7, 2), (7, 0), (9, 2), (9, 1),
+    (10, 2), (10, 1), (10, 0), (14, 3), (15, 3), (15, 0), (17, 3), (17, 1),
+    (18, 3), (18, 1), (18, 0), (21, 3), (21, 2), (22, 3), (22, 2), (22, 0),
+    (24, 3), (24, 2), (24, 1), (25, 3), (25, 2), (25, 1), (25, 0),
+    (30, 4), (31, 4), (31, 0), (33, 4), (33, 1), (34, 4), (34, 1), (34, 0),
+    (37, 4), (37, 2), (38, 4), (38, 2), (38, 0),
+]
 
 
 def main():
@@ -26,7 +37,23 @@ def main():
         action="store_true",
         help="Print only summary and regeneration commands",
     )
+    ap.add_argument(
+        "--peak-index",
+        action="store_true",
+        help="Print peakIndex KAT (43 rows from Go TestPeakIndex; expected from Python)",
+    )
     args = ap.parse_args()
+
+    if args.peak_index:
+        print("// peakIndex(leafCount(mmrIndex+1), d) expected values (Python peak_index)")
+        print("// Source: Go peaks_test.go TestPeakIndex rows; formula matches Go PeakIndex.")
+        print("// (mmrIndex, d) -> expected")
+        for mmr_idx, d in PEAK_INDEX_GO_ROWS:
+            mmr_size = mmr_idx + 1
+            lc = leaf_count(mmr_size)
+            exp = peak_index(lc, d)
+            print(f"// ({mmr_idx}, {d}) lc={lc} -> {exp}")
+        return 0
 
     if args.summary:
         print("# KAT regeneration summary")

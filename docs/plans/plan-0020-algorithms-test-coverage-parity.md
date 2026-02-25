@@ -39,7 +39,7 @@ a single canonical source (39-node MMR, same hash scheme).
 
 | File | Functions | Notes |
 |------|-----------|-------|
-| **LibBinUtils.sol** | bitLength, mostSigBit, allOnes, indexHeight, log2floor, popcount64, popcount, hashPosPair64 | Used by peaks, includedRoot, consistentRoots. |
+| **LibBinUtils.sol** | bitLength, mostSigBit, allOnes, indexHeight, log2floor, popcount64, hashPosPair64 | Used by peaks, includedRoot, consistentRoots. |
 | **peaks.sol** | peaksBitmap, leafCount, peakIndex, peaks | Free functions; match Go/Python semantics. |
 | **includedRoot.sol** | includedRoot, verifyInclusion | includedRoot = Python included_root; verifyInclusion = Go VerifyInclusion. |
 | **consistentRoots.sol** | consistentRoots, consistentRootsMemory | consistent_roots with duplicate collapse. |
@@ -56,7 +56,7 @@ a single canonical source (39-node MMR, same hash scheme).
 | LibBinUtils_allOnes.t.sol | Fuzz + zero, powers | Python all_ones | OK. |
 | LibBinUtils_indexHeight.t.sol | Fuzz, leaves, peak indices, go test vectors | Python index_height; tests.py test_index_heights (table 0..38) | **Add full index height KAT**: 39 values for indices 0..38 matching Python expect array (0,0,1,0,0,1,2,0,...). |
 | LibBinUtils_log2floor.t.sol | Fuzz, powers, zero, max | Python log2floor; Go Log2Uint64 | **Add same KAT as Go**: 1→0, 2→1, 3→1, 4→2, 8→3, 16→4, 17..19→4, 32→5. |
-| LibBinUtils_popcount.t.sol | popcount64 fuzz, known values, peak bitmaps | Go popcount for leaf count | OK. |
+| LibBinUtils_popcount.t.sol | popcount64 fuzz, known values, peak bitmaps | Go bits.OnesCount64 for leaf count | OK. |
 | LibBinUtils_hashPosPair64.t.sol | One known vector (pos=3, a, b), order/position matters | Python hash_pospair64; used in db.py and all proofs | **Add KAT from canonical MMR**: e.g. parent hashes from db.py (indices 2,5,6,6,13,14,…) so Solidity hashPosPair64 matches Python/Go byte-for-byte. |
 
 ### 3.2 peaks.sol

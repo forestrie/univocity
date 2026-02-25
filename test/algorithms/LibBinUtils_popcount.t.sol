@@ -5,14 +5,9 @@ import {Test} from "forge-std/Test.sol";
 import {LibBinUtils} from "@univocity/algorithms/LibBinUtils.sol";
 
 /// @title LibBinUtils_popcount_Test
-/// @notice Tests for popcount and popcount64 (match go bits.OnesCount64 for
-///    use in PeakIndex).
+/// @notice Tests for popcount64 (IETF MMR profile ≤64 bits; match go bits.OnesCount64
+///    for use in PeakIndex).
 contract LibBinUtils_popcount_Test is Test {
-    /// @dev popcount64 matches popcount for all 64-bit values (fuzz)
-    function testFuzz_popcount64_matchesPopcount_uint64(uint64 x) public pure {
-        assertEq(LibBinUtils.popcount64(x), LibBinUtils.popcount(x));
-    }
-
     /// @dev popcount64 ignores high bits (only low 64 bits counted)
     function testFuzz_popcount64_ignoresHighBits(uint64 lo, uint256 hi)
         public
@@ -31,7 +26,7 @@ contract LibBinUtils_popcount_Test is Test {
         assertEq(LibBinUtils.popcount64(0xFFFFFFFFFFFFFFFF), 64);
     }
 
-    /// @dev Peak bitmap values from Go (leaf counts): popcount = number of peaks
+    /// @dev Peak bitmap values from Go (leaf counts): popcount64 = number of peaks
     function test_popcount64_peakBitmapValues() public pure {
         assertEq(LibBinUtils.popcount64(1), 1); // 0b1
         assertEq(LibBinUtils.popcount64(5), 2); // 0b101
@@ -40,11 +35,27 @@ contract LibBinUtils_popcount_Test is Test {
         assertEq(LibBinUtils.popcount64(15), 4); // 0b1111
     }
 
-    /// @dev popcount general: known values
-    function test_popcount_knownValues() public pure {
-        assertEq(LibBinUtils.popcount(0), 0);
-        assertEq(LibBinUtils.popcount(1), 1);
-        assertEq(LibBinUtils.popcount(0xAA), 4);
-        assertEq(LibBinUtils.popcount(type(uint256).max), 256);
+    // -------------------------------------------------------------------------
+    // Gas benchmarks (run with --gas-report)
+    // -------------------------------------------------------------------------
+
+    function test_gas_popcount64_zero() public pure {
+        LibBinUtils.popcount64(0);
+    }
+
+    function test_gas_popcount64_twoBits() public pure {
+        LibBinUtils.popcount64(5); // 0b101 -> 2
+    }
+
+    function test_gas_popcount64_leafCount21() public pure {
+        LibBinUtils.popcount64(21); // 0b10101 -> 3 peaks typical
+    }
+
+    function test_gas_popcount64_eightBits() public pure {
+        LibBinUtils.popcount64(0xFF);
+    }
+
+    function test_gas_popcount64_full64() public pure {
+        LibBinUtils.popcount64(0xFFFFFFFFFFFFFFFF);
     }
 }

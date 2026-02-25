@@ -103,7 +103,7 @@ library LibBinUtils {
     }
 
     /// @notice Returns the number of set bits in the low 64 bits of `x`.
-    /// @dev Optimised for leaf count / peak bitmap (go-merklelog uint64).
+    /// @dev Used for leaf count / peak bitmap per IETF MMR profile (≤64 bits).
     ///    Table via if/else (no storage): 16 nibble counts, sum over 16 nibbles.
     /// @param x Value whose low 64 bits are to be counted.
     /// @return n The number of 1-bits in x & 0xFFFFFFFFFFFFFFFF.
@@ -147,22 +147,6 @@ library LibBinUtils {
         if (v == 13) return 3;
         if (v == 14) return 3;
         return 4; // 15
-    }
-
-    /// @notice Returns the number of set bits (population count) in `x`.
-    /// @dev General-purpose; for values known to fit in 64 bits prefer
-    ///    popcount64. Uses Brian Kernighan's method.
-    /// @param x The value to count.
-    /// @return The number of 1-bits in x.
-    function popcount(uint256 x) internal pure returns (uint256) {
-        uint256 n = 0;
-        while (x != 0) {
-            x = x & (x - 1);
-            unchecked {
-                n++;
-            }
-        }
-        return n;
     }
 
     /// @notice Computes SHA-256(pos || a || b) where pos is encoded as 8 bytes

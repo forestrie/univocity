@@ -347,47 +347,143 @@ contract PeaksTest is Test {
     }
 
     /// @dev PeakIndex vectors from go-merklelog/mmr/peaks_test.go TestPeakIndex
-    ///     (subset; full 43-case table covered by Go). Go: peakBits := LeafCount
-    ///     (tt.mmrIndex + 1); PeakIndex(peakBits, proofLength)
+    ///     (subset; see test_peakIndex_goTableFull for full 43-case KAT).
+    ///     Go: peakBits := LeafCount(tt.mmrIndex + 1); PeakIndex(peakBits, d).
     function test_peakIndex_goVectors() public view {
         uint256 lc;
-        // mmrIndex 0 -> mmrSize 1
         assertEq(harness.callPeakIndex(harness.callLeafCount(1), 0), 0);
-        // mmrIndex 2 (perfect)
         lc = harness.callLeafCount(3);
         assertEq(harness.callPeakIndex(lc, 1), 0);
-        // mmrIndex 3
         lc = harness.callLeafCount(4);
         assertEq(harness.callPeakIndex(lc, 1), 0);
         assertEq(harness.callPeakIndex(lc, 0), 1);
-        // mmrIndex 6 (perfect)
         assertEq(harness.callPeakIndex(harness.callLeafCount(7), 2), 0);
-        // mmrIndex 7
         lc = harness.callLeafCount(8);
         assertEq(harness.callPeakIndex(lc, 2), 0);
         assertEq(harness.callPeakIndex(lc, 0), 1);
-        // mmrIndex 9
         lc = harness.callLeafCount(10);
         assertEq(harness.callPeakIndex(lc, 2), 0);
         assertEq(harness.callPeakIndex(lc, 1), 1);
-        // mmrIndex 10 (leafCount(11)=111 binary)
         lc = harness.callLeafCount(11);
         assertEq(harness.callPeakIndex(lc, 2), 0);
         assertEq(harness.callPeakIndex(lc, 1), 1);
         assertEq(harness.callPeakIndex(lc, 0), 2);
-        // mmrIndex 14 (perfect)
         assertEq(harness.callPeakIndex(harness.callLeafCount(15), 3), 0);
-        // mmrIndex 18 (leafCount(19)=1011 binary, 3 peaks)
         lc = harness.callLeafCount(19);
         assertEq(harness.callPeakIndex(lc, 3), 0);
         assertEq(harness.callPeakIndex(lc, 1), 1);
         assertEq(harness.callPeakIndex(lc, 0), 2);
-        // mmrIndex 25 (leafCount(26)=1111 binary, 4 peaks)
         lc = harness.callLeafCount(26);
         assertEq(harness.callPeakIndex(lc, 3), 0);
         assertEq(harness.callPeakIndex(lc, 2), 1);
         assertEq(harness.callPeakIndex(lc, 1), 2);
         assertEq(harness.callPeakIndex(lc, 0), 3);
+    }
+
+    /// @dev Full KAT from go-merklelog/mmr/peaks_test.go TestPeakIndex: all 43
+    ///     (mmrIndex, proofLength, expected) rows. Expected values match Python
+    ///     peak_index(leaf_count(mmrSize), d) and Go PeakIndex(LeafCount(size), d)
+    ///     (same formula; Go PeaksBitmap(19)=11 so leaf counts align). Regenerate
+    ///     oracle: python3 -m algorithms.gen_all_kat --peak-index
+    function test_peakIndex_goTableFull() public view {
+        uint256 mmrSize;
+        uint256 lc;
+        // (mmrIndex, proofLength, expected) -> peakIndex(leafCount(mmrIndex+1), d) == expected
+        assertEq(harness.callPeakIndex(harness.callLeafCount(1), 0), 0); // 0,0,0
+        mmrSize = 3;
+        lc = harness.callLeafCount(mmrSize);
+        assertEq(harness.callPeakIndex(lc, 1), 0); // 2,1,0
+        mmrSize = 4;
+        lc = harness.callLeafCount(mmrSize);
+        assertEq(harness.callPeakIndex(lc, 1), 0);
+        assertEq(harness.callPeakIndex(lc, 0), 1); // 3,1,0 and 3,0,1
+        mmrSize = 7;
+        lc = harness.callLeafCount(mmrSize);
+        assertEq(harness.callPeakIndex(lc, 2), 0); // 6,2,0
+        mmrSize = 8;
+        lc = harness.callLeafCount(mmrSize);
+        assertEq(harness.callPeakIndex(lc, 2), 0);
+        assertEq(harness.callPeakIndex(lc, 0), 1); // 7,2,0 and 7,0,1
+        mmrSize = 10;
+        lc = harness.callLeafCount(mmrSize);
+        assertEq(harness.callPeakIndex(lc, 2), 0);
+        assertEq(harness.callPeakIndex(lc, 1), 1); // 9,2,0 and 9,1,1
+        mmrSize = 11;
+        lc = harness.callLeafCount(mmrSize);
+        assertEq(harness.callPeakIndex(lc, 2), 0);
+        assertEq(harness.callPeakIndex(lc, 1), 1);
+        assertEq(harness.callPeakIndex(lc, 0), 2); // 10,2,0 10,1,1 10,0,2
+        mmrSize = 15;
+        lc = harness.callLeafCount(mmrSize);
+        assertEq(harness.callPeakIndex(lc, 3), 0); // 14,3,0
+        mmrSize = 16;
+        lc = harness.callLeafCount(mmrSize);
+        assertEq(harness.callPeakIndex(lc, 3), 0);
+        assertEq(harness.callPeakIndex(lc, 0), 1); // 15,3,0 and 15,0,1
+        mmrSize = 18;
+        lc = harness.callLeafCount(mmrSize);
+        assertEq(harness.callPeakIndex(lc, 3), 0);
+        assertEq(harness.callPeakIndex(lc, 1), 1); // 17,3,0 and 17,1,1
+        mmrSize = 19;
+        lc = harness.callLeafCount(mmrSize);
+        assertEq(harness.callPeakIndex(lc, 3), 0);
+        assertEq(harness.callPeakIndex(lc, 1), 1);
+        assertEq(harness.callPeakIndex(lc, 0), 2); // 18,3,0 18,1,1 18,0,2
+        mmrSize = 22;
+        lc = harness.callLeafCount(mmrSize);
+        assertEq(harness.callPeakIndex(lc, 3), 0);
+        assertEq(harness.callPeakIndex(lc, 2), 1); // 21,3,0 and 21,2,1
+        mmrSize = 23;
+        lc = harness.callLeafCount(mmrSize);
+        assertEq(harness.callPeakIndex(lc, 3), 0);
+        assertEq(harness.callPeakIndex(lc, 2), 1);
+        assertEq(harness.callPeakIndex(lc, 0), 2); // 22,3,0 22,2,1 22,0,2
+        mmrSize = 25;
+        lc = harness.callLeafCount(mmrSize);
+        assertEq(harness.callPeakIndex(lc, 3), 0);
+        assertEq(harness.callPeakIndex(lc, 2), 1);
+        assertEq(harness.callPeakIndex(lc, 1), 2); // 24,3,0 24,2,1 24,1,2
+        mmrSize = 26;
+        lc = harness.callLeafCount(mmrSize);
+        assertEq(harness.callPeakIndex(lc, 3), 0);
+        assertEq(harness.callPeakIndex(lc, 2), 1);
+        assertEq(harness.callPeakIndex(lc, 1), 2);
+        assertEq(harness.callPeakIndex(lc, 0), 3); // 25,3,0 25,2,1 25,1,2 25,0,3
+        mmrSize = 31;
+        lc = harness.callLeafCount(mmrSize);
+        assertEq(harness.callPeakIndex(lc, 4), 0); // 30,4,0
+        mmrSize = 32;
+        lc = harness.callLeafCount(mmrSize);
+        assertEq(harness.callPeakIndex(lc, 4), 0);
+        assertEq(harness.callPeakIndex(lc, 0), 1); // 31,4,0 and 31,0,1
+        mmrSize = 34;
+        lc = harness.callLeafCount(mmrSize);
+        assertEq(harness.callPeakIndex(lc, 4), 0);
+        assertEq(harness.callPeakIndex(lc, 1), 1); // 33,4,0 and 33,1,1
+        mmrSize = 35;
+        lc = harness.callLeafCount(mmrSize);
+        assertEq(harness.callPeakIndex(lc, 4), 0);
+        assertEq(harness.callPeakIndex(lc, 1), 1);
+        assertEq(harness.callPeakIndex(lc, 0), 2); // 34,4,0 34,1,1 34,0,2
+        mmrSize = 38;
+        lc = harness.callLeafCount(mmrSize);
+        assertEq(harness.callPeakIndex(lc, 4), 0);
+        assertEq(harness.callPeakIndex(lc, 2), 1); // 37,4,0 and 37,2,1
+        mmrSize = 39;
+        lc = harness.callLeafCount(mmrSize);
+        assertEq(harness.callPeakIndex(lc, 4), 0);
+        assertEq(harness.callPeakIndex(lc, 2), 1);
+        assertEq(harness.callPeakIndex(lc, 0), 2); // 38,4,0 38,2,1 38,0,2
+    }
+
+    /// @dev For 39-node MMR (lc=21), peakIndex(lc, d) gives accumulator index for
+    ///    each proof length d=4,2,0 (three peaks).
+    function test_peakIndex_kat39_threePeaks() public view {
+        uint256 lc = harness.callLeafCount(39);
+        assertEq(lc, 21, "leafCount(39)");
+        assertEq(harness.callPeakIndex(21, 4), 0, "d=4");
+        assertEq(harness.callPeakIndex(21, 2), 1, "d=2");
+        assertEq(harness.callPeakIndex(21, 0), 2, "d=0");
     }
 
     /// @dev peakIndex(leafCount(mmrSize), proofLen) matches accumulator slot of peak
