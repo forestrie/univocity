@@ -89,6 +89,9 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             assembly {
                 _ks := shr(96, mload(add(_bootstrapKey, 32)))
             }
+            if (_ks == address(0)) {
+                revert InvalidBootstrapKeyLength(_bootstrapAlg, 0);
+            }
             ks256Signer = _ks;
             es256X = bytes32(0);
             es256Y = bytes32(0);
@@ -242,7 +245,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         (bytes32 rootKeyX, bytes32 rootKeyY) = _decodeLogRootKey(log);
 
         int64 alg = LibCbor.extractAlgorithm(consistencyParts.protectedHeader);
-        bool sigOk;
+        bool sigOk = false;
         if (useDelegation) {
             if (alg != LibCose.ALG_ES256) {
                 revert LibCose.UnsupportedAlgorithm(alg);
