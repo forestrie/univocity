@@ -33,7 +33,7 @@ contract LibCoseTest is Test {
     }
 
     /// @notice KS256: decode and verify with vm.sign
-    function test_verifySignature_ks256_valid() public view {
+    function test_verifySignature_ks256_valid() public pure {
         uint256 pk =
             0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
         address signer = vm.addr(pk);
@@ -50,7 +50,7 @@ contract LibCoseTest is Test {
     }
 
     /// @notice KS256: wrong signer fails
-    function test_verifySignature_ks256_wrongSigner() public view {
+    function test_verifySignature_ks256_wrongSigner() public pure {
         uint256 pk =
             0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
         bytes memory protected = hex"a1013a00010106";

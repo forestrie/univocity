@@ -1045,8 +1045,6 @@ contract UnivocityTest is Test, IUnivocityEvents {
                 bytes32(0)
             );
         bytes32[] memory pathWrongProof;
-        bytes memory roi =
-            _buildReceiptOfInclusion(authorityLeaf1, 1, pathWrongProof);
         IUnivocity.PaymentGrant memory g =
             _paymentGrant(TEST_LOG_ID, KS256_SIGNER, 1, 10, 0, 0);
         vm.expectRevert(
@@ -1135,7 +1133,6 @@ contract UnivocityTest is Test, IUnivocityEvents {
             _buildConsistencyReceipt1To3(
                 keccak256("peak1"), leaf1, keccak256("leaf2")
             );
-        bytes memory roi = _buildReceiptOfInclusion(leaf1, 1, pathForRoi);
         vm.expectRevert(
             abi.encodeWithSelector(
                 IUnivocityErrors.CheckpointCountExceeded.selector,
@@ -1201,13 +1198,11 @@ contract UnivocityTest is Test, IUnivocityEvents {
         bytes32 onePeak,
         bytes32, /* logId */
         IUnivocity.PaymentGrant memory grant,
-        bytes32 leafInAuthority,
+        bytes32, /* leafInAuthority */
         bytes32[] memory inclusionPath
     ) internal {
         IUnivocity.ConsistencyReceipt memory
             consistency = _buildConsistencyReceipt(_toAcc(onePeak));
-        bytes memory roi =
-            _buildReceiptOfInclusion(leafInAuthority, 1, inclusionPath);
         u.publishCheckpoint(
             consistency,
             _buildPaymentInclusionProof(1, inclusionPath),
@@ -1257,7 +1252,6 @@ contract UnivocityTest is Test, IUnivocityEvents {
         bytes32 otherLogId = keccak256("other-log");
         IUnivocity.PaymentGrant memory g =
             _paymentGrant(otherLogId, KS256_SIGNER, 0, 10, 0, 0);
-        bytes32 leafOther = _leafCommitment(IDTIMESTAMP_TEST, g);
         IUnivocity.ConsistencyReceipt memory consistency =
             _buildConsistencyReceipt(_toAcc(keccak256("peak1")));
         bytes32[] memory pathEmpty;
