@@ -6,7 +6,11 @@ pragma solidity ^0.8.24;
 // They are listed in descending order of height.
 // LeafCount and PeakIndex match go-merklelog/mmr semantics for verifyInclusion.
 
-import {LibBinUtils} from "@univocity/algorithms/LibBinUtils.sol";
+import {
+    bitLength,
+    popcount64,
+    log2floor
+} from "@univocity/algorithms/binUtils.sol";
 import {MAX_HEIGHT} from "@univocity/algorithms/constants.sol";
 
 /// @notice Returns the peak bitmap for the largest valid MMR with size <= mmrSize.
@@ -17,7 +21,7 @@ import {MAX_HEIGHT} from "@univocity/algorithms/constants.sol";
 function peaksBitmap(uint256 mmrSize) pure returns (uint256) {
     if (mmrSize == 0) return 0;
     uint256 pos = mmrSize;
-    uint256 n = LibBinUtils.bitLength(mmrSize);
+    uint256 n = bitLength(mmrSize);
     uint256 peakSize = n >= 256 ? type(uint256).max : (1 << n) - 1;
     uint256 peakMap = 0;
     while (peakSize > 0) {
@@ -47,8 +51,8 @@ function leafCount(uint256 mmrSize) pure returns (uint256) {
 /// @return Index into the accumulator (peaks array) for the committing peak.
 function peakIndex(uint256 leafCountResult, uint256 d) pure returns (uint256) {
     uint256 peaksMask = (d + 1) >= 256 ? type(uint256).max : (1 << (d + 1)) - 1;
-    uint256 n = LibBinUtils.popcount64(leafCountResult & peaksMask);
-    return LibBinUtils.popcount64(leafCountResult) - n;
+    uint256 n = popcount64(leafCountResult & peaksMask);
+    return popcount64(leafCountResult) - n;
 }
 
 /// @notice Returns the peak indices for MMR(i) in highest to lowest order.
@@ -71,7 +75,7 @@ function peaks(uint256 i) pure returns (uint256[] memory result) {
         // Find the highest peak size in the current MMR(s)
         // A complete binary tree of height h has 2^(h+1) - 1 nodes
         // forge-lint: disable-next-line(incorrect-shift)
-        uint256 highestSize = (1 << LibBinUtils.log2floor(s + 1)) - 1;
+        uint256 highestSize = (1 << log2floor(s + 1)) - 1;
         peak = peak + highestSize;
         result[count] = peak - 1;
         s -= highestSize;

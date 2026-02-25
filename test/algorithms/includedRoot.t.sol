@@ -6,7 +6,7 @@ import {
     includedRoot,
     verifyInclusion
 } from "@univocity/algorithms/includedRoot.sol";
-import {LibBinUtils} from "@univocity/algorithms/LibBinUtils.sol";
+import {hashPosPair64} from "@univocity/algorithms/binUtils.sol";
 
 /// @title IncludedRootHarness
 /// @notice Harness contract to expose includedRoot for testing (calldata).
@@ -201,9 +201,9 @@ contract IncludedRootTest is Test {
         assertEq(sha256(abi.encodePacked(uint64(4))), H4, "H4 mismatch");
 
         // Verify interior hashes: SHA256(pos || left || right)
-        assertEq(LibBinUtils.hashPosPair64(3, H0, H1), H2, "H2 mismatch");
-        assertEq(LibBinUtils.hashPosPair64(6, H3, H4), H5, "H5 mismatch");
-        assertEq(LibBinUtils.hashPosPair64(7, H2, H5), H6_ROOT, "H6 mismatch");
+        assertEq(hashPosPair64(3, H0, H1), H2, "H2 mismatch");
+        assertEq(hashPosPair64(6, H3, H4), H5, "H5 mismatch");
+        assertEq(hashPosPair64(7, H2, H5), H6_ROOT, "H6 mismatch");
     }
 
     // ========================================================================
@@ -271,7 +271,7 @@ contract IncludedRootTest is Test {
         // MMR with 2 leaves: indices 0, 1, root at 2
         bytes32 leaf0 = sha256(abi.encodePacked(uint64(100)));
         bytes32 leaf1 = sha256(abi.encodePacked(uint64(101)));
-        bytes32 root = LibBinUtils.hashPosPair64(3, leaf0, leaf1);
+        bytes32 root = hashPosPair64(3, leaf0, leaf1);
 
         // Prove leaf 0
         bytes32[] memory proof0 = new bytes32[](1);

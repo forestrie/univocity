@@ -6,7 +6,6 @@ import {Univocity} from "@univocity/contracts/Univocity.sol";
 import {LibCose} from "@univocity/cose/lib/LibCose.sol";
 import {IUnivocity} from "@univocity/checkpoints/interfaces/IUnivocity.sol";
 import {includedRoot} from "@univocity/algorithms/includedRoot.sol";
-import {LibBinUtils} from "@univocity/algorithms/LibBinUtils.sol";
 import {
     IUnivocityEvents
 } from "@univocity/checkpoints/interfaces/IUnivocityEvents.sol";

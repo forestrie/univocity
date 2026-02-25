@@ -1187,7 +1187,7 @@ form.
 **Algorithms (unit):** Strong. peaks.t.sol (many sizes, heights, perfect
 trees); includedRoot.t.sol (verifyInclusion, includedRoot, wrong sibling/
 index/hash); consistentRoots.t.sol (multiple from/to sizes, reverts);
-LibBinUtils (log2floor, hashPosPair64, indexHeight, bitLength, mostSigBit,
+binUtils (log2floor, hashPosPair64, indexHeight, bitLength, mostSigBit,
 allOnes) each with dedicated test files; fuzz where appropriate.
 
 **COSE/CBOR (unit):** LibCose.t.sol: buildSigStructure, decodeCoseSign1,

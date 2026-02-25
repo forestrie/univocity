@@ -9,7 +9,7 @@ pragma solidity ^0.8.24;
 // VerifyInclusion follows go-merklelog/mmr/verify.go: proven root must equal
 // the single peak that commits the leaf (determined by proof length).
 
-import {LibBinUtils} from "@univocity/algorithms/LibBinUtils.sol";
+import {indexHeight, hashPosPair64} from "@univocity/algorithms/binUtils.sol";
 import {leafCount, peakIndex} from "@univocity/algorithms/peaks.sol";
 
 /// @notice Verify that a node is included in the MMR committed to by
@@ -55,18 +55,18 @@ function includedRoot(uint256 i, bytes32 nodeHash, bytes32[] calldata proof)
     returns (bytes32 root)
 {
     root = nodeHash;
-    uint256 g = LibBinUtils.indexHeight(i);
+    uint256 g = indexHeight(i);
     for (uint256 j = 0; j < proof.length; j++) {
         bytes32 sibling = proof[j];
-        if (LibBinUtils.indexHeight(i + 1) > g) {
+        if (indexHeight(i + 1) > g) {
             i = i + 1;
             // forge-lint: disable-next-line(unsafe-typecast)
-            root = LibBinUtils.hashPosPair64(uint64(i + 1), sibling, root);
+            root = hashPosPair64(uint64(i + 1), sibling, root);
         } else {
             // forge-lint: disable-next-line(incorrect-shift)
             i = i + (2 << g);
             // forge-lint: disable-next-line(unsafe-typecast)
-            root = LibBinUtils.hashPosPair64(uint64(i + 1), root, sibling);
+            root = hashPosPair64(uint64(i + 1), root, sibling);
         }
         g = g + 1;
     }

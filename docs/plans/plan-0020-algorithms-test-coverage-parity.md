@@ -39,7 +39,7 @@ a single canonical source (39-node MMR, same hash scheme).
 
 | File | Functions | Notes |
 |------|-----------|-------|
-| **LibBinUtils.sol** | bitLength, mostSigBit, allOnes, indexHeight, log2floor, popcount64, hashPosPair64 | Used by peaks, includedRoot, consistentRoots. |
+| **binUtils.sol** | bitLength, mostSigBit, allOnes, indexHeight, log2floor, popcount64, hashPosPair64 | Used by peaks, includedRoot, consistentRoots. |
 | **peaks.sol** | peaksBitmap, leafCount, peakIndex, peaks | Free functions; match Go/Python semantics. |
 | **includedRoot.sol** | includedRoot, verifyInclusion | includedRoot = Python included_root; verifyInclusion = Go VerifyInclusion. |
 | **consistentRoots.sol** | consistentRoots, consistentRootsMemory | consistent_roots with duplicate collapse. |
@@ -47,17 +47,17 @@ a single canonical source (39-node MMR, same hash scheme).
 
 ## 3. Correlation: Solidity tests vs Python/Go
 
-### 3.1 LibBinUtils (bit primitives)
+### 3.1 binUtils (bit primitives)
 
 | Solidity test file | Current coverage | Python/Go equivalent | Parity gap |
 |--------------------|------------------|----------------------|------------|
-| LibBinUtils_bitLength.t.sol | Fuzz + known values, zero, max | Python bit_length; used in index_height, leaf_count, log2floor | Add KAT table: bitLength(x) for x in {1,2,3,4,8,16,17..19,32} to match Go Log2Uint64 inputs (log2floor = bitLength-1). |
-| LibBinUtils_mostSigBit.t.sol | Fuzz + powers of two, zero | Python most_sig_bit | OK. |
-| LibBinUtils_allOnes.t.sol | Fuzz + zero, powers | Python all_ones | OK. |
-| LibBinUtils_indexHeight.t.sol | Fuzz, leaves, peak indices, go test vectors | Python index_height; tests.py test_index_heights (table 0..38) | **Add full index height KAT**: 39 values for indices 0..38 matching Python expect array (0,0,1,0,0,1,2,0,...). |
-| LibBinUtils_log2floor.t.sol | Fuzz, powers, zero, max | Python log2floor; Go Log2Uint64 | **Add same KAT as Go**: 1→0, 2→1, 3→1, 4→2, 8→3, 16→4, 17..19→4, 32→5. |
-| LibBinUtils_popcount.t.sol | popcount64 fuzz, known values, peak bitmaps | Go bits.OnesCount64 for leaf count | OK. |
-| LibBinUtils_hashPosPair64.t.sol | One known vector (pos=3, a, b), order/position matters | Python hash_pospair64; used in db.py and all proofs | **Add KAT from canonical MMR**: e.g. parent hashes from db.py (indices 2,5,6,6,13,14,…) so Solidity hashPosPair64 matches Python/Go byte-for-byte. |
+| binUtils_bitLength.t.sol | Fuzz + known values, zero, max | Python bit_length; used in index_height, leaf_count, log2floor | Add KAT table: bitLength(x) for x in {1,2,3,4,8,16,17..19,32} to match Go Log2Uint64 inputs (log2floor = bitLength-1). |
+| binUtils_mostSigBit.t.sol | Fuzz + powers of two, zero | Python most_sig_bit | OK. |
+| binUtils_allOnes.t.sol | Fuzz + zero, powers | Python all_ones | OK. |
+| binUtils_indexHeight.t.sol | Fuzz, leaves, peak indices, go test vectors | Python index_height; tests.py test_index_heights (table 0..38) | **Add full index height KAT**: 39 values for indices 0..38 matching Python expect array (0,0,1,0,0,1,2,0,...). |
+| binUtils_log2floor.t.sol | Fuzz, powers, zero, max | Python log2floor; Go Log2Uint64 | **Add same KAT as Go**: 1→0, 2→1, 3→1, 4→2, 8→3, 16→4, 17..19→4, 32→5. |
+| binUtils_popcount.t.sol | popcount64 fuzz, known values, peak bitmaps | Go bits.OnesCount64 for leaf count | OK. |
+| binUtils_hashPosPair64.t.sol | One known vector (pos=3, a, b), order/position matters | Python hash_pospair64; used in db.py and all proofs | **Add KAT from canonical MMR**: e.g. parent hashes from db.py (indices 2,5,6,6,13,14,…) so Solidity hashPosPair64 matches Python/Go byte-for-byte. |
 
 ### 3.2 peaks.sol
 
@@ -95,22 +95,22 @@ a single canonical source (39-node MMR, same hash scheme).
 | Leaf count table (mmrSize 1..39) | Same: 39 expected leaf counts; test leafCount(mmrSize) == expect[mmrSize-1]. |
 | verifyInclusion 39-node KAT | Script: for each (i, mmrSize) in a chosen set (e.g. all leaves and one interior per peak for each complete mmrSize), compute path = inclusion_proof_path(i, mmrSize-1), accumulator = peaks(mmrSize-1) hashes; output Solidity constants or JSON. Test: verifyInclusion(i, nodeHash, path, accumulator, mmrSize). |
 | Full consistent_roots pairs | Extend gen_consistent_roots_vectors.py to emit all (ifrom, ito) pairs or a superset of transitions; add Solidity test that iterates. |
-| hashPosPair64 KAT | Script: from canonical 39-node MMR, output (pos, left, right, expectedHash) for each interior; add Solidity test that LibBinUtils.hashPosPair64(pos, left, right) == expectedHash. |
+| hashPosPair64 KAT | Script: from canonical 39-node MMR, output (pos, left, right, expectedHash) for each interior; add Solidity test that hashPosPair64(pos, left, right) == expectedHash (binUtils.sol). |
 
 ## 5. Implementation plan (tasks)
 
 ### Phase 1: KAT tables and bit primitives
 
-1. **indexHeight KAT (LibBinUtils_indexHeight.t.sol)**  
-   Add test_indexHeight_pythonTable: expected heights for MMR indices 0..38 from Python tests.py (expect array in test_index_heights). Assert LibBinUtils.indexHeight(i) == expected[i].
+1. **indexHeight KAT (binUtils_indexHeight.t.sol)**  
+   Add test_indexHeight_pythonTable: expected heights for MMR indices 0..38 from Python tests.py (expect array in test_index_heights). Assert indexHeight(i) == expected[i] (binUtils.sol).
 
-2. **log2floor KAT (LibBinUtils_log2floor.t.sol)**  
+2. **log2floor KAT (binUtils_log2floor.t.sol)**  
    Add test_log2floor_goTable: same cases as Go bits_test.go (1→0, 2→1, 3→1, 4→2, 8→3, 16→4, 17,18,19→4, 32→5).
 
 3. **leafCount KAT (peaks.t.sol)**  
    Add test_leafCount_pythonTable: for mmrSize 1..39, assert leafCount(mmrSize) == expected[mmrSize-1] using Python index_values_table[1] / Go expectLeafCounts (1,1,2,3,3,3,4,5,5,6,7,7,7,7,8,9,9,10,11,11,11,12,13,13,14,15,15,15,15,15,16,17,17,18,19,19,19,20,21).
 
-4. **hashPosPair64 KAT (LibBinUtils_hashPosPair64.t.sol)**  
+4. **hashPosPair64 KAT (binUtils_hashPosPair64.t.sol)**  
    Add 2–3 more known vectors from canonical MMR (e.g. from db.py parent_hash calls: indices 2, 5, 6). Optionally generate from algorithms/gen_test_vectors or a small script that builds 7-node or 39-node and prints (pos, a, b, hash).
 
 ### Phase 2: 39-node inclusion and verifyInclusion
@@ -164,13 +164,13 @@ a single canonical source (39-node MMR, same hash scheme).
 
 | Solidity test file | Parity status | Primary gap |
 |--------------------|---------------|-------------|
-| LibBinUtils_bitLength.t.sol | Partial | Add log2-style KAT table (Go). |
-| LibBinUtils_log2floor.t.sol | Partial | Add Go bits_test table. |
-| LibBinUtils_indexHeight.t.sol | Partial | Add full 0..38 height table (Python). |
-| LibBinUtils_hashPosPair64.t.sol | Partial | Add canonical MMR parent hashes. |
-| LibBinUtils_mostSigBit.t.sol | OK | — |
-| LibBinUtils_allOnes.t.sol | OK | — |
-| LibBinUtils_popcount.t.sol | OK | — |
+| binUtils_bitLength.t.sol | Partial | Add log2-style KAT table (Go). |
+| binUtils_log2floor.t.sol | Partial | Add Go bits_test table. |
+| binUtils_indexHeight.t.sol | Partial | Add full 0..38 height table (Python). |
+| binUtils_hashPosPair64.t.sol | Partial | Add canonical MMR parent hashes. |
+| binUtils_mostSigBit.t.sol | OK | — |
+| binUtils_allOnes.t.sol | OK | — |
+| binUtils_popcount.t.sol | OK | — |
 | peaks.t.sol | Good | Add leafCount table KAT. |
 | includedRoot.t.sol | Partial | 39-node verifyInclusion + includedRoot KAT. |
 | consistentRoots.t.sol | Partial | All (ifrom, ito) pairs or representative superset. |

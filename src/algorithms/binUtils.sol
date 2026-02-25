@@ -1,0 +1,166 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+/// @notice Binary utilities for MMR (Merkle Mountain Range) algorithms.
+/// @dev Provides bit manipulation functions and the position-prefixed hash
+///    function required by MMR inclusion proof verification. Aligns with
+///    consistentRoots.sol and includedRoot.sol (free functions, no Lib prefix).
+
+/// @notice Returns the number of bits required to represent `x`.
+/// @dev Returns 0 for x == 0. Uses binary search for O(log(256)) = O(8)
+///    operations, which is more gas-efficient than a linear loop.
+/// @param x The value to measure.
+/// @return n The bit length of x.
+function bitLength(uint256 x) pure returns (uint256 n) {
+    // Binary search through bit positions 128, 64, 32, 16, 8, 4, 2, 1
+    if (x >= 1 << 128) {
+        x >>= 128;
+        n += 128;
+    }
+    if (x >= 1 << 64) {
+        x >>= 64;
+        n += 64;
+    }
+    if (x >= 1 << 32) {
+        x >>= 32;
+        n += 32;
+    }
+    if (x >= 1 << 16) {
+        x >>= 16;
+        n += 16;
+    }
+    if (x >= 1 << 8) {
+        x >>= 8;
+        n += 8;
+    }
+    if (x >= 1 << 4) {
+        x >>= 4;
+        n += 4;
+    }
+    if (x >= 1 << 2) {
+        x >>= 2;
+        n += 2;
+    }
+    // Final two bit positions are collapsed into one branch: x in {2,3}
+    // has bitLength 2, x == 1 has bitLength 1.
+    if (x >= 1 << 1) {
+        n += 2;
+    } else if (x >= 1) {
+        n += 1;
+    }
+}
+
+/// @notice Returns the value of the most significant bit of `x`.
+/// @dev Returns 0 for x == 0. The result is 2^(bitLength(x) - 1).
+/// @param x The value to examine.
+/// @return The MSB value (a power of 2), or 0 if x is 0.
+function mostSigBit(uint256 x) pure returns (uint256) {
+    if (x == 0) return 0;
+    // forge-lint: disable-next-line(incorrect-shift)
+    return 1 << (bitLength(x) - 1);
+}
+
+/// @notice Checks if `x` consists entirely of 1-bits (i.e., x == 2^n - 1).
+/// @dev Uses the property that for all-ones numbers: x & (x + 1) == 0.
+///    Returns false for x == 0. Uses unchecked arithmetic to handle
+///    the edge case where x == type(uint256).max.
+/// @param x The value to check.
+/// @return True if x is of the form 2^n - 1 for some n > 0.
+function allOnes(uint256 x) pure returns (bool) {
+    if (x == 0) return false;
+    unchecked {
+        return (x & (x + 1)) == 0;
+    }
+}
+
+/// @notice Returns the zero-based height of MMR index `i`.
+/// @dev The height determines whether a node is a leaf (height 0) or an
+///    interior node. This is fundamental for determining proof traversal
+///    direction (left vs right child).
+/// @param i The zero-based MMR index.
+/// @return The height of the node at index i.
+function indexHeight(uint256 i) pure returns (uint256) {
+    // Convert to 1-based position
+    uint256 pos = i + 1;
+
+    // Walk down until pos is all 1-bits (a perfect subtree root)
+    while (!allOnes(pos)) {
+        pos = pos - mostSigBit(pos) + 1;
+    }
+
+    // Height is one less than bit length of the all-ones value
+    return bitLength(pos) - 1;
+}
+
+/// @notice Returns the floor of log base 2 of `x`.
+/// @dev Equivalent to bitLength(x) - 1. Returns 0 for x == 0 (undefined
+///    mathematically, but returns 0 for consistency with bitLength).
+/// @param x The value to compute log2 floor of.
+/// @return The floor of log2(x), or 0 if x == 0.
+function log2floor(uint256 x) pure returns (uint256) {
+    if (x == 0) return 0;
+    return bitLength(x) - 1;
+}
+
+/// @dev Population count for one nibble (0..15). Table via if/else.
+///    Internal to this file; not exported.
+function _nibblePopcount(uint256 v) pure returns (uint256) {
+    if (v == 0) return 0;
+    if (v == 1) return 1;
+    if (v == 2) return 1;
+    if (v == 3) return 2;
+    if (v == 4) return 1;
+    if (v == 5) return 2;
+    if (v == 6) return 2;
+    if (v == 7) return 3;
+    if (v == 8) return 1;
+    if (v == 9) return 2;
+    if (v == 10) return 2;
+    if (v == 11) return 3;
+    if (v == 12) return 2;
+    if (v == 13) return 3;
+    if (v == 14) return 3;
+    return 4; // 15
+}
+
+/// @notice Returns the number of set bits in the low 64 bits of `x`.
+/// @dev Used for leaf count / peak bitmap per IETF MMR profile (≤64 bits).
+///    Table via if/else (no storage): 16 nibble counts, sum over 16 nibbles.
+/// @param x Value whose low 64 bits are to be counted.
+/// @return n The number of 1-bits in x & 0xFFFFFFFFFFFFFFFF.
+function popcount64(uint256 x) pure returns (uint256 n) {
+    x = x & 0xFFFFFFFFFFFFFFFF;
+    unchecked {
+        n = _nibblePopcount(x & 0xF);
+        n += _nibblePopcount((x >> 4) & 0xF);
+        n += _nibblePopcount((x >> 8) & 0xF);
+        n += _nibblePopcount((x >> 12) & 0xF);
+        n += _nibblePopcount((x >> 16) & 0xF);
+        n += _nibblePopcount((x >> 20) & 0xF);
+        n += _nibblePopcount((x >> 24) & 0xF);
+        n += _nibblePopcount((x >> 28) & 0xF);
+        n += _nibblePopcount((x >> 32) & 0xF);
+        n += _nibblePopcount((x >> 36) & 0xF);
+        n += _nibblePopcount((x >> 40) & 0xF);
+        n += _nibblePopcount((x >> 44) & 0xF);
+        n += _nibblePopcount((x >> 48) & 0xF);
+        n += _nibblePopcount((x >> 52) & 0xF);
+        n += _nibblePopcount((x >> 56) & 0xF);
+        n += _nibblePopcount((x >> 60) & 0xF);
+    }
+}
+
+/// @notice Computes SHA-256(pos || a || b) where pos is encoded as 8 bytes
+///    big-endian.
+/// @dev This is the node hash function for MMR proofs. The position prefix
+///    ensures domain separation between nodes at different positions.
+/// @param pos The 1-based position, encoded as uint64 big-endian.
+/// @param a First 32-byte hash input.
+/// @param b Second 32-byte hash input.
+/// @return The SHA-256 digest.
+function hashPosPair64(uint64 pos, bytes32 a, bytes32 b)
+    pure
+    returns (bytes32)
+{
+    return sha256(abi.encodePacked(pos, a, b));
+}

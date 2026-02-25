@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {Univocity} from "@univocity/contracts/Univocity.sol";
 import {LibCose} from "@univocity/cose/lib/LibCose.sol";
 import {IUnivocity} from "@univocity/checkpoints/interfaces/IUnivocity.sol";
-import {LibBinUtils} from "@univocity/algorithms/LibBinUtils.sol";
+import {hashPosPair64} from "@univocity/algorithms/binUtils.sol";
 import {peaks} from "@univocity/algorithms/peaks.sol";
 
 /// @notice Handler for invariant tests:
@@ -230,7 +230,7 @@ contract UnivocityHandler is Test {
         pure
         returns (IUnivocity.ConsistencyReceipt memory)
     {
-        bytes32 parent = LibBinUtils.hashPosPair64(3, leaf0, leaf1);
+        bytes32 parent = hashPosPair64(3, leaf0, leaf1);
         bytes32[] memory path0 = new bytes32[](1);
         path0[0] = leaf1;
         bytes32[][] memory paths = new bytes32[][](1);

@@ -12,7 +12,7 @@ Test vectors are aligned with the canonical 39-node MMR (plan-0020).
 |--------|------|
 | Python [merkle-mountain-range-proofs](https://github.com/robinbryce/merkle-mountain-range-proofs) | algorithms.py, db.py, tests.py — index_height, peaks, included_root, consistent_roots, inclusion_proof_path, KAT tables |
 | Go [go-merklelog/mmr](https://github.com/forestrie/go-merklelog/tree/main/mmr) | bits, leafcount, peaks, indexheight, includedroot, consistentroots; draft_kat39_test.go (KAT39Nodes, KAT39PeakHashes) |
-| Solidity `src/algorithms/` | LibBinUtils, peaks, includedRoot, consistentRoots, constants |
+| Solidity `src/algorithms/` | binUtils, peaks, includedRoot, consistentRoots, constants |
 
 ## Canonical 39-node MMR
 
@@ -29,13 +29,13 @@ This matches Python `db.KatDB.init_canonical39()` and Go
 
 | Solidity test file | Python/Go equivalent | KAT / vectors |
 |--------------------|------------------------|---------------|
-| LibBinUtils_indexHeight.t.sol | tests.py test_index_heights; Go IndexHeight | test_indexHeight_pythonTable: heights 0..38 from `gen_all_kat` |
-| LibBinUtils_log2floor.t.sol | Go bits_test.go TestLog2Uint64 | test_log2floor_goTable: 1→0, 2→1, …, 32→5 |
-| LibBinUtils_hashPosPair64.t.sol | hash_pospair64; Go parent hashes | test_hashPosPair64_canonicalMMRParents (H2, H5, H6) |
-| LibBinUtils_mostSigBit.t.sol | most_sig_bit | Fuzz + known values |
-| LibBinUtils_allOnes.t.sol | all_ones | Fuzz + powers of two |
-| LibBinUtils_popcount.t.sol | Go bits.OnesCount64 / leaf count | popcount64, peak bitmap values |
-| LibBinUtils_bitLength.t.sol | bit_length | Fuzz + known values |
+| binUtils_indexHeight.t.sol | tests.py test_index_heights; Go IndexHeight | test_indexHeight_pythonTable: heights 0..38 from `gen_all_kat` |
+| binUtils_log2floor.t.sol | Go bits_test.go TestLog2Uint64 | test_log2floor_goTable: 1→0, 2→1, …, 32→5 |
+| binUtils_hashPosPair64.t.sol | hash_pospair64; Go parent hashes | test_hashPosPair64_canonicalMMRParents (H2, H5, H6) |
+| binUtils_mostSigBit.t.sol | most_sig_bit | Fuzz + known values |
+| binUtils_allOnes.t.sol | all_ones | Fuzz + powers of two |
+| binUtils_popcount.t.sol | Go bits.OnesCount64 / leaf count | popcount64, peak bitmap values |
+| binUtils_bitLength.t.sol | bit_length | Fuzz + known values |
 | peaks.t.sol | peaks, LeafCount, PeakIndex; Go Peaks, PeaksBitmap | test_leafCount_pythonTable (1..39), test_peaks_* (21 sizes), test_peakIndex_goVectors, test_peakIndex_goTableFull (43-row KAT), test_peakIndex_accumulatorSlotMatchesPeaksOrder, test_peakIndex_kat39_threePeaks |
 | includedRoot.t.sol | included_root, VerifyInclusion | 7-node H0–H6; test_verifyInclusion_kat39_leaf0_mmr7 |
 | Kat39Inclusion.t.sol | Go KAT39Nodes; VerifyInclusion | 39-node H0–H38; verifyInclusion(38,…), includedRoot(38, H38, []) |
@@ -43,9 +43,9 @@ This matches Python `db.KatDB.init_canonical39()` and Go
 
 ## Verified implementations
 
-### LibBinUtils.sol
+### binUtils.sol
 
-Bit operations used by all other algorithms:
+Bit operations (free functions) used by all other algorithms:
 
 | Function | Reference | Tests |
 |----------|-----------|-------|
@@ -149,7 +149,7 @@ The `algorithms/` directory mirrors the reference repo and Go semantics:
 
 | Test file | Tests | Coverage |
 |-----------|-------|----------|
-| LibBinUtils_*.t.sol | 49 | Bit ops + KAT tables (indexHeight, log2floor, hashPosPair64) |
+| binUtils_*.t.sol | 49 | Bit ops + KAT tables (indexHeight, log2floor, hashPosPair64) |
 | peaks.t.sol | 34 | leafCount table, all 21 complete sizes, peakIndex full KAT |
 | includedRoot.t.sol | 20 | 7-node + verifyInclusion KAT39 leaf0/mmr7 |
 | Kat39Inclusion.t.sol | 2 | 39-node verifyInclusion(38), includedRoot(38) |

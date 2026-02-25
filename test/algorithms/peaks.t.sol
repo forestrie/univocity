@@ -8,7 +8,7 @@ import {
     peaks,
     peaksBitmap
 } from "@univocity/algorithms/peaks.sol";
-import {LibBinUtils} from "@univocity/algorithms/LibBinUtils.sol";
+import {indexHeight} from "@univocity/algorithms/binUtils.sol";
 
 /// @title PeaksHarness
 /// @notice Harness contract to expose peaks for testing.
@@ -265,8 +265,8 @@ contract PeaksTest is Test {
         uint256[] memory result = harness.callPeaks(38);
 
         for (uint256 j = 1; j < result.length; j++) {
-            uint256 prevHeight = LibBinUtils.indexHeight(result[j - 1]);
-            uint256 currHeight = LibBinUtils.indexHeight(result[j]);
+            uint256 prevHeight = indexHeight(result[j - 1]);
+            uint256 currHeight = indexHeight(result[j]);
             assertTrue(prevHeight > currHeight, "Peak heights should decrease");
         }
     }
@@ -284,10 +284,10 @@ contract PeaksTest is Test {
             // First peak should have the maximum height
             uint256 maxHeight = 0;
             for (uint256 k = 0; k < p.length; k++) {
-                uint256 h = LibBinUtils.indexHeight(p[k]);
+                uint256 h = indexHeight(p[k]);
                 if (h > maxHeight) maxHeight = h;
             }
-            assertEq(LibBinUtils.indexHeight(p[0]), maxHeight);
+            assertEq(indexHeight(p[0]), maxHeight);
         }
     }
 

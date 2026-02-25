@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 import {Univocity} from "@univocity/contracts/Univocity.sol";
-import {LibBinUtils} from "@univocity/algorithms/LibBinUtils.sol";
+import {hashPosPair64} from "@univocity/algorithms/binUtils.sol";
 import {includedRoot} from "@univocity/algorithms/includedRoot.sol";
 import {LibCose} from "@univocity/cose/lib/LibCose.sol";
 import {IUnivocity} from "@univocity/checkpoints/interfaces/IUnivocity.sol";
@@ -244,7 +244,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
         pure
         returns (IUnivocity.ConsistencyReceipt memory)
     {
-        bytes32 parent = LibBinUtils.hashPosPair64(3, leaf0, leaf1);
+        bytes32 parent = hashPosPair64(3, leaf0, leaf1);
         bytes32[] memory path0 = new bytes32[](1);
         path0[0] = leaf1;
         bytes32[][] memory paths = new bytes32[][](1);
@@ -449,7 +449,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
         bytes32 leaf1,
         bytes32 leaf2
     ) internal returns (IUnivocity.ConsistencyReceipt memory) {
-        bytes32 parent = LibBinUtils.hashPosPair64(3, leaf0, leaf1);
+        bytes32 parent = hashPosPair64(3, leaf0, leaf1);
         bytes32[] memory path0 = _path2(leaf1, leaf2);
         bytes32[] memory path1 = _path2(parent, leaf2);
         bytes32[][] memory paths = new bytes32[][](2);
@@ -1201,8 +1201,8 @@ contract UnivocityTest is Test, IUnivocityEvents {
         bytes32, /* leafInAuthority */
         bytes32[] memory inclusionPath
     ) internal {
-        IUnivocity.ConsistencyReceipt memory
-            consistency = _buildConsistencyReceipt(_toAcc(onePeak));
+        IUnivocity.ConsistencyReceipt memory consistency =
+            _buildConsistencyReceipt(_toAcc(onePeak));
         u.publishCheckpoint(
             consistency,
             _buildPaymentInclusionProof(1, inclusionPath),

@@ -2,17 +2,17 @@
 pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
-import {LibBinUtils} from "@univocity/algorithms/LibBinUtils.sol";
+import {hashPosPair64} from "@univocity/algorithms/binUtils.sol";
 
-/// @title LibBinUtils_hashPosPair64_Test
-/// @notice Unit tests for LibBinUtils.hashPosPair64 function.
-contract LibBinUtils_hashPosPair64_Test is Test {
+/// @title BinUtils_hashPosPair64_Test
+/// @notice Unit tests for hashPosPair64 function.
+contract BinUtils_hashPosPair64_Test is Test {
     function test_hashPosPair64_basicCase() public pure {
         bytes32 a = bytes32(uint256(1));
         bytes32 b = bytes32(uint256(2));
         uint64 pos = 3;
 
-        bytes32 result = LibBinUtils.hashPosPair64(pos, a, b);
+        bytes32 result = hashPosPair64(pos, a, b);
 
         // Compute expected: SHA256(pos as 8 bytes || a || b)
         bytes32 expected = sha256(abi.encodePacked(pos, a, b));
@@ -24,7 +24,7 @@ contract LibBinUtils_hashPosPair64_Test is Test {
         bytes32 b = bytes32(0);
         uint64 pos = 0;
 
-        bytes32 result = LibBinUtils.hashPosPair64(pos, a, b);
+        bytes32 result = hashPosPair64(pos, a, b);
         bytes32 expected = sha256(abi.encodePacked(pos, a, b));
         assertEq(result, expected);
     }
@@ -34,7 +34,7 @@ contract LibBinUtils_hashPosPair64_Test is Test {
         bytes32 b = bytes32(type(uint256).max);
         uint64 pos = type(uint64).max;
 
-        bytes32 result = LibBinUtils.hashPosPair64(pos, a, b);
+        bytes32 result = hashPosPair64(pos, a, b);
         bytes32 expected = sha256(abi.encodePacked(pos, a, b));
         assertEq(result, expected);
     }
@@ -44,8 +44,8 @@ contract LibBinUtils_hashPosPair64_Test is Test {
         bytes32 b = bytes32(uint256(2));
         uint64 pos = 1;
 
-        bytes32 resultAB = LibBinUtils.hashPosPair64(pos, a, b);
-        bytes32 resultBA = LibBinUtils.hashPosPair64(pos, b, a);
+        bytes32 resultAB = hashPosPair64(pos, a, b);
+        bytes32 resultBA = hashPosPair64(pos, b, a);
 
         // Order of a and b should produce different results
         assertTrue(resultAB != resultBA);
@@ -55,8 +55,8 @@ contract LibBinUtils_hashPosPair64_Test is Test {
         bytes32 a = bytes32(uint256(1));
         bytes32 b = bytes32(uint256(2));
 
-        bytes32 result1 = LibBinUtils.hashPosPair64(1, a, b);
-        bytes32 result2 = LibBinUtils.hashPosPair64(2, a, b);
+        bytes32 result1 = hashPosPair64(1, a, b);
+        bytes32 result2 = hashPosPair64(2, a, b);
 
         // Different positions should produce different results
         assertTrue(result1 != result2);
@@ -67,7 +67,7 @@ contract LibBinUtils_hashPosPair64_Test is Test {
         bytes32 a,
         bytes32 b
     ) public pure {
-        bytes32 result = LibBinUtils.hashPosPair64(pos, a, b);
+        bytes32 result = hashPosPair64(pos, a, b);
         bytes32 expected = sha256(abi.encodePacked(pos, a, b));
         assertEq(result, expected);
     }
@@ -81,7 +81,7 @@ contract LibBinUtils_hashPosPair64_Test is Test {
         bytes32 a = bytes32(uint256(1));
         bytes32 b = bytes32(uint256(2));
 
-        bytes32 result = LibBinUtils.hashPosPair64(pos, a, b);
+        bytes32 result = hashPosPair64(pos, a, b);
 
         // Pre-computed expected value
         // Input: 0x0000000000000001 || 0x00..01 || 0x00..02
@@ -101,9 +101,9 @@ contract LibBinUtils_hashPosPair64_Test is Test {
         bytes32 h3 = sha256(abi.encodePacked(uint64(3)));
         bytes32 h4 = sha256(abi.encodePacked(uint64(4)));
 
-        bytes32 h2 = LibBinUtils.hashPosPair64(3, h0, h1);
-        bytes32 h5 = LibBinUtils.hashPosPair64(6, h3, h4);
-        bytes32 h6 = LibBinUtils.hashPosPair64(7, h2, h5);
+        bytes32 h2 = hashPosPair64(3, h0, h1);
+        bytes32 h5 = hashPosPair64(6, h3, h4);
+        bytes32 h6 = hashPosPair64(7, h2, h5);
 
         assertEq(
             h2,

@@ -2,37 +2,37 @@
 pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
-import {LibBinUtils} from "@univocity/algorithms/LibBinUtils.sol";
+import {popcount64} from "@univocity/algorithms/binUtils.sol";
 
-/// @title LibBinUtils_popcount_Test
+/// @title BinUtils_popcount_Test
 /// @notice Tests for popcount64 (IETF MMR profile ≤64 bits; match go bits.OnesCount64
 ///    for use in PeakIndex).
-contract LibBinUtils_popcount_Test is Test {
+contract BinUtils_popcount_Test is Test {
     /// @dev popcount64 ignores high bits (only low 64 bits counted)
     function testFuzz_popcount64_ignoresHighBits(uint64 lo, uint256 hi)
         public
         pure
     {
         uint256 x = (uint256(hi) << 64) | lo;
-        assertEq(LibBinUtils.popcount64(x), LibBinUtils.popcount64(lo));
+        assertEq(popcount64(x), popcount64(lo));
     }
 
     /// @dev Known values: 0 -> 0, 1 -> 1, 3 -> 2, 0xFF -> 8
     function test_popcount64_knownValues() public pure {
-        assertEq(LibBinUtils.popcount64(0), 0);
-        assertEq(LibBinUtils.popcount64(1), 1);
-        assertEq(LibBinUtils.popcount64(3), 2);
-        assertEq(LibBinUtils.popcount64(0xFF), 8);
-        assertEq(LibBinUtils.popcount64(0xFFFFFFFFFFFFFFFF), 64);
+        assertEq(popcount64(0), 0);
+        assertEq(popcount64(1), 1);
+        assertEq(popcount64(3), 2);
+        assertEq(popcount64(0xFF), 8);
+        assertEq(popcount64(0xFFFFFFFFFFFFFFFF), 64);
     }
 
     /// @dev Peak bitmap values from Go (leaf counts): popcount64 = number of peaks
     function test_popcount64_peakBitmapValues() public pure {
-        assertEq(LibBinUtils.popcount64(1), 1); // 0b1
-        assertEq(LibBinUtils.popcount64(5), 2); // 0b101
-        assertEq(LibBinUtils.popcount64(7), 3); // 0b111
-        assertEq(LibBinUtils.popcount64(11), 3); // 0b1011
-        assertEq(LibBinUtils.popcount64(15), 4); // 0b1111
+        assertEq(popcount64(1), 1); // 0b1
+        assertEq(popcount64(5), 2); // 0b101
+        assertEq(popcount64(7), 3); // 0b111
+        assertEq(popcount64(11), 3); // 0b1011
+        assertEq(popcount64(15), 4); // 0b1111
     }
 
     // -------------------------------------------------------------------------
@@ -40,22 +40,22 @@ contract LibBinUtils_popcount_Test is Test {
     // -------------------------------------------------------------------------
 
     function test_gas_popcount64_zero() public pure {
-        LibBinUtils.popcount64(0);
+        popcount64(0);
     }
 
     function test_gas_popcount64_twoBits() public pure {
-        LibBinUtils.popcount64(5); // 0b101 -> 2
+        popcount64(5); // 0b101 -> 2
     }
 
     function test_gas_popcount64_leafCount21() public pure {
-        LibBinUtils.popcount64(21); // 0b10101 -> 3 peaks typical
+        popcount64(21); // 0b10101 -> 3 peaks typical
     }
 
     function test_gas_popcount64_eightBits() public pure {
-        LibBinUtils.popcount64(0xFF);
+        popcount64(0xFF);
     }
 
     function test_gas_popcount64_full64() public pure {
-        LibBinUtils.popcount64(0xFFFFFFFFFFFFFFFF);
+        popcount64(0xFFFFFFFFFFFFFFFF);
     }
 }

@@ -59,17 +59,17 @@ def main():
         print("# KAT regeneration summary")
         print("# Run: python3 -m algorithms.gen_all_kat")
         print("# Run: python3 -m algorithms.gen_consistent_roots_vectors")
-        print("# Solidity tests: LibBinUtils_indexHeight (heights 0..38),")
+        print("# Solidity tests: binUtils_indexHeight (heights 0..38),")
         print("#   peaks.t.sol (leafCount 1..39), Kat39Inclusion (39 hashes),")
         print("#   consistentRoots (from gen_consistent_roots_vectors).")
         return 0
 
     # -------------------------------------------------------------------------
-    # Index height table (MMR indices 0..38) — for LibBinUtils_indexHeight.t.sol
+    # Index height table (MMR indices 0..38) — for binUtils_indexHeight.t.sol
     # Source: Python tests.py test_index_heights; Go IndexHeight
     # -------------------------------------------------------------------------
     print("// Index height KAT: indexHeight(i) for i in 0..38")
-    print("// Use in test_indexHeight_pythonTable() (LibBinUtils_indexHeight.t.sol)")
+    print("// Use in test_indexHeight_pythonTable() (binUtils_indexHeight.t.sol)")
     heights = [index_height(i) for i in range(39)]
     print("// uint8[39] expectedHeights = [")
     print("//   " + ", ".join(str(h) for h in heights))

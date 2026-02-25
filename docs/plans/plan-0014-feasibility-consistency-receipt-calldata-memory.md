@@ -187,7 +187,7 @@ processing is consistent.”
        `accumulator`, `proofAndCose.consistencyProof`, and
        `proofAndCose.receiptInclusionProof` from calldata to memory once, then
        pass memory through.
-   - **`LibBinUtils`**, **`peaks`**, **`constants`** in `src/algorithms` do not
+   - **`binUtils`**, **`peaks`**, **`constants`** in `src/algorithms` do not
      take proof/accumulator arrays; no change.
 
 4. **Boundary copy:** Doing the copy once at the boundary is acceptable and
