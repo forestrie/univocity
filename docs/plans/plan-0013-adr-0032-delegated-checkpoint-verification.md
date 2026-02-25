@@ -623,7 +623,7 @@ extract delegated public key.
      - Return (x, y) or equivalent for use in checkpoint signature
        verification.
 
-**Deliverables:** `LibDelegationVerifier` (or equivalent) with (a) logic for
+**Deliverables:** `delegationVerifier` (or equivalent) with (a) logic for
 first checkpoint: recover root from delegation cert, verify, store; (b) logic
 for subsequent checkpoints: verify delegation cert with stored per-log root.
 API may take optional stored root (zero means first checkpoint, recover and
@@ -861,7 +861,7 @@ storage; tests.
 
 **Implemented behaviour:** The contract takes a full COSE **Receipt of
 Consistency** (COSE_Sign1 with detached payload). It **always** verifies
-both (1) the **consistency proof chain** (LibConsistencyReceipt
+both (1) the **consistency proof chain** (consistencyReceipt
 verifyConsistencyProofChain) and (2) the **receipt signature** over the
 accumulator commitment (LibCose verifySignatureDetachedPayload). The
 signing key is bootstrap keys, a delegated key from the receipt’s
@@ -1085,14 +1085,14 @@ delegation cert bytes in unprotected label 1000.
 
 **Consistency receipt (plan 0014, Appendix A):** Decode COSE Receipt of
 Consistency via LibCoseReceipt; extract consistency-proof list and optional
-delegation cert. LibConsistencyReceipt runs the consistency proof chain
+delegation cert. consistencyReceipt runs the consistency proof chain
 (consistentRoots / consistentRootsMemory), yields (size, accumulator). Build
 detached payload commitment; verify **consistency receipt** signature with
 bootstrap keys or, when delegation cert is present, with the delegated key
-from LibDelegationVerifier. Root is established from the first checkpoint
+from delegationVerifier. Root is established from the first checkpoint
 when delegation is present (recover or included key per §3).
 
-**Delegation (plan 0013 Phase 2–3):** LibDelegationVerifier decodes
+**Delegation (plan 0013 Phase 2–3):** delegationVerifier decodes
 delegation cert (LibCose.decodeDelegationCert), enforces signature length
 64/65, recovery id (1001 or 65-byte sig), optional root in header 1002 or
 payload key 11, and valid-combinations table (§3). Validates scope (logId,
@@ -1102,7 +1102,7 @@ separate checkpoint COSE_Sign1.
 
 **Per-log root (Phase 1):** LogState has rootKeyX, rootKeyY; getLogRootKey
 (logId); root set when first checkpoint includes delegation and
-LibDelegationVerifier returns root.
+delegationVerifier returns root.
 
 **Payment and first-checkpoint (plan 0015, ADR-0030):** Leaf commitment =
 SHA256(paymentIDTimestampBe ‖ SHA256(grant)). First checkpoint: verify
@@ -1152,7 +1152,7 @@ payload binding, and checkpoint signature verification.
 
 **2. Delegation cert enforcement (§3) — implemented but under-tested**
 
-LibDelegationVerifier implements the §3 valid/invalid combinations (signature
+delegationVerifier implements the §3 valid/invalid combinations (signature
 length, recovery id, included root key, duplicate recovery, duplicate root
 key, recovered vs included key mismatch). Reverts: InvalidDelegationSignatureLength,
 InvalidRecoveryId, RecoveryIdDuplicate, RecoveredKeyMismatchIncludedKey,
@@ -1192,8 +1192,8 @@ allOnes) each with dedicated test files; fuzz where appropriate.
 
 **COSE/CBOR (unit):** LibCose.t.sol: buildSigStructure, decodeCoseSign1,
 verifySignature (KS256). LibCbor.t.sol: extractAlgorithm, decodePaymentClaims.
-No dedicated unit tests for LibConsistencyReceipt, LibInclusionReceipt, or
-LibDelegationVerifier; they are exercised only through Univocity and
+No dedicated unit tests for consistencyReceipt, LibInclusionReceipt, or
+delegationVerifier; they are exercised only through Univocity and
 CheckpointFlow integration tests.
 
 **Univocity (integration):** Broad. First checkpoint (size zero revert,
@@ -1218,7 +1218,7 @@ invariants that involve delegation or payment receipt.
 
 **Summary:** Algorithm and core contract paths are well covered. Delegation
 cert path (presence of delegation, root establishment, §3 enforcement
-reverts) and LibConsistencyReceipt / LibInclusionReceipt as standalone
+reverts) and consistencyReceipt / LibInclusionReceipt as standalone
 libraries lack dedicated tests. Adding integration tests for consistency
 receipts with delegation (happy path + invalid recovery id, duplicate root
 key, log id mismatch, index out of range) would close the main coverage

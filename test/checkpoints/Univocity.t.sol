@@ -27,7 +27,7 @@ contract IncludedRootHarness {
     }
 }
 
-/// @notice Harness to build the same commitment as LibConsistencyReceipt so
+/// @notice Harness to build the same commitment as consistencyReceipt so
 ///    test receipts sign the payload the contract will verify.
 contract ConsistencyCommitmentHarness {
     bytes32[] public accumulator;
@@ -339,7 +339,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
     }
 
     /// @notice Build ConsistencyReceipt for size 1 -> 3. Size 3 has one peak;
-    ///    commitment must match LibConsistencyReceipt (roots then rightPeaks).
+    ///    commitment must match consistencyReceipt (roots then rightPeaks).
     function _buildConsistencyReceipt1To3(
         bytes32 leaf0,
         bytes32 leaf1,

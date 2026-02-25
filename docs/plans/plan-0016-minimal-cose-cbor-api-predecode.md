@@ -81,7 +81,7 @@ possible.
 1. **Add `setLogRoot(logId, rootKeyX, rootKeyY)`** in Univocity (or
    equivalent), callable only by bootstrap. Ensures root is never taken from
    a cert.
-2. **Add minimal `verifyDelegationProof`** (in LibDelegationVerifier or
+2. **Add minimal `verifyDelegationProof`** (in delegationVerifier or
    inline): args (delegatedKeyX, delegatedKeyY, mmrStart, mmrEnd, alg,
    signature, logId, mmrIndex, storedRootX, storedRootY). Require alg
    indicates P-256; require signature.length == 64; r = signature[0:32],
@@ -91,7 +91,7 @@ possible.
 3. **Remove delegation cert decode path:** LibCose.decodeDelegationCert,
    DelegationCertDecoded; LibCbor.decodeDelegationPayload, DelegationPayload,
    readMapExtractDelegationUnprotected, readMapLookupBstr,
-   readMapExtractCoseKeyEc2; LibDelegationVerifier.verifyDelegationCert
+   readMapExtractCoseKeyEc2; delegationVerifier.verifyDelegationCert
    (current), _establishRoot, _parseUncompressedPoint. No other call sites
    should remain for these after removal.
 4. **Tests:** Add tests for verifyDelegationProof and setLogRoot; remove or
@@ -116,7 +116,7 @@ decoder. The following steps 5–8 are superseded and left for reference only.
    memory decoder.
 6. **consistentRoots — no copy from storage:** Done. `consistentRoots` takes
    `bytes32[] storage accumulatorFrom` and reads in place in the loop.
-7. **LibConsistencyReceipt:** *(Superseded: chain takes bytes[] memory; no
+7. **consistencyReceipt:** *(Superseded: chain takes bytes[] memory; no
    calldata overload.)*
 8. **Cleanup:** *(Superseded: single decoder is decodeConsistencyProofPayload(bytes
    memory); no calldata decoder to remove.)*
@@ -206,7 +206,7 @@ calldata and first proof uses storage; tests pass; format and lint clean.
 - **Phase 3:** Not done. LibCoseReceipt, LibInclusionReceipt,
   LibAuthorityVerifier still exist. Tests use LibCoseReceipt for
   _toConsistencyReceipt (decode raw receipt → struct for publishCheckpoint).
-  LibCose/LibCbor/LibDelegationVerifier still contain the receipt/cert/decode
+  LibCose/LibCbor/delegationVerifier still contain the receipt/cert/decode
   code listed in §4.
 - **Phase 4:** Done. Single publishCheckpoint(ConsistencyReceipt calldata,
   paymentInclusionProof, paymentIDTimestampBe, paymentGrant); consistency
@@ -230,7 +230,7 @@ calldata and first proof uses storage; tests pass; format and lint clean.
    DelegationCertDecoded), LibCbor (readUnprotectedMap*,
    decodePaymentClaims, PaymentClaims, decodeDelegationPayload,
    DelegationPayload, readMapExtractDelegationUnprotected, readMapLookupBstr,
-   readMapExtractCoseKeyEc2, constants), LibDelegationVerifier
+   readMapExtractCoseKeyEc2, constants), delegationVerifier
    (verifyDelegationCert, _establishRoot, _parseUncompressedPoint). Retain
    only what §5 lists.
 3. **Tests without LibCoseReceipt:** Tests currently use
@@ -269,7 +269,7 @@ decodePaymentClaims, PaymentClaims; decodeDelegationPayload,
 DelegationPayload, readMapExtractDelegationUnprotected, readMapLookupBstr,
 readMapExtractCoseKeyEc2.
 
-**LibDelegationVerifier:** verifyDelegationCert (current implementation),
+**delegationVerifier:** verifyDelegationCert (current implementation),
 _establishRoot, _parseUncompressedPoint. Replace with verifyDelegationProof
 (Phase 1).
 

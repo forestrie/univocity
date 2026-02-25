@@ -34,7 +34,7 @@ Elsewhere we already use opaque bytes:
 - `LogState.rootKey`: `bytes`; decoded in `_decodeLogRootKey()` when needed.
 - `setLogRoot(logId, bytes calldata rootKey)`: accepts 64-byte opaque key.
 - `DelegationProof.delegationKey`: `bytes`; decoded in
-  LibDelegationVerifier for ES256 (64 bytes).
+  delegationVerifier for ES256 (64 bytes).
 
 ## 3. Will this significantly complicate the authorization code?
 

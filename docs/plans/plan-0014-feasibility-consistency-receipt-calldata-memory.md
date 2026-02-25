@@ -181,7 +181,7 @@ processing is consistent.”
        receipt path).
      - **`LibAuthorityVerifier.verifyReceiptInclusion`:** `proof` → memory
        (accumulator is already memory).
-     - **`LibDelegationVerifier`:** accumulator parameter → memory (so
+     - **`delegationVerifier`:** accumulator parameter → memory (so
        derived accumulator can be passed without a separate calldata path).
      - **`Univocity`:** at the boundary of `publishCheckpoint`, copy
        `accumulator`, `proofAndCose.consistencyProof`, and
@@ -235,7 +235,7 @@ gas budget note to the plan or an ADR.
 
 - Implement in order: (1) change `src/algorithms` (includedRoot, consistentRoots)
   to memory; (2) update LibCheckpointVerifier, LibAuthorityVerifier,
-  LibDelegationVerifier, and Univocity boundary copy; (3) run tests and
+  delegationVerifier, and Univocity boundary copy; (3) run tests and
   benchmark gas; (4) add Receipt of Consistency decode + signature
   verification and wire single-parameter receipt into the checkpoint flow; (5)
   tests and gas notes for the receipt path.

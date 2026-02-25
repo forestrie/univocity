@@ -8,11 +8,13 @@ import {
 import {LibCose} from "@univocity/cose/lib/LibCose.sol";
 import {LibCbor} from "@univocity/cbor/lib/LibCbor.sol";
 import {
-    LibDelegationVerifier
-} from "@univocity/checkpoints/lib/LibDelegationVerifier.sol";
+    verifyDelegationProof,
+    DelegationResult
+} from "@univocity/checkpoints/lib/delegationVerifier.sol";
 import {
-    LibConsistencyReceipt
-} from "@univocity/checkpoints/lib/LibConsistencyReceipt.sol";
+    verifyConsistencyProofChain,
+    buildDetachedPayloadCommitment
+} from "@univocity/checkpoints/lib/consistencyReceipt.sol";
 import {MAX_HEIGHT} from "@univocity/algorithms/constants.sol";
 import {verifyInclusion} from "@univocity/algorithms/includedRoot.sol";
 import {peaks} from "@univocity/algorithms/peaks.sol";
@@ -210,7 +212,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
 
     // === Checkpoint Publishing ===
 
-    /// @notice Plan 0016: publish checkpoint from pre-decoded consistency
+    /// @notice publish checkpoint from pre-decoded consistency
     ///    receipt and optional pre-decoded inclusion proof.
     function publishCheckpoint(
         IUnivocity.ConsistencyReceipt calldata consistencyParts,
@@ -224,8 +226,9 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         _checkPaymentGrantBoundsCheckpointRange(log, paymentGrant);
 
         _validateConsistencyProofBounds(consistencyParts.consistencyProofs);
-        (bytes32[] memory accMem, uint64 size) = LibConsistencyReceipt.verifyConsistencyProofChain(
-            log.accumulator, consistencyParts.consistencyProofs
+        bytes32[] memory initialAcc = _accumulatorToMemory(log);
+        (bytes32[] memory accMem, uint64 size) = verifyConsistencyProofChain(
+            initialAcc, consistencyParts.consistencyProofs
         );
 
         _validateCheckpointSizeIncrease(log, size);
@@ -235,8 +238,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             revert MinGrowthNotMet(currentSize, size, paymentGrant.minGrowth);
         }
 
-        bytes memory detachedPayload =
-            LibConsistencyReceipt.buildDetachedPayloadCommitment(accMem);
+        bytes memory detachedPayload = buildDetachedPayloadCommitment(accMem);
 
         bool useDelegation =
             consistencyParts.delegationProof.signature.length > 0;
@@ -250,18 +252,17 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             if (alg != LibCose.ALG_ES256) {
                 revert LibCose.UnsupportedAlgorithm(alg);
             }
-            LibDelegationVerifier.DelegationResult memory delResult =
-                LibDelegationVerifier.verifyDelegationProof(
-                    consistencyParts.delegationProof.delegationKey,
-                    consistencyParts.delegationProof.mmrStart,
-                    consistencyParts.delegationProof.mmrEnd,
-                    consistencyParts.delegationProof.alg,
-                    consistencyParts.delegationProof.signature,
-                    logId,
-                    size > 0 ? size - 1 : 0,
-                    rootKeyX,
-                    rootKeyY
-                );
+            DelegationResult memory delResult = verifyDelegationProof(
+                consistencyParts.delegationProof.delegationKey,
+                consistencyParts.delegationProof.mmrStart,
+                consistencyParts.delegationProof.mmrEnd,
+                consistencyParts.delegationProof.alg,
+                consistencyParts.delegationProof.signature,
+                logId,
+                size > 0 ? size - 1 : 0,
+                rootKeyX,
+                rootKeyY
+            );
             sigOk = LibCose.verifyES256DetachedPayload(
                 consistencyParts.protectedHeader,
                 consistencyParts.signature,
@@ -420,6 +421,20 @@ contract Univocity is IUnivocity, IUnivocityErrors {
     ) private pure {
         if (g.maxHeight != 0 && size > g.maxHeight) {
             revert MaxHeightExceeded(size, g.maxHeight);
+        }
+    }
+
+    /// @notice Copy log accumulator from storage to memory for free-function
+    ///    consistency proof chain (no storage ref in consistencyReceipt.sol).
+    function _accumulatorToMemory(LogState storage log)
+        private
+        view
+        returns (bytes32[] memory out)
+    {
+        uint256 n = log.accumulator.length;
+        out = new bytes32[](n);
+        for (uint256 i = 0; i < n; i++) {
+            out[i] = log.accumulator[i];
         }
     }
 

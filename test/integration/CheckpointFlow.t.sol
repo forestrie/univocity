@@ -22,7 +22,7 @@ contract IncludedRootHarness {
     }
 }
 
-/// @notice Harness to build the same commitment as LibConsistencyReceipt.
+/// @notice Harness to build the same commitment as consistencyReceipt.
 contract ConsistencyCommitmentHarness {
     bytes32[] public accumulator;
 

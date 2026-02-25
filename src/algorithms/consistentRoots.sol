@@ -62,7 +62,7 @@ function consistentRoots(
 
 /// @notice Same as consistentRoots with memory accumulator (for chained
 ///    verification per draft "Verifying the Receipt of consistency").
-///    proofs is calldata to avoid copy when called from LibConsistencyReceipt.
+///    proofs is calldata to avoid copy when called from consistencyReceipt.
 function consistentRootsMemory(
     uint256 ifrom,
     bytes32[] memory accumulatorFrom,
