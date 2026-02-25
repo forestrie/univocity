@@ -1,8 +1,23 @@
 # Plan 0017: Assessment — payer in PaymentGrant
 
-**Status:** DRAFT  
+**Status:** ACCEPTED  
 **Date:** 2026-02-23  
-**Related:** [plan-0001](plan-0001-r5-authority.md), [plan-0015](plan-0015-publishCheckpoint-payment-receipt-as-roi.md), [plan-0014](plan-0014-feasibility-consistency-receipt-calldata-memory.md), [plan-0013](plan-0013-adr-0032-delegated-checkpoint-verification.md)
+**Related:** [ARC-0001](../arc-0001-grant-minimum-range.md), [plan-0001](plan-0001-r5-authority.md), [plan-0015](plan-0015-publishCheckpoint-payment-receipt-as-roi.md), [plan-0014](plan-0014-feasibility-consistency-receipt-calldata-memory.md), [plan-0013](plan-0013-adr-0032-delegated-checkpoint-verification.md)
+
+## Decision (resolved)
+
+**After the grant is made to any payer, any sender may publish the checkpoint.**
+
+The authority log commits to a leaf that includes the payer (who paid), the
+checkpoint range, and bounds (including min_growth; see
+[ARC-0001](../arc-0001-grant-minimum-range.md)). The contract does not check
+`msg.sender` against `paymentGrant.payer`. Payer is for attribution only (who
+paid for the grant); submission is permissionless. In `CheckpointPublished`,
+both **sender** and **payer** are attributed and are **indexed** parameters
+(filterable by indexers). See [plan-0015](plan-0015-publishCheckpoint-payment-receipt-as-roi.md)
+and [plan-0001](plan-0001-r5-authority.md).
+
+---
 
 ## 1. Purpose of this document
 
@@ -215,19 +230,10 @@ docs and implementation.
 
 ---
 
-## 8. Recommendation
+## 8. Recommendation (resolved)
 
-The arc and plan documents are **consistent** with each other and with the
-implementation on the role of payer: **attribution (“who paid”), not access
-control**. The main gap is that events that would expose payer for
-observability are defined but not emitted.
-
-- If the product still wants **on-chain attribution** of “who paid,” **keep
-  payer** and consider adding the missing events.
-- If attribution is not required in the commitment and you want to simplify
-  the API and leaf formula, **removing payer** is consistent with the
-  permissionless model; the main cost is breaking existing authority log
-  leaves and losing payer in the commitment unless you add another mechanism.
-
-I can turn this into a short ADR or add a “Decision” section to an existing
-plan if you want it captured as a formal decision.
+The docs are resolved: **after the grant is made to any payer, any sender may
+publish the checkpoint.** Payer remains for attribution and leaf binding;
+submission is permissionless. Plan-0015 and plan-0014 have been updated to
+state this explicitly; the interface NatSpec now documents it. See the
+**Decision** at the top of this document.

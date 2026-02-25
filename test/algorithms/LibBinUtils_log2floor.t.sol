@@ -48,6 +48,20 @@ contract LibBinUtils_log2floor_Test is Test {
         assertEq(LibBinUtils.log2floor(type(uint256).max), 255);
     }
 
+    /// @notice KAT from Go mmr/bits_test.go TestLog2Uint64 (same inputs/wants).
+    function test_log2floor_goTable() public pure {
+        assertEq(LibBinUtils.log2floor(1), 0);
+        assertEq(LibBinUtils.log2floor(2), 1);
+        assertEq(LibBinUtils.log2floor(3), 1);
+        assertEq(LibBinUtils.log2floor(4), 2);
+        assertEq(LibBinUtils.log2floor(8), 3);
+        assertEq(LibBinUtils.log2floor(16), 4);
+        assertEq(LibBinUtils.log2floor(17), 4);
+        assertEq(LibBinUtils.log2floor(18), 4);
+        assertEq(LibBinUtils.log2floor(19), 4);
+        assertEq(LibBinUtils.log2floor(32), 5);
+    }
+
     function testFuzz_log2floor_consistentWithBitLength(uint256 x)
         public
         pure

@@ -8,6 +8,12 @@ interface IUnivocityErrors {
     error AlreadyInitialized();
     error NotInitialized();
     error OnlyBootstrapAuthority();
+    /// @notice Bootstrap algorithm not supported (use COSE ALG_ES256 or
+    ///    ALG_KS256).
+    error InvalidBootstrapAlgorithm(int64 alg);
+    /// @notice Bootstrap key length invalid for the given alg (KS256 = 20,
+    ///    ES256 = 64).
+    error InvalidBootstrapKeyLength(int64 alg, uint256 length);
     error FirstCheckpointSizeTooSmall();
     error BootstrapReceiptMustBeFirstEntry();
 

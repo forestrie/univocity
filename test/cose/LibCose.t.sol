@@ -46,15 +46,7 @@ contract LibCoseTest is Test {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, hash);
         bytes memory sig = abi.encodePacked(r, s, v);
 
-        LibCose.CoseVerifierKeys memory keys = LibCose.CoseVerifierKeys({
-            ks256Signer: signer, es256X: bytes32(0), es256Y: bytes32(0)
-        });
-
-        assertTrue(
-            LibCose.verifySignature(
-                protected, payload, sig, LibCose.ALG_KS256, keys
-            )
-        );
+        assertTrue(LibCose.verifyKS256(protected, payload, sig, signer));
     }
 
     /// @notice KS256: wrong signer fails
@@ -68,16 +60,8 @@ contract LibCoseTest is Test {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, hash);
         bytes memory sig = abi.encodePacked(r, s, v);
 
-        LibCose.CoseVerifierKeys memory keys = LibCose.CoseVerifierKeys({
-            ks256Signer: address(0xbad), // wrong
-            es256X: bytes32(0),
-            es256Y: bytes32(0)
-        });
-
         assertFalse(
-            LibCose.verifySignature(
-                protected, payload, sig, LibCose.ALG_KS256, keys
-            )
+            LibCose.verifyKS256(protected, payload, sig, address(0xbad))
         );
     }
 }

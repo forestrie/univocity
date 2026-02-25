@@ -16,12 +16,16 @@ interface IUnivocityEvents {
     );
 
     /// @notice Checkpoint published (all logs including authority)
-    /// @dev Block number recoverable from tx receipt. paymentIndex and
-    ///    paymentPath are the inclusion proof payload (empty path when no
-    ///    payment receipt).
+    /// @dev Block number recoverable from tx receipt. size = MMR size after
+    ///    checkpoint (last mmrIndex + 1). Both sender and payer are attributed
+    ///    and indexed (filterable). sender = submitter; payer = from
+    ///    PaymentGrant (who paid). paymentIndex and paymentPath are the
+    ///    inclusion proof payload (empty when no payment receipt).
     event CheckpointPublished(
         bytes32 indexed logId,
-        uint64 indexed size,
+        address indexed sender,
+        address indexed payer,
+        uint64 size,
         uint64 checkpointCount,
         bytes32[] accumulator,
         uint64 paymentIndex,

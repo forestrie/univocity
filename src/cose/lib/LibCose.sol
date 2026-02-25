@@ -36,84 +36,73 @@ library LibCose {
     error InvalidCoseStructure();
     error SignatureVerificationFailed();
 
-    // ============ Structs ============
+    // ============ Verification (caller dispatches on alg) ============
 
-    /// @notice Keys for COSE_Sign1 verification (ES256 and/or KS256).
-    ///    Can be from bootstrap config or from delegation/receipt (e.g. P-256
-    ///    delegated key). For ES256-only use fromDelegatedEs256; for bootstrap
-    ///    use both ks256Signer and es256X/Y as configured.
-    struct CoseVerifierKeys {
-        address ks256Signer;
-        bytes32 es256X;
-        bytes32 es256Y;
-    }
-
-    // ============ Main Functions ============
-
-    /// @notice Build verifier keys from a single P-256 public key (e.g.
-    ///    delegated key from consistency receipt). Use with
-    ///    verifySignature/verifySignatureDetachedPayload for ES256 COSE.
-    function fromDelegatedEs256(bytes32 keyX, bytes32 keyY)
-        internal
-        pure
-        returns (CoseVerifierKeys memory keys)
-    {
-        keys.ks256Signer = address(0);
-        keys.es256X = keyX;
-        keys.es256Y = keyY;
-    }
-
-    /// @notice Verify COSE_Sign1 signature with algorithm dispatch.
+    /// @notice Verify ES256 COSE_Sign1 with in-band payload.
     /// @param protectedHeader CBOR-encoded protected header.
     /// @param payload Payload used in Sig_structure.
-    /// @param signature Raw signature (r||s||v for KS256, r||s for ES256).
-    /// @param alg Algorithm ID (e.g. ALG_ES256, ALG_KS256).
-    /// @param keys Verifier keys (bootstrap or fromDelegatedEs256).
-    function verifySignature(
+    /// @param signature Raw signature (64 bytes: r || s).
+    /// @param keyX P-256 public key x-coordinate.
+    /// @param keyY P-256 public key y-coordinate.
+    function verifyES256(
         bytes memory protectedHeader,
         bytes memory payload,
         bytes memory signature,
-        int64 alg,
-        CoseVerifierKeys memory keys
+        bytes32 keyX,
+        bytes32 keyY
     ) internal view returns (bool) {
         bytes memory sigStructure = buildSigStructure(protectedHeader, payload);
-
-        if (alg == ALG_ES256) {
-            return
-                _verifyES256(sigStructure, signature, keys.es256X, keys.es256Y);
-        } else if (alg == ALG_KS256) {
-            return _verifyKS256(sigStructure, signature, keys.ks256Signer);
-        } else {
-            revert UnsupportedAlgorithm(alg);
-        }
+        return _verifyES256(sigStructure, signature, keyX, keyY);
     }
 
-    /// @notice Verify COSE_Sign1 signature with detached payload (e.g. RoI
-    ///    root). Plan 0015.
+    /// @notice Verify KS256 COSE_Sign1 with in-band payload.
     /// @param protectedHeader CBOR-encoded protected header.
-    /// @param signature Raw signature (r||s||v for KS256, r||s for ES256).
-    /// @param detachedPayload The payload used in Sig_structure (e.g. 32-byte
-    ///    root).
-    /// @param alg Algorithm ID (e.g. ALG_ES256, ALG_KS256).
-    /// @param keys Verifier keys (bootstrap or fromDelegatedEs256).
-    function verifySignatureDetachedPayload(
+    /// @param payload Payload used in Sig_structure.
+    /// @param signature Raw signature (65 bytes: r || s || v).
+    /// @param expectedSigner Ethereum address of the signer.
+    function verifyKS256(
+        bytes memory protectedHeader,
+        bytes memory payload,
+        bytes memory signature,
+        address expectedSigner
+    ) internal pure returns (bool) {
+        bytes memory sigStructure = buildSigStructure(protectedHeader, payload);
+        return _verifyKS256(sigStructure, signature, expectedSigner);
+    }
+
+    /// @notice Verify ES256 COSE_Sign1 with detached payload (e.g. RoI root).
+    /// @param protectedHeader CBOR-encoded protected header.
+    /// @param signature Raw signature (64 bytes: r || s).
+    /// @param detachedPayload The payload used in Sig_structure.
+    /// @param keyX P-256 public key x-coordinate.
+    /// @param keyY P-256 public key y-coordinate.
+    function verifyES256DetachedPayload(
         bytes memory protectedHeader,
         bytes memory signature,
         bytes memory detachedPayload,
-        int64 alg,
-        CoseVerifierKeys memory keys
+        bytes32 keyX,
+        bytes32 keyY
     ) internal view returns (bool) {
         bytes memory sigStructure =
             buildSigStructure(protectedHeader, detachedPayload);
+        return _verifyES256(sigStructure, signature, keyX, keyY);
+    }
 
-        if (alg == ALG_ES256) {
-            return
-                _verifyES256(sigStructure, signature, keys.es256X, keys.es256Y);
-        } else if (alg == ALG_KS256) {
-            return _verifyKS256(sigStructure, signature, keys.ks256Signer);
-        } else {
-            revert UnsupportedAlgorithm(alg);
-        }
+    /// @notice Verify KS256 COSE_Sign1 with detached payload.
+    /// @param protectedHeader CBOR-encoded protected header.
+    /// @param signature Raw signature (65 bytes: r || s || v).
+    /// @param detachedPayload The payload used in Sig_structure.
+    /// @param expectedSigner Ethereum address of the signer.
+    function verifyKS256DetachedPayload(
+        bytes memory protectedHeader,
+        bytes memory signature,
+        bytes memory detachedPayload,
+        address expectedSigner
+    ) internal pure returns (bool) {
+        bytes memory sigStructure = buildSigStructure(
+            protectedHeader, detachedPayload
+        );
+        return _verifyKS256(sigStructure, signature, expectedSigner);
     }
 
     // ============ Sig_structure ============

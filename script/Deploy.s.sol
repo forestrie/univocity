@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 import {Univocity} from "@univocity/contracts/Univocity.sol";
+import {LibCose} from "@univocity/cose/lib/LibCose.sol";
 
 contract DeployUnivocity is Script {
     function run() external {
@@ -15,13 +16,27 @@ contract DeployUnivocity is Script {
 
         require(
             ks256Signer != address(0) || es256X != bytes32(0),
-            "At least one of KS256_SIGNER or ES256_X/Y must be set"
+            "Set KS256_SIGNER or ES256_X/Y (one bootstrap key)"
         );
+        require(
+            ks256Signer == address(0) || es256X == bytes32(0),
+            "Set only one: KS256_SIGNER or ES256_X/Y"
+        );
+
+        int64 bootstrapAlg;
+        bytes memory bootstrapKey;
+        if (ks256Signer != address(0)) {
+            bootstrapAlg = LibCose.ALG_KS256;
+            bootstrapKey = abi.encodePacked(ks256Signer);
+        } else {
+            bootstrapAlg = LibCose.ALG_ES256;
+            bootstrapKey = abi.encodePacked(es256X, es256Y);
+        }
 
         vm.startBroadcast();
 
         Univocity univocity =
-            new Univocity(bootstrapAuthority, ks256Signer, es256X, es256Y);
+            new Univocity(bootstrapAuthority, bootstrapAlg, bootstrapKey);
         // Authority log is set by bootstrap's first publishCheckpoint
         // (logId, ..) call (same or separate tx).
 
@@ -29,7 +44,7 @@ contract DeployUnivocity is Script {
 
         console.log("Univocity deployed at:", address(univocity));
         console.log("Bootstrap authority:", bootstrapAuthority);
-        console.log("KS256 signer:", ks256Signer);
-        console.log("ES256 configured:", es256X != bytes32(0));
+        console.log("Bootstrap alg:", uint256(int256(bootstrapAlg)));
+        console.log("KS256:", ks256Signer != address(0));
     }
 }

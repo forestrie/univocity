@@ -79,4 +79,57 @@ contract LibBinUtils_indexHeight_Test is Test {
         assertEq(LibBinUtils.indexHeight(62), 5); // 2^6 - 2 = 62
         assertEq(LibBinUtils.indexHeight(126), 6); // 2^7 - 2 = 126
     }
+
+    /// @notice KAT from Python tests.py TestIndexOperations.test_index_heights
+    ///    (mmr indices 0..38 for canonical 39-node MMR).
+    function test_indexHeight_pythonTable() public pure {
+        uint8[39] memory expect = [
+            uint8(0),
+            0,
+            1,
+            0,
+            0,
+            1,
+            2,
+            0,
+            0,
+            1,
+            0,
+            0,
+            1,
+            2,
+            3,
+            0,
+            0,
+            1,
+            0,
+            0,
+            1,
+            2,
+            0,
+            0,
+            1,
+            0,
+            0,
+            1,
+            2,
+            3,
+            4,
+            0,
+            0,
+            1,
+            0,
+            0,
+            1,
+            2,
+            0
+        ];
+        for (uint256 i = 0; i < 39; i++) {
+            assertEq(
+                LibBinUtils.indexHeight(i),
+                uint256(expect[i]),
+                "indexHeight(i) mismatch"
+            );
+        }
+    }
 }

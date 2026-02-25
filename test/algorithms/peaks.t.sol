@@ -417,6 +417,59 @@ contract PeaksTest is Test {
         assertEq(harness.callLeafCount(12), 7, "invalid size 12 has 7 leaves");
     }
 
+    /// @notice KAT from Python tests.py TestIndexOperations.test_index_leaf_counts
+    ///     (index_values_table mmrsize=39)[1]; leafCount(mmrSize) for mmrSize 1..39.
+    function test_leafCount_pythonTable() public view {
+        uint8[39] memory expect = [
+            uint8(1),
+            1,
+            2,
+            3,
+            3,
+            3,
+            4,
+            5,
+            5,
+            6,
+            7,
+            7,
+            7,
+            7,
+            8,
+            9,
+            9,
+            10,
+            11,
+            11,
+            11,
+            12,
+            13,
+            13,
+            14,
+            15,
+            15,
+            15,
+            15,
+            15,
+            16,
+            17,
+            17,
+            18,
+            19,
+            19,
+            19,
+            20,
+            21
+        ];
+        for (uint256 mmrSize = 1; mmrSize <= 39; mmrSize++) {
+            assertEq(
+                harness.callLeafCount(mmrSize),
+                uint256(expect[mmrSize - 1]),
+                "leafCount(mmrSize)"
+            );
+        }
+    }
+
     /// @dev Go TestLeafCountFirst26: expectLeafCounts for mmrIndex 0..25
     ///     (mmrSize = mmrIndex+1). LeafCount returns bitmap for largest valid
     ///     MMR with size <= mmrSize.

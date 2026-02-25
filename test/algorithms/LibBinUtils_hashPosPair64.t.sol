@@ -91,4 +91,31 @@ contract LibBinUtils_hashPosPair64_Test is Test {
         bytes32 expected = sha256(input);
         assertEq(result, expected);
     }
+
+    /// @notice KAT from canonical 39-node MMR (Python db.KatDB / Go KAT39).
+    ///    Parent at MMR index 2 = hash_pospair64(3, H0, H1); index 5 = pos 6,
+    ///    H3, H4; index 6 = pos 7, H2, H5.
+    function test_hashPosPair64_canonicalMMRParents() public pure {
+        bytes32 h0 = sha256(abi.encodePacked(uint64(0)));
+        bytes32 h1 = sha256(abi.encodePacked(uint64(1)));
+        bytes32 h3 = sha256(abi.encodePacked(uint64(3)));
+        bytes32 h4 = sha256(abi.encodePacked(uint64(4)));
+
+        bytes32 h2 = LibBinUtils.hashPosPair64(3, h0, h1);
+        bytes32 h5 = LibBinUtils.hashPosPair64(6, h3, h4);
+        bytes32 h6 = LibBinUtils.hashPosPair64(7, h2, h5);
+
+        assertEq(
+            h2,
+            0xad104051c516812ea5874ca3ff06d0258303623d04307c41ec80a7a18b332ef8
+        );
+        assertEq(
+            h5,
+            0x9a18d3bc0a7d505ef45f985992270914cc02b44c91ccabba448c546a4b70f0f0
+        );
+        assertEq(
+            h6,
+            0x827f3213c1de0d4c6277caccc1eeca325e45dfe2c65adce1943774218db61f88
+        );
+    }
 }

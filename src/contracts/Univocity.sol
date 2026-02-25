@@ -51,66 +51,78 @@ contract Univocity is IUnivocity, IUnivocityErrors {
     // === Constructor ===
 
     /// @notice Deploys the Univocity transparency contract with bootstrap
-    ///    authority and signing
-    ///    keys.
-    /// @dev At least one of KS256 or ES256 must be configured for receipt
-    ///    verification.
-    ///    The authority log is not set here;
-    ///    it is established by the first call to
-    ///    publishCheckpoint from the bootstrap authority (that call's logId
-    ///    becomes the authority
-    ///    log).
+    ///    authority and a single bootstrap key (alg + opaque bytes, same
+    ///    pattern as rootKey / delegationKey). Plan 0018.
+    /// @dev Authority log is set by the first publishCheckpoint from the
+    ///    bootstrap authority.
     /// @param _bootstrapAuthority Address allowed to publish the first
-    ///    checkpoint (any log) and to
-    ///    publish
-    ///    to the authority log. Must not be zero.
-    /// @param _ks256Signer Ethereum address used to verify KS256 (secp256k1)
-    ///    signatures on COSE
-    ///    receipts.
-    ///    Pass address(0) to disable KS256.
-    /// @param _es256X P-256 public key x-coordinate for ES256
-    ///    (WebAuthn/passkey) receipt
-    ///    verification.
-    ///    Pass bytes32(0) with _es256Y to disable ES256.
-    /// @param _es256Y P-256 public key y-coordinate for ES256 verification.
-    /// @custom:throws OnlyBootstrapAuthority If _bootstrapAuthority is zero or
-    /// both KS256 and ES256
-    /// are disabled.
+    ///    checkpoint and to publish to the authority log. Must not be zero.
+    /// @param _bootstrapAlg COSE algorithm: ALG_KS256 (-65799) or ALG_ES256
+    ///    (-7). Key format depends on alg.
+    /// @param _bootstrapKey Opaque key: KS256 = 20 bytes (Ethereum address);
+    ///    ES256 = 64 bytes (P-256 x || y).
+    /// @custom:throws OnlyBootstrapAuthority If _bootstrapAuthority is zero.
+    /// @custom:throws InvalidBootstrapAlgorithm If alg is not KS256 or ES256.
+    /// @custom:throws InvalidBootstrapKeyLength If key length does not match
+    ///    alg (20 for KS256, 64 for ES256).
     constructor(
         address _bootstrapAuthority,
-        address _ks256Signer,
-        bytes32 _es256X,
-        bytes32 _es256Y
+        int64 _bootstrapAlg,
+        bytes memory _bootstrapKey
     ) {
         if (_bootstrapAuthority == address(0)) {
             revert OnlyBootstrapAuthority();
         }
-        // At least one signing key must be set
-        if (_ks256Signer == address(0) && _es256X == bytes32(0)) {
-            revert OnlyBootstrapAuthority();
+        if (
+            _bootstrapAlg != LibCose.ALG_KS256
+                && _bootstrapAlg != LibCose.ALG_ES256
+        ) {
+            revert InvalidBootstrapAlgorithm(_bootstrapAlg);
         }
-
+        if (_bootstrapAlg == LibCose.ALG_KS256) {
+            if (_bootstrapKey.length != 20) {
+                revert InvalidBootstrapKeyLength(
+                    _bootstrapAlg, _bootstrapKey.length
+                );
+            }
+            address _ks;
+            assembly {
+                _ks := shr(96, mload(add(_bootstrapKey, 32)))
+            }
+            ks256Signer = _ks;
+            es256X = bytes32(0);
+            es256Y = bytes32(0);
+        } else {
+            if (_bootstrapKey.length != 64) {
+                revert InvalidBootstrapKeyLength(
+                    _bootstrapAlg, _bootstrapKey.length
+                );
+            }
+            bytes32 _ex;
+            bytes32 _ey;
+            assembly {
+                _ex := mload(add(_bootstrapKey, 32))
+                _ey := mload(add(_bootstrapKey, 64))
+            }
+            es256X = _ex;
+            es256Y = _ey;
+            ks256Signer = address(0);
+        }
         bootstrapAuthority = _bootstrapAuthority;
-        ks256Signer = _ks256Signer;
-        es256X = _es256X;
-        es256Y = _es256Y;
     }
 
-    /// @notice Returns the bootstrap keys used to verify COSE_Sign1 receipt
-    ///    signatures.
-    /// @dev Used by LibCose for KS256 (ecrecover) and
-    ///    ES256 (P-256)
-    ///    verification.
-    /// @return A struct containing ks256Signer, es256X,
-    ///    and es256Y (as in the constructor).
-    function getBootstrapKeys()
-        public
+    /// @notice Bootstrap key in opaque form (same as constructor). Plan 0018.
+    /// @return bootstrapAlg COSE alg (ALG_KS256 or ALG_ES256).
+    /// @return bootstrapKey 20 bytes (KS256) or 64 bytes (ES256).
+    function getBootstrapKeyConfig()
+        external
         view
-        returns (LibCose.CoseVerifierKeys memory)
+        returns (int64 bootstrapAlg, bytes memory bootstrapKey)
     {
-        return LibCose.CoseVerifierKeys({
-            ks256Signer: ks256Signer, es256X: es256X, es256Y: es256Y
-        });
+        if (ks256Signer != address(0)) {
+            return (LibCose.ALG_KS256, abi.encodePacked(ks256Signer));
+        }
+        return (LibCose.ALG_ES256, abi.encodePacked(es256X, es256Y));
     }
 
     // === Modifiers ===
@@ -229,7 +241,12 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         // Decode log root key at most once per transaction (P-256: 64 bytes).
         (bytes32 rootKeyX, bytes32 rootKeyY) = _decodeLogRootKey(log);
 
+        int64 alg = LibCbor.extractAlgorithm(consistencyParts.protectedHeader);
+        bool sigOk;
         if (useDelegation) {
+            if (alg != LibCose.ALG_ES256) {
+                revert LibCose.UnsupportedAlgorithm(alg);
+            }
             LibDelegationVerifier.DelegationResult memory delResult =
                 LibDelegationVerifier.verifyDelegationProof(
                     consistencyParts.delegationProof.delegationKey,
@@ -242,56 +259,34 @@ contract Univocity is IUnivocity, IUnivocityErrors {
                     rootKeyX,
                     rootKeyY
                 );
-            if (!LibCose.verifySignatureDetachedPayload(
+            sigOk = LibCose.verifyES256DetachedPayload(
+                consistencyParts.protectedHeader,
+                consistencyParts.signature,
+                detachedPayload,
+                delResult.delegatedKeyX,
+                delResult.delegatedKeyY
+            );
+        } else {
+            if (alg == LibCose.ALG_ES256) {
+                sigOk = LibCose.verifyES256DetachedPayload(
                     consistencyParts.protectedHeader,
                     consistencyParts.signature,
                     detachedPayload,
-                    LibCbor.extractAlgorithm(consistencyParts.protectedHeader),
-                    LibCose.fromDelegatedEs256(
-                        delResult.delegatedKeyX, delResult.delegatedKeyY
-                    )
-                )) {
-                revert ConsistencyReceiptSignatureInvalid();
-            }
-        } else {
-            if (authorityLogId == bytes32(0)) {
-                if (!LibCose.verifySignatureDetachedPayload(
-                        consistencyParts.protectedHeader,
-                        consistencyParts.signature,
-                        detachedPayload,
-                        LibCbor.extractAlgorithm(
-                            consistencyParts.protectedHeader
-                        ),
-                        getBootstrapKeys()
-                    )) {
-                    revert ConsistencyReceiptSignatureInvalid();
-                }
-            } else if (rootKeyX == bytes32(0) && rootKeyY == bytes32(0)) {
-                if (!LibCose.verifySignatureDetachedPayload(
-                        consistencyParts.protectedHeader,
-                        consistencyParts.signature,
-                        detachedPayload,
-                        LibCbor.extractAlgorithm(
-                            consistencyParts.protectedHeader
-                        ),
-                        getBootstrapKeys()
-                    )) {
-                    revert ConsistencyReceiptSignatureInvalid();
-                }
+                    es256X,
+                    es256Y
+                );
+            } else if (alg == LibCose.ALG_KS256) {
+                sigOk = LibCose.verifyKS256DetachedPayload(
+                    consistencyParts.protectedHeader,
+                    consistencyParts.signature,
+                    detachedPayload,
+                    ks256Signer
+                );
             } else {
-                if (!LibCose.verifySignatureDetachedPayload(
-                        consistencyParts.protectedHeader,
-                        consistencyParts.signature,
-                        detachedPayload,
-                        LibCbor.extractAlgorithm(
-                            consistencyParts.protectedHeader
-                        ),
-                        LibCose.fromDelegatedEs256(rootKeyX, rootKeyY)
-                    )) {
-                    revert ConsistencyReceiptSignatureInvalid();
-                }
+                revert LibCose.UnsupportedAlgorithm(alg);
             }
         }
+        if (!sigOk) revert ConsistencyReceiptSignatureInvalid();
 
         if (authorityLogId == bytes32(0)) {
             if (size < 1) revert FirstCheckpointSizeTooSmall();
@@ -338,9 +333,9 @@ contract Univocity is IUnivocity, IUnivocityErrors {
 
         _updateLogState(
             logId,
-            log,
             size,
             accMem,
+            paymentGrant.payer,
             paymentInclusionProof.index,
             paymentInclusionProof.path
         );
@@ -448,24 +443,30 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         }
     }
 
-    /// @notice Update log storage and emit CheckpointPublished with
-    ///    payment receipt index and path from InclusionProof.
+    /// @notice Update log storage and emit CheckpointPublished. Loads log from
+    ///    storage by logId to avoid inconsistent log vs logId.
+    /// @param logId Log identifier.
+    /// @param size MMR size after checkpoint (last mmrIndex + 1).
+    /// @param accumulator New peaks.
+    /// @param payer Payer from PaymentGrant (who paid).
+    /// @param paymentIndex Inclusion proof index (0 when no payment receipt).
+    /// @param paymentPath Inclusion proof path (empty when no payment receipt).
     function _updateLogState(
         bytes32 logId,
-        LogState storage log,
         uint64 size,
         bytes32[] memory accumulator,
+        address payer,
         uint64 paymentIndex,
         bytes32[] calldata paymentPath
     ) private {
+        LogState storage log = _logs[logId];
         bool isNewLog = log.initializedAt == 0;
 
         if (isNewLog) {
             log.initializedAt = block.number;
-            emit LogRegistered(logId, msg.sender, size);
+            emit LogRegistered(logId, _msgSender(), size);
         }
 
-        // Copy accumulator to storage
         delete log.accumulator;
         for (uint256 i = 0; i < accumulator.length; i++) {
             log.accumulator.push(accumulator[i]);
@@ -478,11 +479,18 @@ contract Univocity is IUnivocity, IUnivocityErrors {
 
         emit CheckpointPublished(
             logId,
+            _msgSender(),
+            payer,
             size,
             log.checkpointCount,
             accumulator,
             paymentIndex,
             paymentPath
         );
+    }
+
+    /// @notice Returns the message sender (override for meta-tx if needed).
+    function _msgSender() internal view virtual returns (address) {
+        return msg.sender;
     }
 }

@@ -365,4 +365,18 @@ contract IncludedRootTest is Test {
             )
         );
     }
+
+    /// @notice KAT39: verifyInclusion(leaf 0) in 7-node MMR; path [H1, H5],
+    ///    accumulator [H6]. Matches Go KAT39 / canonical MMR.
+    function test_verifyInclusion_kat39_leaf0_mmr7() public view {
+        bytes32[] memory proof = new bytes32[](2);
+        proof[0] = H1;
+        proof[1] = H5;
+        bytes32[] memory accumulator = new bytes32[](1);
+        accumulator[0] = H6_ROOT;
+
+        assertTrue(
+            verifyHarness.callVerifyInclusion(0, H0, proof, accumulator, 7)
+        );
+    }
 }

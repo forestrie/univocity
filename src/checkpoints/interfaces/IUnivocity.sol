@@ -57,6 +57,8 @@ interface IUnivocity is IUnivocityEvents {
     /// @notice Caller-supplied payment grant for leaf commitment and bounds.
     ///    Leaf = SHA256(paymentIDTimestampBe || SHA256(logId||payer||
     ///    checkpointStart||checkpointEnd||maxHeight||minGrowth)). Plan 0015.
+    ///    payer = who paid (attribution). After the grant is in the authority
+    ///    log, any sender may publish the checkpoint (permissionless).
     struct PaymentGrant {
         bytes32 logId;
         address payer;
@@ -69,6 +71,13 @@ interface IUnivocity is IUnivocityEvents {
     // === View Functions ===
 
     function bootstrapAuthority() external view returns (address);
+    /// @notice Bootstrap key in opaque form (same as constructor). Plan 0018.
+    /// @return bootstrapAlg COSE alg (ALG_KS256 or ALG_ES256).
+    /// @return bootstrapKey 20 bytes (KS256) or 64 bytes (ES256).
+    function getBootstrapKeyConfig()
+        external
+        view
+        returns (int64 bootstrapAlg, bytes memory bootstrapKey);
     function authorityLogId() external view returns (bytes32);
     function getLogState(bytes32 logId) external view returns (LogState memory);
     function getLogRootKey(bytes32 logId)
@@ -90,8 +99,9 @@ interface IUnivocity is IUnivocityEvents {
     /// @param paymentInclusionProof Pre-decoded (index, path). path.length == 0
     ///    when not required (bootstrap or authority log).
     /// @param paymentIDTimestampBe Big-endian idtimestamp of included content.
-    /// @param paymentGrant LogId, payer, checkpoint range, max_height,
-    ///    min_growth for leaf commitment and bounds.
+    /// @param paymentGrant LogId, payer (who paid; any sender may submit),
+    ///    checkpoint range, max_height, min_growth for leaf commitment and
+    ///    bounds.
     function publishCheckpoint(
         ConsistencyReceipt calldata consistencyParts,
         InclusionProof calldata paymentInclusionProof,

@@ -2,7 +2,7 @@
 
 **Status:** DRAFT  
 **Date:** 2025-02-22  
-**Related:** [plan-0014](plan-0014-feasibility-consistency-receipt-calldata-memory.md), draft-bryce-cose-receipts-mmr-profile
+**Related:** [ARC-0001](../arc-0001-grant-minimum-range.md), [plan-0014](plan-0014-feasibility-consistency-receipt-calldata-memory.md), draft-bryce-cose-receipts-mmr-profile
 
 ## 1. Goal
 
@@ -27,7 +27,9 @@
   log** (root matches one of the authority accumulator peaks).
 - **Bounds:** (1) Log checkpoint count must be in [checkpoint_start,
   checkpoint_end). (2) New size − current log size ≥ min_growth. (3) If
-  max_height != 0, new size ≤ max_height.
+  max_height != 0, new size ≤ max_height. The grant’s min_growth lets the
+  authority control the minimum range of any checkpoint; see
+  [ARC-0001](../arc-0001-grant-minimum-range.md).
 
 ## 2. API (target)
 
@@ -57,6 +59,14 @@ function publishCheckpoint(
   max_height, min_growth. Contract derives leaf commitment from this +
   paymentIDTimestampBe and uses it when verifying the Receipt of Inclusion and
   when checking bounds.
+
+**Submission is permissionless:** Once a grant is committed in the authority
+log (a leaf with that payer, range, and bounds), any sender may call
+`publishCheckpoint` with a valid consistency receipt and payment inclusion
+proof. The contract does not check `msg.sender` against `paymentGrant.payer`.
+Payer identifies who paid for the grant (attribution); it does not restrict
+who may submit. The `CheckpointPublished` event attributes both **sender** and
+**payer** and exposes them as **indexed** parameters (filterable by indexers).
 
 ## 3. Leaf commitment encoding
 
@@ -92,6 +102,9 @@ root, then verifies the COSE signature over that root.
 - **Checkpoint range:** `log.checkpointCount >= paymentGrant.checkpointStart`
   and `log.checkpointCount < paymentGrant.checkpointEnd`.
 - **Min growth:** `(new size) - (current log.size) >= paymentGrant.minGrowth`.
+  The authority uses this to control the minimum range of any checkpoint
+  (avoids submitters always submitting minimally extending checkpoints); see
+  [ARC-0001](../arc-0001-grant-minimum-range.md).
 - **Max height:** If `paymentGrant.maxHeight != 0`, require `new size <=
   paymentGrant.maxHeight`.
 - **Log:** The log to checkpoint is identified by `paymentGrant.logId`.
