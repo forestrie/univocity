@@ -22,6 +22,9 @@ interface IUnivocityErrors {
     error SizeMustIncrease(uint64 current, uint64 proposed);
     error InvalidAccumulatorLength(uint256 expected, uint256 actual);
     error InvalidRootKeyLength(uint256 length);
+    /// @notice Log has no root key set; only allowed on first checkpoint for
+    ///    that log (root key is then established from receipt/delegation).
+    error LogRootKeyNotSet();
 
     // Proofs
     error InvalidConsistencyProof();

@@ -7,7 +7,7 @@ pragma solidity ^0.8.24;
 interface IUnivocityEvents {
     /// @notice Contract initialized
     event Initialized(
-        address indexed bootstrapAuthority, bytes32 indexed authorityLogId
+        address indexed bootstrapAuthority, bytes32 indexed rootLogId
     );
 
     /// @notice New log registered (first checkpoint)
