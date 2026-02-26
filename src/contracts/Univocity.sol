@@ -25,8 +25,8 @@ import {verifyInclusion} from "@univocity/algorithms/includedRoot.sol";
 import {peaks} from "@univocity/algorithms/peaks.sol";
 
 /// @title Univocity
-/// @notice Multi-log transparency contract with R5 payment-bounded
-///    authorization
+/// @notice Multi-log transparency contract with payment-bounded
+///    checkpoint authorization (grant inclusion proof + bounds).
 /// @dev Implements permissionless checkpoint submission with SCITT-format
 ///    receipts
 contract Univocity is IUnivocity, IUnivocityErrors {

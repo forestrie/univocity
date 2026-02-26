@@ -4,8 +4,8 @@ pragma solidity ^0.8.24;
 import {IUnivocityEvents} from "./IUnivocityEvents.sol";
 
 /// @title IUnivocity
-/// @notice Interface for univocity transparency log contract with R5
-///    authorization
+/// @notice Interface for univocity transparency log contract (payment-bounded
+///    checkpoint authorization via grant inclusion proof and bounds).
 interface IUnivocity is IUnivocityEvents {
     struct LogState {
         bytes32[] accumulator;

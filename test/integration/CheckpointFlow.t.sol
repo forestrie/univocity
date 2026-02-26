@@ -52,8 +52,8 @@ contract ConsistencyCommitmentHarness {
     }
 }
 
-/// @notice Integration tests: full bootstrap, R5 receipt,
-///    permissionless submission
+/// @notice Integration tests: full bootstrap, grant inclusion proof,
+///    permissionless submission.
 contract CheckpointFlowTest is Test, IUnivocityEvents {
     Univocity internal univocity;
     IncludedRootHarness internal includedRootHarness;

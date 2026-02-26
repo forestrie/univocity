@@ -28,7 +28,7 @@ interface IUnivocityErrors {
     error InvalidSignatureChain();
     error InvalidReceiptInclusionProof();
 
-    // R5 Authorization
+    // Grant bounds / payment authorization
     error CheckpointCountExceeded(uint64 current, uint64 limit);
     error MaxHeightExceeded(uint64 size, uint64 maxHeight);
     error ReceiptLogIdMismatch(bytes32 expected, bytes32 actual);

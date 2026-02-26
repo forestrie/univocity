@@ -2,8 +2,8 @@
 pragma solidity ^0.8.24;
 
 /// @title IUnivocityEvents
-/// @notice Events for univocity transparency log checkpoints and R5
-///    authorization
+/// @notice Events for univocity transparency log checkpoints and
+///    payment-grant authorization.
 interface IUnivocityEvents {
     /// @notice Contract initialized
     event Initialized(
@@ -32,7 +32,7 @@ interface IUnivocityEvents {
         bytes32[] paymentPath
     );
 
-    /// @notice R5 authorization verified (not emitted for bootstrap)
+    /// @notice Grant authorization verified (not emitted for bootstrap)
     event CheckpointAuthorized(
         bytes32 indexed logId,
         address indexed payer,
