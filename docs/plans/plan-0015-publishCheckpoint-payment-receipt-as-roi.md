@@ -2,7 +2,7 @@
 
 **Status:** DRAFT  
 **Date:** 2025-02-22  
-**Related:** [ARC-0001](../arc-0001-grant-minimum-range.md), [plan-0014](plan-0014-feasibility-consistency-receipt-calldata-memory.md), draft-bryce-cose-receipts-mmr-profile
+**Related:** [ARC-0001](../arc/arc-0001-grant-minimum-range.md), [plan-0014](plan-0014-feasibility-consistency-receipt-calldata-memory.md), draft-bryce-cose-receipts-mmr-profile
 
 ## 1. Goal
 
@@ -25,11 +25,7 @@
   commitment (`included_root(index, leafCommitment, path)`). Verify the COSE
   signature over that payload. Verify the leaf is included in the **authority
   log** (root matches one of the authority accumulator peaks).
-- **Bounds:** (1) Log checkpoint count must be in [checkpoint_start,
-  checkpoint_end). (2) New size − current log size ≥ min_growth. (3) If
-  max_height != 0, new size ≤ max_height. The grant’s min_growth lets the
-  authority control the minimum range of any checkpoint; see
-  [ARC-0001](../arc-0001-grant-minimum-range.md).
+- **Bounds:** (1) New size − current log size ≥ min_growth. (2) If max_height != 0, new size ≤ max_height. (Plan-0021 Phase E removes checkpoint range; grants are growth-bounded only.) See [ARC-0001](../arc/arc-0001-grant-minimum-range.md).
 
 ## 2. API (target)
 
@@ -104,7 +100,7 @@ root, then verifies the COSE signature over that root.
 - **Min growth:** `(new size) - (current log.size) >= paymentGrant.minGrowth`.
   The authority uses this to control the minimum range of any checkpoint
   (avoids submitters always submitting minimally extending checkpoints); see
-  [ARC-0001](../arc-0001-grant-minimum-range.md).
+  [ARC-0001](../arc/arc-0001-grant-minimum-range.md).
 - **Max height:** If `paymentGrant.maxHeight != 0`, require `new size <=
   paymentGrant.maxHeight`.
 - **Log:** The log to checkpoint is identified by `paymentGrant.logId`.

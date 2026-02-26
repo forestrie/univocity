@@ -2,7 +2,8 @@
 
 **Status:** ACCEPTED  
 **Date:** 2026-02-23  
-**Related:** [plan-0001](plans/plan-0001-r5-authority.md), [plan-0015](plans/plan-0015-publishCheckpoint-payment-receipt-as-roi.md)
+**Related:** [plan-0001](../plans/plan-0001-r5-authority.md),
+[plan-0015](../plans/plan-0015-publishCheckpoint-payment-receipt-as-roi.md)
 
 ## 1. Purpose
 
@@ -46,5 +47,5 @@ grant in the authority log.
   financial gain; the authority sets the floor.
 
 Plans that define the API or bounds checks should reference this concept. See
-[plan-0015](plans/plan-0015-publishCheckpoint-payment-receipt-as-roi.md) for
+[plan-0015](../plans/plan-0015-publishCheckpoint-payment-receipt-as-roi.md) for
 the concrete `PaymentGrant.minGrowth` and bounds checks.
