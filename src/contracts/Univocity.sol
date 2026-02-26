@@ -54,6 +54,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
     bytes32 public authorityLogId;
 
     mapping(bytes32 => LogState) private _logs;
+    mapping(bytes32 => IUnivocity.LogConfig) private _logConfigs;
 
     // === Constructor ===
 
@@ -158,16 +159,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
 
     // === View Functions ===
 
-    /// @notice Returns the full state of a log (accumulator, size,
-    ///    checkpoint count, initialization
-    ///    block).
-    /// @param logId The 32-byte log identifier (e.g.
-    ///    keccak256 of a log name or config).
-    /// @return The log's accumulator (MMR peak hashes),
-    ///    current size (leaf count), checkpoint
-    ///    count,
-    ///    and block number when the log was first initialized (0 if never
-    ///    initialized).
+    /// @notice Returns the mutable state of a log (accumulator, size).
     function getLogState(bytes32 logId)
         external
         view
@@ -176,17 +168,22 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         return _logs[logId];
     }
 
-    /// @notice Returns the per-log root public key for delegation
-    ///    verification (ADR-0032). Decodes stored opaque rootKey.
-    /// @param logId The 32-byte log identifier.
-    /// @return rootKeyX P-256 x-coordinate; zero if root not yet established.
-    /// @return rootKeyY P-256 y-coordinate; zero if root not yet established.
+    /// @notice Returns the immutable config of a log (kind, authLogId, rootKey, initializedAt).
+    function getLogConfig(bytes32 logId)
+        external
+        view
+        returns (IUnivocity.LogConfig memory)
+    {
+        return _logConfigs[logId];
+    }
+
+    /// @notice Returns the per-log root public key for delegation (ADR-0032).
     function getLogRootKey(bytes32 logId)
         external
         view
         returns (bytes32 rootKeyX, bytes32 rootKeyY)
     {
-        return _decodeLogRootKey(_logs[logId]);
+        return _decodeLogRootKey(logId);
     }
 
     /// @notice Set the root public key for a log (bootstrap only). Plan 0016:
@@ -200,8 +197,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         if (rootKey.length != 64) {
             revert InvalidRootKeyLength(rootKey.length);
         }
-        LogState storage log = _logs[logId];
-        log.rootKey = rootKey;
+        _logConfigs[logId].rootKey = rootKey;
     }
 
     /// @notice Returns whether a log has received at least one checkpoint.
@@ -209,7 +205,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
     /// @return True if the log has been initialized (first checkpoint
     ///    published), false otherwise.
     function isLogInitialized(bytes32 logId) external view returns (bool) {
-        return _logs[logId].initializedAt != 0;
+        return _logConfigs[logId].initializedAt != 0;
     }
 
     // === Checkpoint Publishing ===
@@ -224,8 +220,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
     ) external {
         bytes32 logId = paymentGrant.logId;
         LogState storage log = _logs[logId];
-
-        _checkPaymentGrantBoundsCheckpointRange(log, paymentGrant);
+        IUnivocity.LogConfig storage config = _logConfigs[logId];
 
         _validateConsistencyProofBounds(consistencyParts.consistencyProofs);
         bytes32[] memory initialAcc = _accumulatorToMemory(log);
@@ -233,7 +228,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             initialAcc, consistencyParts.consistencyProofs
         );
 
-        _validateCheckpointSizeIncrease(log, size);
+        _validateCheckpointSizeIncrease(logId, size);
         _checkPaymentGrantBoundsMaxHeight(size, paymentGrant);
         uint64 currentSize = log.size;
         if (size < currentSize + paymentGrant.minGrowth) {
@@ -245,8 +240,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         bool useDelegation =
             consistencyParts.delegationProof.signature.length > 0;
 
-        // Decode log root key at most once per transaction (P-256: 64 bytes).
-        (bytes32 rootKeyX, bytes32 rootKeyY) = _decodeLogRootKey(log);
+        (bytes32 rootKeyX, bytes32 rootKeyY) = _decodeLogRootKey(logId);
 
         int64 alg = extractAlgorithm(consistencyParts.protectedHeader);
         bool sigOk = false;
@@ -294,6 +288,12 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         }
         if (!sigOk) revert ConsistencyReceiptSignatureInvalid();
 
+        bytes32 authForInclusion = (logId == authorityLogId)
+            ? bytes32(0)
+            : (config.initializedAt == 0
+                ? paymentGrant.ownerLogId
+                : config.authLogId);
+
         if (authorityLogId == bytes32(0)) {
             if (size < 1) revert FirstCheckpointSizeTooSmall();
             if (paymentInclusionProof.path.length != 0) {
@@ -307,12 +307,34 @@ contract Univocity is IUnivocity, IUnivocityErrors {
                 revert InvalidReceiptInclusionProof();
             }
             _initializeAuthorityLog(logId);
-        } else if (paymentGrant.logId == authorityLogId) {
+        } else if (logId == authorityLogId) {
             if (paymentInclusionProof.path.length != 0) {
                 revert InvalidPaymentReceipt();
             }
             if (msg.sender != bootstrapAuthority) {
                 revert OnlyBootstrapAuthority();
+            }
+        } else if (config.initializedAt == 0) {
+            if (paymentGrant.ownerLogId == bytes32(0)) {
+                revert InvalidPaymentReceipt();
+            }
+            if (paymentInclusionProof.path.length == 0) {
+                revert InvalidPaymentReceipt();
+            }
+            if (paymentInclusionProof.path.length > MAX_HEIGHT) {
+                revert ProofPayloadExceedsMaxHeight();
+            }
+            bytes32 leafCommitment =
+                _leafCommitment(paymentIDTimestampBe, paymentGrant);
+            LogState storage ownerLog = _logs[paymentGrant.ownerLogId];
+            if (!verifyInclusion(
+                    paymentInclusionProof.index,
+                    leafCommitment,
+                    paymentInclusionProof.path,
+                    ownerLog.accumulator,
+                    ownerLog.size
+                )) {
+                revert InvalidPaymentReceipt();
             }
         } else {
             if (paymentInclusionProof.path.length == 0) {
@@ -323,13 +345,13 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             }
             bytes32 leafCommitment =
                 _leafCommitment(paymentIDTimestampBe, paymentGrant);
-            LogState storage authorityLog = _logs[authorityLogId];
+            LogState storage ownerLog = _logs[authForInclusion];
             if (!verifyInclusion(
                     paymentInclusionProof.index,
                     leafCommitment,
                     paymentInclusionProof.path,
-                    authorityLog.accumulator,
-                    authorityLog.size
+                    ownerLog.accumulator,
+                    ownerLog.size
                 )) {
                 revert InvalidPaymentReceipt();
             }
@@ -343,7 +365,9 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             accMem,
             paymentGrant.payer,
             paymentInclusionProof.index,
-            paymentInclusionProof.path
+            paymentInclusionProof.path,
+            authForInclusion,
+            paymentGrant.createAsAuthority
         );
     }
 
@@ -368,14 +392,12 @@ contract Univocity is IUnivocity, IUnivocityErrors {
     }
 
     /// @notice Decode stored opaque root key to P-256 (x, y). Once per tx.
-    /// @return keyX First 32 bytes, or 0 if root not set / invalid length.
-    /// @return keyY Next 32 bytes, or 0 if root not set / invalid length.
-    function _decodeLogRootKey(LogState storage log)
+    function _decodeLogRootKey(bytes32 logId)
         private
         view
         returns (bytes32 keyX, bytes32 keyY)
     {
-        bytes memory rk = log.rootKey;
+        bytes memory rk = _logConfigs[logId].rootKey;
         if (rk.length != 64) return (bytes32(0), bytes32(0));
         assembly {
             keyX := mload(add(rk, 32))
@@ -394,25 +416,12 @@ contract Univocity is IUnivocity, IUnivocityErrors {
                 g.checkpointStart,
                 g.checkpointEnd,
                 g.maxHeight,
-                g.minGrowth
+                g.minGrowth,
+                g.ownerLogId,
+                g.createAsAuthority
             )
         );
         return sha256(abi.encodePacked(paymentIDTimestampBe, inner));
-    }
-
-    /// @notice Checkpoint range only; safe to call before any proof/signature
-    ///    verification (no dependency on derived size).
-    function _checkPaymentGrantBoundsCheckpointRange(
-        LogState storage log,
-        IUnivocity.PaymentGrant calldata g
-    ) private view {
-        uint64 cc = log.checkpointCount;
-        if (cc < g.checkpointStart) {
-            revert CheckpointCountExceeded(cc, g.checkpointStart);
-        }
-        if (cc >= g.checkpointEnd) {
-            revert CheckpointCountExceeded(cc, g.checkpointEnd);
-        }
     }
 
     /// @notice Max height bound only; requires derived size (call after proof
@@ -440,13 +449,13 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         }
     }
 
-    /// @notice Size must increase (or be initial); no dependency on new
-    ///    accumulator. Call after proof chain.
-    function _validateCheckpointSizeIncrease(
-        LogState storage log,
-        uint64 size
-    ) private view {
-        if (log.initializedAt != 0 && size <= log.size) {
+    /// @notice Size must increase (or be initial). Call after proof chain.
+    function _validateCheckpointSizeIncrease(bytes32 logId, uint64 size)
+        private
+        view
+    {
+        LogState storage log = _logs[logId];
+        if (_logConfigs[logId].initializedAt != 0 && size <= log.size) {
             revert SizeMustIncrease(log.size, size);
         }
     }
@@ -463,27 +472,36 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         }
     }
 
-    /// @notice Update log storage and emit CheckpointPublished. Loads log from
-    ///    storage by logId to avoid inconsistent log vs logId.
-    /// @param logId Log identifier.
-    /// @param size MMR size after checkpoint (last mmrIndex + 1).
-    /// @param accumulator New peaks.
-    /// @param payer Payer from PaymentGrant (who paid).
-    /// @param paymentIndex Inclusion proof index (0 when no payment receipt).
-    /// @param paymentPath Inclusion proof path (empty when no payment receipt).
+    /// @notice Update log storage and emit CheckpointPublished.
     function _updateLogState(
         bytes32 logId,
         uint64 size,
         bytes32[] memory accumulator,
         address payer,
         uint64 paymentIndex,
-        bytes32[] calldata paymentPath
+        bytes32[] calldata paymentPath,
+        bytes32 authorityLogIdUsed,
+        bool createAsAuthority
     ) private {
         LogState storage log = _logs[logId];
-        bool isNewLog = log.initializedAt == 0;
+        IUnivocity.LogConfig storage config = _logConfigs[logId];
+        bool isNewLog = config.initializedAt == 0;
 
         if (isNewLog) {
-            log.initializedAt = block.number;
+            config.initializedAt = block.number;
+            if (logId == authorityLogId) {
+                config.kind = IUnivocity.LogKind.Authority;
+                config.authLogId = bytes32(0);
+                if (es256X != bytes32(0) || es256Y != bytes32(0)) {
+                    config.rootKey = abi.encodePacked(es256X, es256Y);
+                }
+            } else {
+                config.kind =
+                    createAsAuthority
+                        ? IUnivocity.LogKind.Authority
+                        : IUnivocity.LogKind.Data;
+                config.authLogId = authorityLogIdUsed;
+            }
             emit LogRegistered(logId, _msgSender(), size);
         }
 
@@ -493,16 +511,12 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         }
 
         log.size = size;
-        unchecked {
-            log.checkpointCount++;
-        }
 
         emit CheckpointPublished(
             logId,
             _msgSender(),
             payer,
             size,
-            log.checkpointCount,
             accumulator,
             paymentIndex,
             paymentPath

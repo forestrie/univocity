@@ -26,7 +26,6 @@ interface IUnivocityEvents {
         address indexed sender,
         address indexed payer,
         uint64 size,
-        uint64 checkpointCount,
         bytes32[] accumulator,
         uint64 paymentIndex,
         bytes32[] paymentPath

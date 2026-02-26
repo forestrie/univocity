@@ -84,7 +84,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
 
         // First checkpoint: leaf = leafCommitment(paymentGrant + idtimestamp).
         IUnivocity.PaymentGrant memory grant0 =
-            _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0);
+            _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0, bytes32(0), false);
         authorityLeaf0 = _leafCommitment(IDTIMESTAMP_AUTH, grant0);
         bytes32[] memory acc0 = new bytes32[](1);
         acc0[0] = authorityLeaf0;
@@ -96,12 +96,12 @@ contract UnivocityTest is Test, IUnivocityEvents {
 
         // Second checkpoint to authority: second leaf is TEST_LOG payment
         // grant (checkpointStart=0) so we can publish first to TEST_LOG with RoI.
-        grantTestLog = _paymentGrant(TEST_LOG_ID, KS256_SIGNER, 0, 10, 0, 0);
+        grantTestLog = _paymentGrant(TEST_LOG_ID, KS256_SIGNER, 0, 10, 0, 0, AUTHORITY_LOG_ID, false);
         authorityLeaf1 = _leafCommitment(IDTIMESTAMP_TEST, grantTestLog);
         IUnivocity.ConsistencyReceipt memory consistency1 =
             _buildConsistencyReceipt1To2(authorityLeaf0, authorityLeaf1);
         IUnivocity.PaymentGrant memory grant1 =
-            _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0);
+            _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0, bytes32(0), false);
         vm.prank(BOOTSTRAP);
         univocity.publishCheckpoint(
             consistency1, _emptyInclusionProof(), IDTIMESTAMP_AUTH, grant1
@@ -127,7 +127,9 @@ contract UnivocityTest is Test, IUnivocityEvents {
                 g.checkpointStart,
                 g.checkpointEnd,
                 g.maxHeight,
-                g.minGrowth
+                g.minGrowth,
+                g.ownerLogId,
+                g.createAsAuthority
             )
         );
         return sha256(abi.encodePacked(paymentIDTimestampBe, inner));
@@ -139,7 +141,9 @@ contract UnivocityTest is Test, IUnivocityEvents {
         uint64 start,
         uint64 end,
         uint64 maxHeight,
-        uint64 minGrowth
+        uint64 minGrowth,
+        bytes32 ownerLogId,
+        bool createAsAuthority
     ) internal pure returns (IUnivocity.PaymentGrant memory) {
         return IUnivocity.PaymentGrant({
             logId: logId,
@@ -147,7 +151,9 @@ contract UnivocityTest is Test, IUnivocityEvents {
             checkpointStart: start,
             checkpointEnd: end,
             maxHeight: maxHeight,
-            minGrowth: minGrowth
+            minGrowth: minGrowth,
+            ownerLogId: ownerLogId,
+            createAsAuthority: createAsAuthority
         });
     }
 
@@ -674,7 +680,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
             BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
         );
         IUnivocity.PaymentGrant memory g =
-            _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0);
+            _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0, bytes32(0), false);
         vm.prank(BOOTSTRAP);
         try fresh.publishCheckpoint(
             _buildConsistencyReceiptSizeZero(),
@@ -695,7 +701,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
             BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
         );
         IUnivocity.PaymentGrant memory g =
-            _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0);
+            _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0, bytes32(0), false);
         bytes32 wrongLeaf = keccak256("wrong");
         IUnivocity.ConsistencyReceipt memory consistency =
             _buildConsistencyReceipt(_toAcc(wrongLeaf));
@@ -709,12 +715,64 @@ contract UnivocityTest is Test, IUnivocityEvents {
         assertEq(univocity.authorityLogId(), AUTHORITY_LOG_ID);
     }
 
+    /// @notice Phase D.1: First bootstrap sets kind=Authority, authLogId=0.
+    function test_getLogConfig_bootstrapSetsAuthorityKind() public view {
+        IUnivocity.LogConfig memory config =
+            univocity.getLogConfig(AUTHORITY_LOG_ID);
+        assertEq(uint8(config.kind), uint8(IUnivocity.LogKind.Authority));
+        assertEq(config.authLogId, bytes32(0));
+        assertGt(config.initializedAt, 0);
+    }
+
+    /// @notice Phase F D.5: Create child authority; config has kind=Authority, authLogId=parent.
+    function test_hierarchy_createChildAuthority_setsConfig() public {
+        Univocity fresh = new Univocity(
+            BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
+        );
+        bytes32 childId = keccak256("child-authority");
+        IUnivocity.PaymentGrant memory g0 =
+            _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0, bytes32(0), false);
+        bytes32 leaf0 = _leafCommitment(IDTIMESTAMP_AUTH, g0);
+        fresh.publishCheckpoint(
+            _buildConsistencyReceipt(_toAcc(leaf0)),
+            _emptyInclusionProof(),
+            IDTIMESTAMP_AUTH,
+            g0
+        );
+        IUnivocity.PaymentGrant memory gChild =
+            _paymentGrant(childId, KS256_SIGNER, 0, 10, 0, 0, AUTHORITY_LOG_ID, true);
+        bytes32 leafChild = _leafCommitment(IDTIMESTAMP_TEST, gChild);
+        IUnivocity.ConsistencyReceipt memory consistency1 =
+            _buildConsistencyReceipt1To2(leaf0, leafChild);
+        IUnivocity.PaymentGrant memory g1 =
+            _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0, bytes32(0), false);
+        vm.prank(BOOTSTRAP);
+        fresh.publishCheckpoint(
+            consistency1, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g1
+        );
+
+        bytes32[] memory pathToChild = _path1(leaf0);
+        bytes32 childPeak = keccak256("child-peak");
+        vm.prank(address(0x1));
+        fresh.publishCheckpoint(
+            _buildConsistencyReceipt(_toAcc(childPeak)),
+            _buildPaymentInclusionProof(1, pathToChild),
+            IDTIMESTAMP_TEST,
+            gChild
+        );
+
+        IUnivocity.LogConfig memory config = fresh.getLogConfig(childId);
+        assertEq(uint8(config.kind), uint8(IUnivocity.LogKind.Authority));
+        assertEq(config.authLogId, AUTHORITY_LOG_ID);
+        assertEq(fresh.getLogState(childId).size, 1);
+    }
+
     function test_firstPublish_emitsInitialized() public {
         Univocity newUnivocity = new Univocity(
             BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
         );
         IUnivocity.PaymentGrant memory g =
-            _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0);
+            _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0, bytes32(0), false);
         bytes32 leaf0 = _leafCommitment(IDTIMESTAMP_AUTH, g);
         IUnivocity.ConsistencyReceipt memory consistency =
             _buildConsistencyReceipt(_toAcc(leaf0));
@@ -738,7 +796,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
         IUnivocity.ConsistencyReceipt memory consistency =
             _buildConsistencyReceipt(_toAcc(keccak256("peak")));
         IUnivocity.PaymentGrant memory g =
-            _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0);
+            _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0, bytes32(0), false);
         vm.expectRevert(IUnivocityErrors.InvalidReceiptInclusionProof.selector);
         newUnivocity.publishCheckpoint(
             consistency, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g
@@ -755,9 +813,9 @@ contract UnivocityTest is Test, IUnivocityEvents {
         );
         bytes32 otherLogId = keccak256("other-log");
         IUnivocity.PaymentGrant memory gAuthority =
-            _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0);
+            _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0, bytes32(0), false);
         IUnivocity.PaymentGrant memory g =
-            _paymentGrant(otherLogId, KS256_SIGNER, 0, 10, 0, 0);
+            _paymentGrant(otherLogId, KS256_SIGNER, 0, 10, 0, 0, AUTHORITY_LOG_ID, false);
         bytes32 leaf0 = _leafCommitment(IDTIMESTAMP_AUTH, gAuthority);
         IUnivocity.ConsistencyReceipt memory consistency =
             _buildConsistencyReceipt(_toAcc(leaf0));
@@ -774,7 +832,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
             BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
         );
         IUnivocity.PaymentGrant memory g =
-            _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0);
+            _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0, bytes32(0), false);
         IUnivocity.ConsistencyReceipt memory consistency =
             _buildConsistencyReceipt(_toAcc(keccak256("wrong-peak")));
 
@@ -789,7 +847,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
             BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
         );
         IUnivocity.PaymentGrant memory g =
-            _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0);
+            _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0, bytes32(0), false);
         bytes32 leaf0 = _leafCommitment(IDTIMESTAMP_AUTH, g);
         IUnivocity.ConsistencyReceipt memory consistency =
             _buildConsistencyReceipt(_toAcc(leaf0));
@@ -808,7 +866,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
             BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
         );
         IUnivocity.PaymentGrant memory g0 =
-            _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0);
+            _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0, bytes32(0), false);
         bytes32 leaf0 = _leafCommitment(IDTIMESTAMP_AUTH, g0);
         fresh.publishCheckpoint(
             _buildConsistencyReceipt(_toAcc(leaf0)),
@@ -817,7 +875,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
             g0
         );
         IUnivocity.PaymentGrant memory g1 =
-            _paymentGrant(TEST_LOG_ID, KS256_SIGNER, 0, 10, 0, 0);
+            _paymentGrant(TEST_LOG_ID, KS256_SIGNER, 0, 10, 0, 0, AUTHORITY_LOG_ID, false);
         bytes32 leaf1 = _leafCommitment(IDTIMESTAMP_TEST, g1);
         IUnivocity.ConsistencyReceipt memory consistency1 =
             _buildConsistencyReceipt1To2(leaf0, leaf1);
@@ -839,7 +897,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
                 authorityLeaf0, authorityLeaf1, keccak256("extra")
             );
         IUnivocity.PaymentGrant memory g =
-            _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0);
+            _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0, bytes32(0), false);
         vm.prank(BOOTSTRAP);
         univocity.publishCheckpoint(
             consistency2, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g
@@ -854,7 +912,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
             BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
         );
         IUnivocity.PaymentGrant memory g =
-            _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0);
+            _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0, bytes32(0), false);
         bytes32 expectedLeaf = _leafCommitment(IDTIMESTAMP_AUTH, g);
         fresh.publishCheckpoint(
             _buildConsistencyReceipt(_toAcc(expectedLeaf)),
@@ -878,7 +936,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
                 authorityLeaf0, authorityLeaf1, keccak256("third")
             );
         IUnivocity.PaymentGrant memory g =
-            _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0);
+            _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0, bytes32(0), false);
         vm.prank(BOOTSTRAP);
         univocity.publishCheckpoint(
             consistency2, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g
@@ -909,7 +967,6 @@ contract UnivocityTest is Test, IUnivocityEvents {
             TEST_LOG_ID,
             address(this),
             KS256_SIGNER,
-            1,
             1,
             acc,
             uint64(1),
@@ -956,23 +1013,23 @@ contract UnivocityTest is Test, IUnivocityEvents {
             0xaf5570f5a1810b7af78caf4bc70a660f0df51e42baf91d4de5b2328de0e83dfc;
         _publishFirstToTestLog(univocity, peak1);
 
-        assertEq(univocity.getLogState(TEST_LOG_ID).checkpointCount, 1);
+        assertEq(univocity.getLogState(TEST_LOG_ID).size, 1);
 
         bytes32 leaf2 =
             0xcd2662154e6d76b2b2b92e70c0cac3ccf534f9b74eb5b89819ec509083d00a50;
-        IUnivocity.ConsistencyReceipt memory consistency1to3 =
-            _buildConsistencyReceipt1To3(peak1, authorityLeaf1, leaf2);
+        IUnivocity.ConsistencyReceipt memory consistency1to2 =
+            _buildConsistencyReceipt1To2(peak1, leaf2);
         bytes32[] memory path2 = _path1(authorityLeaf0);
         IUnivocity.PaymentGrant memory g =
-            _paymentGrant(TEST_LOG_ID, KS256_SIGNER, 0, 10, 0, 0);
+            _paymentGrant(TEST_LOG_ID, KS256_SIGNER, 0, 10, 0, 0, AUTHORITY_LOG_ID, false);
         univocity.publishCheckpoint(
-            consistency1to3,
+            consistency1to2,
             _buildPaymentInclusionProof(1, path2),
             IDTIMESTAMP_TEST,
             g
         );
 
-        assertEq(univocity.getLogState(TEST_LOG_ID).checkpointCount, 2);
+        assertEq(univocity.getLogState(TEST_LOG_ID).size, 2);
     }
 
     // === Validation Tests ===
@@ -985,7 +1042,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
             );
         bytes32[] memory pathDec = _path1(authorityLeaf0);
         IUnivocity.PaymentGrant memory g =
-            _paymentGrant(TEST_LOG_ID, KS256_SIGNER, 0, 10, 0, 0);
+            _paymentGrant(TEST_LOG_ID, KS256_SIGNER, 0, 10, 0, 0, AUTHORITY_LOG_ID, false);
         univocity.publishCheckpoint(
             consistency1to3,
             _buildPaymentInclusionProof(1, pathDec),
@@ -1018,7 +1075,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
             );
         bytes32[] memory pathWrong = _path1(authorityLeaf0);
         IUnivocity.PaymentGrant memory g =
-            _paymentGrant(TEST_LOG_ID, KS256_SIGNER, 0, 10, 0, 0);
+            _paymentGrant(TEST_LOG_ID, KS256_SIGNER, 0, 10, 0, 0, AUTHORITY_LOG_ID, false);
         vm.expectRevert(
             abi.encodeWithSelector(
                 IUnivocityErrors.InvalidAccumulatorLength.selector, 1, 2
@@ -1046,7 +1103,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
             );
         bytes32[] memory pathWrongProof;
         IUnivocity.PaymentGrant memory g =
-            _paymentGrant(TEST_LOG_ID, KS256_SIGNER, 1, 10, 0, 0);
+            _paymentGrant(TEST_LOG_ID, KS256_SIGNER, 1, 10, 0, 0, AUTHORITY_LOG_ID, false);
         vm.expectRevert(
             IUnivocityErrors.ConsistencyReceiptSignatureInvalid.selector
         );
@@ -1066,7 +1123,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
                 authorityLeaf0, authorityLeaf1, keccak256("third")
             );
         IUnivocity.PaymentGrant memory g =
-            _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0);
+            _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0, bytes32(0), false);
         vm.prank(address(0x999));
         vm.expectRevert(IUnivocityErrors.OnlyBootstrapAuthority.selector);
         univocity.publishCheckpoint(
@@ -1078,7 +1135,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
         IUnivocity.ConsistencyReceipt memory consistency =
             _buildConsistencyReceipt(_toAcc(keccak256("peak1")));
         IUnivocity.PaymentGrant memory g =
-            _paymentGrant(TEST_LOG_ID, KS256_SIGNER, 0, 10, 0, 0);
+            _paymentGrant(TEST_LOG_ID, KS256_SIGNER, 0, 10, 0, 0, AUTHORITY_LOG_ID, false);
         vm.prank(address(0xDEAD));
         vm.expectRevert(IUnivocityErrors.InvalidPaymentReceipt.selector);
         univocity.publishCheckpoint(
@@ -1088,7 +1145,8 @@ contract UnivocityTest is Test, IUnivocityEvents {
 
     // === Receipt bounds (security) — Plan 0012 §4.2 items 5–6 ===
 
-    function test_publishCheckpoint_revertsWhenCheckpointCountAtOrAboveReceiptEnd()
+    /// @notice Grant with maxHeight=1 reverts when second checkpoint would exceed it.
+    function test_publishCheckpoint_revertsWhenSizeWouldExceedMaxHeight()
         public
     {
         Univocity fresh = new Univocity(
@@ -1096,7 +1154,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
         );
         bytes32 logId = keccak256("other-target");
         IUnivocity.PaymentGrant memory g0 =
-            _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0);
+            _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0, bytes32(0), false);
         bytes32 leaf0 = _leafCommitment(IDTIMESTAMP_AUTH, g0);
         fresh.publishCheckpoint(
             _buildConsistencyReceipt(_toAcc(leaf0)),
@@ -1106,13 +1164,13 @@ contract UnivocityTest is Test, IUnivocityEvents {
         );
 
         IUnivocity.PaymentGrant memory g1 =
-            _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0);
+            _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0, bytes32(0), false);
         IUnivocity.ConsistencyReceipt memory consistency1 =
             _buildConsistencyReceipt1To2(
                 leaf0,
                 _leafCommitment(
                     IDTIMESTAMP_TEST,
-                    _paymentGrant(logId, KS256_SIGNER, 0, 1, 0, 0)
+                    _paymentGrant(logId, KS256_SIGNER, 0, 10, 1, 0, AUTHORITY_LOG_ID, false)
                 )
             );
         vm.prank(BOOTSTRAP);
@@ -1121,7 +1179,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
         );
 
         IUnivocity.PaymentGrant memory grantEnd1 =
-            _paymentGrant(logId, KS256_SIGNER, 0, 1, 0, 0);
+            _paymentGrant(logId, KS256_SIGNER, 0, 10, 1, 0, AUTHORITY_LOG_ID, false);
         bytes32 leaf1 = _leafCommitment(IDTIMESTAMP_TEST, grantEnd1);
         bytes32 firstAuthorityLeaf = _leafCommitment(IDTIMESTAMP_AUTH, g0);
         bytes32[] memory pathForRoi = _path1(firstAuthorityLeaf);
@@ -1135,8 +1193,8 @@ contract UnivocityTest is Test, IUnivocityEvents {
             );
         vm.expectRevert(
             abi.encodeWithSelector(
-                IUnivocityErrors.CheckpointCountExceeded.selector,
-                uint64(1),
+                IUnivocityErrors.MaxHeightExceeded.selector,
+                uint64(3),
                 uint64(1)
             )
         );
@@ -1148,17 +1206,11 @@ contract UnivocityTest is Test, IUnivocityEvents {
         );
     }
 
-    /// @notice Invalid grant reverts and does not extend the log. Grant with
-    ///    checkpointEnd = 1 fails at early checkpoint-range check (cc >= end)
-    ///    before any proof/signature verification.
+    /// @notice Invalid grant (e.g. maxHeight exceeded) reverts and does not extend the log.
     function test_publishCheckpoint_invalidGrant_doesNotExtendLog() public {
         _publishFirstToTestLog(univocity, keccak256("peak1"));
-        (uint256 sizeBefore, uint256 countBefore) = (
-            univocity.getLogState(TEST_LOG_ID).size,
-            univocity.getLogState(TEST_LOG_ID).checkpointCount
-        );
+        uint256 sizeBefore = univocity.getLogState(TEST_LOG_ID).size;
         assertEq(sizeBefore, 1);
-        assertEq(countBefore, 1);
 
         IUnivocity.ConsistencyReceipt memory consistency1to3 =
             _buildConsistencyReceipt1To3(
@@ -1166,11 +1218,11 @@ contract UnivocityTest is Test, IUnivocityEvents {
             );
         bytes32[] memory pathInvalid = _path1(authorityLeaf0);
         IUnivocity.PaymentGrant memory invalidGrant =
-            _paymentGrant(TEST_LOG_ID, KS256_SIGNER, 0, 1, 0, 0);
+            _paymentGrant(TEST_LOG_ID, KS256_SIGNER, 0, 10, 1, 0, AUTHORITY_LOG_ID, false);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IUnivocityErrors.CheckpointCountExceeded.selector,
-                uint64(1),
+                IUnivocityErrors.MaxHeightExceeded.selector,
+                uint64(3),
                 uint64(1)
             )
         );
@@ -1185,11 +1237,6 @@ contract UnivocityTest is Test, IUnivocityEvents {
             univocity.getLogState(TEST_LOG_ID).size,
             sizeBefore,
             "log size must not change after invalid grant revert"
-        );
-        assertEq(
-            univocity.getLogState(TEST_LOG_ID).checkpointCount,
-            countBefore,
-            "log checkpoint count must not change after invalid grant revert"
         );
     }
 
@@ -1218,7 +1265,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
             BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
         );
         IUnivocity.PaymentGrant memory g0 =
-            _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0);
+            _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0, bytes32(0), false);
         bytes32 leaf0 = _leafCommitment(IDTIMESTAMP_AUTH, g0);
         vm.prank(BOOTSTRAP);
         fresh.publishCheckpoint(
@@ -1228,7 +1275,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
             g0
         );
         IUnivocity.PaymentGrant memory g1 =
-            _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 1, 0);
+            _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 1, 0, bytes32(0), false);
         IUnivocity.ConsistencyReceipt memory consistency1to2 =
             _buildConsistencyReceipt1To2(leaf0, authorityLeaf1);
         vm.prank(BOOTSTRAP);
@@ -1251,7 +1298,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
     {
         bytes32 otherLogId = keccak256("other-log");
         IUnivocity.PaymentGrant memory g =
-            _paymentGrant(otherLogId, KS256_SIGNER, 0, 10, 0, 0);
+            _paymentGrant(otherLogId, KS256_SIGNER, 0, 10, 0, 0, AUTHORITY_LOG_ID, false);
         IUnivocity.ConsistencyReceipt memory consistency =
             _buildConsistencyReceipt(_toAcc(keccak256("peak1")));
         bytes32[] memory pathEmpty;
@@ -1276,10 +1323,13 @@ contract UnivocityTest is Test, IUnivocityEvents {
 
         IUnivocity.LogState memory state = univocity.getLogState(TEST_LOG_ID);
         assertEq(state.size, 1);
-        assertEq(state.checkpointCount, 1);
         assertEq(state.accumulator.length, 1);
         assertEq(state.accumulator[0], peak1);
-        assertGt(state.initializedAt, 0);
+
+        IUnivocity.LogConfig memory config = univocity.getLogConfig(TEST_LOG_ID);
+        assertGt(config.initializedAt, 0);
+        assertEq(uint8(config.kind), uint8(IUnivocity.LogKind.Data));
+        assertEq(config.authLogId, AUTHORITY_LOG_ID);
     }
 
     function test_isLogInitialized_returnsFalseForNewLog() public view {
@@ -1348,7 +1398,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
 
         bytes8 idtimestampBe = bytes8(0);
         IUnivocity.PaymentGrant memory g =
-            _paymentGrant(AUTHORITY_LOG_ID, address(0xE5), 0, 10, 0, 0);
+            _paymentGrant(AUTHORITY_LOG_ID, address(0xE5), 0, 10, 0, 0, bytes32(0), false);
         bytes32 leaf0 = _leafCommitment(idtimestampBe, g);
         IUnivocity.ConsistencyReceipt memory consistency =
             _buildConsistencyReceiptES256(_toAcc(leaf0), es256Pk);
@@ -1447,7 +1497,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
         public
     {
         IUnivocity.PaymentGrant memory g =
-            _paymentGrant(TEST_LOG_ID, KS256_SIGNER, 0, 10, 0, 0);
+            _paymentGrant(TEST_LOG_ID, KS256_SIGNER, 0, 10, 0, 0, AUTHORITY_LOG_ID, false);
         IUnivocity.ConsistencyProof[] memory proofs =
             new IUnivocity.ConsistencyProof[](1);
         proofs[0] = IUnivocity.ConsistencyProof({
@@ -1499,7 +1549,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
         bytes8 idt0 = bytes8(0);
         bytes8 idt1 = bytes8(uint64(1));
         IUnivocity.PaymentGrant memory g0 =
-            _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0);
+            _paymentGrant(AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0, bytes32(0), false);
         bytes32 leaf0 = _leafCommitment(idt0, g0);
         fresh.publishCheckpoint(
             _buildConsistencyReceipt(_toAcc(leaf0)),
@@ -1510,7 +1560,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
         assertEq(fresh.authorityLogId(), AUTHORITY_LOG_ID);
 
         IUnivocity.PaymentGrant memory g1 =
-            _paymentGrant(logId, KS256_SIGNER, 0, 10, 0, 0);
+            _paymentGrant(logId, KS256_SIGNER, 0, 10, 0, 0, AUTHORITY_LOG_ID, false);
         bytes32 leaf1 = _leafCommitment(idt1, g1);
         IUnivocity.ConsistencyReceipt memory consistency1 =
             _buildConsistencyReceipt1To2(leaf0, leaf1);
@@ -1518,7 +1568,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
         fresh.publishCheckpoint(consistency1, _emptyInclusionProof(), idt0, g0);
 
         IUnivocity.PaymentGrant memory gTarget =
-            _paymentGrant(logId, KS256_SIGNER, 0, 10, 0, 0);
+            _paymentGrant(logId, KS256_SIGNER, 0, 10, 0, 0, AUTHORITY_LOG_ID, false);
         bytes32[] memory pathMulti = _path1(leaf0);
         fresh.publishCheckpoint(
             _buildConsistencyReceipt(_toAcc(keccak256("peak"))),
@@ -1526,6 +1576,6 @@ contract UnivocityTest is Test, IUnivocityEvents {
             idt1,
             gTarget
         );
-        assertEq(fresh.getLogState(logId).checkpointCount, 1);
+        assertEq(fresh.getLogState(logId).size, 1);
     }
 }

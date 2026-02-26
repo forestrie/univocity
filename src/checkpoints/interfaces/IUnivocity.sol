@@ -7,15 +7,24 @@ import {IUnivocityEvents} from "./IUnivocityEvents.sol";
 /// @notice Interface for univocity transparency log contract (payment-bounded
 ///    checkpoint authorization via grant inclusion proof and bounds).
 interface IUnivocity is IUnivocityEvents {
+    /// @notice Log role in the hierarchy (ARC-0017). 0 = not set.
+    enum LogKind {
+        Authority,
+        Data
+    }
+
+    /// @notice Immutable per-log config (set at first checkpoint).
+    struct LogConfig {
+        LogKind kind;
+        bytes32 authLogId;
+        bytes rootKey;
+        uint256 initializedAt;
+    }
+
+    /// @notice Mutable log state only (config in separate mapping).
     struct LogState {
         bytes32[] accumulator;
         uint64 size;
-        uint64 checkpointCount;
-        uint256 initializedAt;
-        /// @dev Root public key: alg-specific opaque bytes. P-256/ES256 =
-        ///    64 bytes (x || y). Set by bootstrap via setLogRoot (plan 0016).
-        ///    Decoded once per publishCheckpoint when needed.
-        bytes rootKey;
     }
 
     /// @notice Pre-decoded consistency proof payload (MMR profile). One
@@ -55,10 +64,9 @@ interface IUnivocity is IUnivocityEvents {
     }
 
     /// @notice Caller-supplied payment grant for leaf commitment and bounds.
-    ///    Leaf = SHA256(paymentIDTimestampBe || SHA256(logId||payer||
-    ///    checkpointStart||checkpointEnd||maxHeight||minGrowth)). Plan 0015.
-    ///    payer = who paid (attribution). After the grant is in the authority
-    ///    log, any sender may publish the checkpoint (permissionless).
+    ///    Leaf inner hash includes logId, payer, checkpointStart, checkpointEnd,
+    ///    maxHeight, minGrowth, ownerLogId, createAsAuthority (ARC-0017 Phase 0).
+    ///    ownerLogId = owning auth for data log creation, parent for authority creation.
     struct PaymentGrant {
         bytes32 logId;
         address payer;
@@ -66,6 +74,8 @@ interface IUnivocity is IUnivocityEvents {
         uint64 checkpointEnd;
         uint64 maxHeight;
         uint64 minGrowth;
+        bytes32 ownerLogId;
+        bool createAsAuthority;
     }
 
     // === View Functions ===
@@ -80,6 +90,7 @@ interface IUnivocity is IUnivocityEvents {
         returns (int64 bootstrapAlg, bytes memory bootstrapKey);
     function authorityLogId() external view returns (bytes32);
     function getLogState(bytes32 logId) external view returns (LogState memory);
+    function getLogConfig(bytes32 logId) external view returns (LogConfig memory);
     function getLogRootKey(bytes32 logId)
         external
         view
