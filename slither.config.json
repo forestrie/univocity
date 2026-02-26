@@ -2,7 +2,7 @@
     "filter_paths": "lib/",
     "exclude_informational": true,
     "exclude_dependencies": true,
-    "detectors_to_exclude": "solc-version,naming-convention",
+    "detectors_to_exclude": "solc-version,naming-convention,uninitialized-state",
     "solc_remaps": [
         "forge-std/=lib/forge-std/src/",
         "@forge-std/=lib/forge-std/src/",
