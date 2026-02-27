@@ -33,9 +33,10 @@ import {peaks} from "@univocity/algorithms/peaks.sol";
 ///    receipts.
 ///
 /// ## Authorization model (enforced rules)
-/// 1. **Bootstrap only for root:** Only the bootstrap authority may publish
-///    the first checkpoint (establishing the root authority log) and may
-///    extend the root authority log. No inclusion proof required for root.
+/// 1. **Bootstrap only for first checkpoint:** Only the bootstrap authority
+///    may publish the first checkpoint ever (establishing the root authority
+///    log). Root extension requires a grant (inclusion proof in the root,
+///    self-issued) and is permissionless once the grant exists.
 /// 2. **Grant = inclusion against owner:** To extend any other log, the caller
 ///    must supply a grant evidenced by an inclusion proof in that log's
 ///    *owner* (data log → owning authority log; child authority → parent log).
@@ -250,17 +251,17 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         LogState storage log = _logs[logId];
         IUnivocity.LogConfig storage config = _logConfigs[logId];
 
+        if (consistencyParts.consistencyProofs.length == 0) {
+            revert InvalidConsistencyProof();
+        }
         _validateConsistencyProofBounds(consistencyParts.consistencyProofs);
         // Use final proof's treeSize2 for pre-checks so we can reject bad grants
         // before running the consistency proof chain.
-        uint64 claimedSize = consistencyParts.consistencyProofs.length > 0
-            ? consistencyParts.consistencyProofs[
-                consistencyParts.consistencyProofs.length - 1
-            ]
-            .treeSize2
-            : 0;
-        // For a new (non-root) log, the first checkpoint must establish at least
-        // one leaf; disallow initializing at size 0 via an empty proof chain.
+        uint64 claimedSize =
+            consistencyParts.consistencyProofs[
+            consistencyParts.consistencyProofs.length - 1
+        ]
+        .treeSize2;
         if (config.initializedAt == 0 && claimedSize == 0) {
             revert InvalidConsistencyProof();
         }
@@ -345,7 +346,9 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             if (paymentInclusionProof.path.length != 0) {
                 revert InvalidPaymentReceipt();
             }
-            if (paymentInclusionProof.index != 0) revert InvalidPaymentReceipt();
+            if (paymentInclusionProof.index != 0) {
+                revert InvalidPaymentReceipt();
+            }
             if (!verifyInclusion(
                     0,
                     leafCommitment,
@@ -495,7 +498,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
     ) internal view returns (bytes memory initialRoot) {
         // KS256: no delegation support. Verifier key is root (bootstrap for root log) or stored log key.
         if (delegationProof.signature.length > 0) {
-            revert UnsupportedAlgorithm(ALG_KS256);
+            revert DelegationNotSupportedForAlg(ALG_KS256);
         }
         bool isFirstCheckpointKs = config.initializedAt == 0;
         address keyAddr = (rootLogId == bytes32(0) || logId == rootLogId)

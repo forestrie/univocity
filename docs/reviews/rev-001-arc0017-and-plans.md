@@ -20,8 +20,8 @@ This report covers: (1) divergences from original intent, (2) functional gaps, (
     - use rootLogId or "root log" in all docs when specifically talking about the very first log, the root authority log.
     - use authLogId or "auth log" in all docs when generically talking about any authority log.
     - use dataLogId or "data log" in all docs when generically talking about
-      any data log - note there is no explicit heirarchy of data logs, its just that authorization
-      to extend is heirarchical based on the auth logs
+      any data log - note there is no explicit hierarchy of data logs, its just that authorization
+      to extend is hierarchical based on the auth logs
 
 ### 1.2 LogKind enum: 0 = Authority vs 0 = undefined
 
@@ -30,8 +30,8 @@ This report covers: (1) divergences from original intent, (2) functional gaps, (
 - **Impact:** 0 means both “uninitialized” and “Authority (root)”; as intended, “is this log created?” is determined by `initializedAt != 0`, not by kind. Behaviour is correct; the written requirement “start at 1” is not met. Recommendation: either (a) document that the implementation uses 0/1 and rely on `initializedAt` for uninitialized, or (b) change to `uint8` constants (e.g. 0 = Unset, 1 = Authority, 2 = Data) and set Authority/Data explicitly to 1/2.
 
 > Updates:
-    - update the enum in the code to have Undifined as the zero value so that Authority is 1 and Data is 2
-    - continue to use initialzedAt != 0 to detect "uninitialized" in the implementation code paths.
+    - update the enum in the code to have Undefined as the zero value so that Authority is 1 and Data is 2
+    - continue to use initializedAt != 0 to detect "uninitialized" in the implementation code paths.
 
 ### 1.3 setLogRoot no longer externally callable
 
