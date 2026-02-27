@@ -259,6 +259,11 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             ]
             .treeSize2
             : 0;
+        // For a new (non-root) log, the first checkpoint must establish at least
+        // one leaf; disallow initializing at size 0 via an empty proof chain.
+        if (config.initializedAt == 0 && claimedSize == 0) {
+            revert InvalidConsistencyProof();
+        }
         _validateCheckpointSizeIncrease(logId, claimedSize);
         // Rule 4: grant bounds — size must be within maxHeight and meet minGrowth.
         _checkPaymentGrantBoundsMaxHeight(claimedSize, paymentGrant);
