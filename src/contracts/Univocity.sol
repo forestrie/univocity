@@ -576,7 +576,6 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         // Root key present (from storage or just recovered). Verifier is
         // delegate if delegation, else root.
         if (delegationProof.signature.length > 0) {
-
             // Note: We do this twice for the very first checkpoint (root auth log),
             // but that is harmless and cheap.
             (verifierX, verifierY) =
