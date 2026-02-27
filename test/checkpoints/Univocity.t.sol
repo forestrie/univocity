@@ -1257,9 +1257,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
     }
 
     /// @notice Empty consistency proof chain reverts InvalidConsistencyProof.
-    function test_publishCheckpoint_revertsOnEmptyConsistencyProofs()
-        public
-    {
+    function test_publishCheckpoint_revertsOnEmptyConsistencyProofs() public {
         IUnivocity.ConsistencyReceipt memory emptyProofs =
             IUnivocity.ConsistencyReceipt({
                 protectedHeader: hex"a1013a00010106",
@@ -1988,9 +1986,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
         IUnivocity.ConsistencyReceipt memory consistency0 =
             _buildConsistencyReceipt(_toAcc(leaf0));
         vm.prank(BOOTSTRAP);
-        fresh.publishCheckpoint(
-            consistency0, _emptyInclusionProof(), idt0, g0
-        );
+        fresh.publishCheckpoint(consistency0, _emptyInclusionProof(), idt0, g0);
         assertEq(fresh.rootLogId(), AUTHORITY_LOG_ID);
 
         IUnivocity.PaymentGrant memory g1 = _paymentGrant(
