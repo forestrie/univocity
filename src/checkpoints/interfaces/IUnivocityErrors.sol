@@ -37,6 +37,9 @@ interface IUnivocityErrors {
     error ReceiptLogIdMismatch(bytes32 expected, bytes32 actual);
 
     // ADR-0032 checkpoint COSE / delegation
+    /// @notice Delegation proof supplied but algorithm does not support
+    ///    delegation (e.g. KS256).
+    error DelegationNotSupportedForAlg(int64 alg);
     error InvalidCheckpointCose();
     error MissingDelegationCert();
     error InvalidDelegationSignatureLength(uint256 length);

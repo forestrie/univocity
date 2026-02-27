@@ -1221,6 +1221,64 @@ contract UnivocityTest is Test, IUnivocityEvents {
         );
     }
 
+    /// @notice KS256 path with delegation proof reverts
+    ///    DelegationNotSupportedForAlg(ALG_KS256), not UnsupportedAlgorithm.
+    function test_publishCheckpoint_ks256WithDelegation_revertsDelegationNotSupported()
+        public
+    {
+        IUnivocity.ConsistencyReceipt memory consistency =
+            _buildConsistencyReceipt2To3(
+                authorityLeaf0, authorityLeaf1, keccak256("third")
+            );
+        consistency.delegationProof = IUnivocity.DelegationProof({
+            delegationKey: new bytes(64),
+            mmrStart: 0,
+            mmrEnd: 1,
+            alg: 0,
+            signature: new bytes(64)
+        });
+        IUnivocity.PaymentGrant memory g = _paymentGrant(
+            AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0, bytes32(0), false
+        );
+        bytes32[] memory pathToLeaf0 = _path1(authorityLeaf1);
+        vm.prank(BOOTSTRAP);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IUnivocityErrors.DelegationNotSupportedForAlg.selector,
+                int64(ALG_KS256)
+            )
+        );
+        univocity.publishCheckpoint(
+            consistency,
+            _buildPaymentInclusionProof(0, pathToLeaf0),
+            IDTIMESTAMP_AUTH,
+            g
+        );
+    }
+
+    /// @notice Empty consistency proof chain reverts InvalidConsistencyProof.
+    function test_publishCheckpoint_revertsOnEmptyConsistencyProofs()
+        public
+    {
+        IUnivocity.ConsistencyReceipt memory emptyProofs =
+            IUnivocity.ConsistencyReceipt({
+                protectedHeader: hex"a1013a00010106",
+                signature: hex"",
+                consistencyProofs: new IUnivocity.ConsistencyProof[](0),
+                delegationProof: _emptyDelegationProof()
+            });
+        IUnivocity.PaymentGrant memory g = _paymentGrant(
+            TEST_LOG_ID, KS256_SIGNER, 0, 10, 0, 0, AUTHORITY_LOG_ID, false
+        );
+        vm.expectRevert(IUnivocityErrors.InvalidConsistencyProof.selector);
+        univocity.publishCheckpoint(
+            emptyProofs,
+            _buildPaymentInclusionProof(1, _path1(authorityLeaf0)),
+            IDTIMESTAMP_TEST,
+            g
+        );
+    }
+
     function test_publishCheckpoint_revertsOnInvalidConsistencyProof() public {
         _publishFirstToTestLog(
             univocity,
