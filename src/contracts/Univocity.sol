@@ -502,6 +502,11 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             ? ks256Signer
             : _decodeLogRootKeyKS256(logId);
         if (keyAddr == address(0)) {
+            // Distinguish missing key from algorithm mismatch (log created
+            // under ES256 has rootKey.length == 64).
+            if (config.rootKey.length == 64) {
+                revert UnsupportedAlgorithm(ALG_ES256);
+            }
             if (!isFirstCheckpointKs) revert LogRootKeyNotSet();
             keyAddr = ks256Signer;
         }
