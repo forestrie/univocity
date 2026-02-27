@@ -303,16 +303,17 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             accMem
         );
 
-        // We emit paymentInclusionProof.index as-is. Where it is used for
-        // verification (new log or extend), a wrong index already reverts.
-        // On root paths we do not use it (we verify with 0 or skip inclusion);
-        // the emitted value is then unverified but has no authorization effect.
+        // Emit payment index only when path was used for verification;
+        // when path is empty (root first checkpoint or size-1 extend) emit 0.
+        uint64 paymentIndex = paymentInclusionProof.path.length == 0
+            ? 0
+            : paymentInclusionProof.index;
         _updateLogState(
             logId,
             claimedSize,
             accMem,
             paymentGrant.payer,
-            paymentInclusionProof.index,
+            paymentIndex,
             paymentInclusionProof.path,
             authForInclusion,
             paymentGrant.createAsAuthority,
@@ -342,6 +343,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             if (paymentInclusionProof.path.length != 0) {
                 revert InvalidPaymentReceipt();
             }
+            if (paymentInclusionProof.index != 0) revert InvalidPaymentReceipt();
             if (!verifyInclusion(
                     0,
                     leafCommitment,

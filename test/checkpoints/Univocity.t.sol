@@ -717,6 +717,58 @@ contract UnivocityTest is Test, IUnivocityEvents {
         );
     }
 
+    /// @notice First checkpoint (root) with empty path must use index 0;
+    ///    non-zero index when path is empty reverts.
+    function test_firstCheckpoint_revertsWhenPathEmptyAndIndexNonZero()
+        public
+    {
+        Univocity fresh = new Univocity(
+            BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
+        );
+        IUnivocity.PaymentGrant memory g = _paymentGrant(
+            AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0, bytes32(0), false
+        );
+        bytes32 leaf0 = _leafCommitment(IDTIMESTAMP_AUTH, g);
+        IUnivocity.ConsistencyReceipt memory consistency =
+            _buildConsistencyReceipt(_toAcc(leaf0));
+        IUnivocity.InclusionProof memory proofWithNonZeroIndex =
+            IUnivocity.InclusionProof({index: 1, path: new bytes32[](0)});
+        vm.prank(BOOTSTRAP);
+        vm.expectRevert(IUnivocityErrors.InvalidPaymentReceipt.selector);
+        fresh.publishCheckpoint(
+            consistency, proofWithNonZeroIndex, IDTIMESTAMP_AUTH, g
+        );
+    }
+
+    /// @notice First checkpoint (root) with empty path emits paymentIndex 0.
+    function test_firstCheckpoint_emitsPaymentIndexZeroWhenPathEmpty() public {
+        Univocity fresh = new Univocity(
+            BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
+        );
+        IUnivocity.PaymentGrant memory g = _paymentGrant(
+            AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0, bytes32(0), false
+        );
+        bytes32 leaf0 = _leafCommitment(IDTIMESTAMP_AUTH, g);
+        IUnivocity.ConsistencyReceipt memory consistency =
+            _buildConsistencyReceipt(_toAcc(leaf0));
+        bytes32[] memory emptyPath;
+        vm.expectEmit(true, true, true, false);
+        emit CheckpointPublished(
+            AUTHORITY_LOG_ID,
+            BOOTSTRAP,
+            KS256_SIGNER,
+            uint8(IUnivocity.LogKind.Authority),
+            1,
+            _toAcc(leaf0),
+            uint64(0),
+            emptyPath
+        );
+        vm.prank(BOOTSTRAP);
+        fresh.publishCheckpoint(
+            consistency, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g
+        );
+    }
+
     function test_initialize_setsAuthorityLogId() public view {
         assertEq(univocity.rootLogId(), AUTHORITY_LOG_ID);
     }
