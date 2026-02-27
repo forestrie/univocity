@@ -554,6 +554,11 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         (rootX, rootY) = _decodeLogRootKeyES256(logId);
 
         if (rootX == bytes32(0) && rootY == bytes32(0)) {
+            // Distinguish unset key from key-type mismatch (log created under
+            // KS256 has rootKey.length == 20).
+            if (config.rootKey.length == 20) {
+                revert UnsupportedAlgorithm(ALG_KS256);
+            }
             if (config.initializedAt != 0) revert LogRootKeyNotSet();
 
             if (delegationProof.signature.length == 0) {

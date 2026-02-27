@@ -291,6 +291,45 @@ contract UnivocityTest is Test, IUnivocityEvents {
         });
     }
 
+    /// @notice Same as _buildConsistencyReceipt1To2 but signed with ES256.
+    function _buildConsistencyReceipt1To2ES256(
+        bytes32 leaf0,
+        bytes32 leaf1,
+        uint256 es256Pk
+    ) internal pure returns (IUnivocity.ConsistencyReceipt memory) {
+        bytes32 parent = hashPosPair64(3, leaf0, leaf1);
+        bytes32[] memory path0 = new bytes32[](1);
+        path0[0] = leaf1;
+        bytes32[][] memory paths = new bytes32[][](1);
+        paths[0] = path0;
+        bytes32[] memory rightPeaksOnly = new bytes32[](1);
+        rightPeaksOnly[0] = leaf1;
+        bytes32[] memory toAcc = new bytes32[](2);
+        toAcc[0] = parent;
+        toAcc[1] = leaf1;
+        IUnivocity.ConsistencyProof[] memory proofs =
+            new IUnivocity.ConsistencyProof[](1);
+        proofs[0] = IUnivocity.ConsistencyProof({
+            treeSize1: 1,
+            treeSize2: 2,
+            paths: paths,
+            rightPeaks: rightPeaksOnly
+        });
+        bytes memory protected = hex"a10126";
+        bytes32 commitment = sha256(abi.encodePacked(toAcc));
+        bytes memory sigStruct =
+            buildSigStructure(protected, abi.encodePacked(commitment));
+        bytes32 hash = sha256(sigStruct);
+        (bytes32 r, bytes32 s) = vm.signP256(es256Pk, hash);
+        s = _ensureP256LowerS(s);
+        return IUnivocity.ConsistencyReceipt({
+            protectedHeader: protected,
+            signature: abi.encodePacked(r, s),
+            consistencyProofs: proofs,
+            delegationProof: _emptyDelegationProof()
+        });
+    }
+
     /// @notice Build Receipt of Inclusion COSE (signed with bootstrap).
     function _buildReceiptOfInclusion(
         bytes32 leafCommitment,
@@ -1669,6 +1708,42 @@ contract UnivocityTest is Test, IUnivocityEvents {
 
         assertEq(es256Univocity.rootLogId(), AUTHORITY_LOG_ID);
         assertTrue(es256Univocity.isLogInitialized(AUTHORITY_LOG_ID));
+    }
+
+    /// @notice Submitting an ES256 receipt for a log with KS256 root key
+    ///    reverts with UnsupportedAlgorithm(ALG_KS256), not LogRootKeyNotSet.
+    function test_verifyCheckpoint_es256ReceiptOnKs256Log_revertsAlgorithmMismatch()
+        public
+    {
+        Univocity ks256Univocity = new Univocity(
+            BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
+        );
+        IUnivocity.PaymentGrant memory g0 = _paymentGrant(
+            AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0, bytes32(0), false
+        );
+        bytes32 leaf0 = _leafCommitment(IDTIMESTAMP_AUTH, g0);
+        IUnivocity.ConsistencyReceipt memory consistency0 =
+            _buildConsistencyReceipt(_toAcc(leaf0));
+        vm.prank(BOOTSTRAP);
+        ks256Univocity.publishCheckpoint(
+            consistency0, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g0
+        );
+        uint256 es256Pk = 1;
+        IUnivocity.PaymentGrant memory g1 = _paymentGrant(
+            AUTHORITY_LOG_ID, address(0xE5), 0, 10, 0, 0, bytes32(0), false
+        );
+        bytes32 leaf1 = _leafCommitment(IDTIMESTAMP_AUTH, g1);
+        IUnivocity.ConsistencyReceipt memory consistency1to2 =
+            _buildConsistencyReceipt1To2ES256(leaf0, leaf1, es256Pk);
+        vm.prank(BOOTSTRAP);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                UnsupportedAlgorithm.selector, int64(ALG_KS256)
+            )
+        );
+        ks256Univocity.publishCheckpoint(
+            consistency1to2, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g1
+        );
     }
 
     /// @notice Submitting a KS256 receipt for a log with ES256 root key
