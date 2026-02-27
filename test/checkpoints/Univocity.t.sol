@@ -91,6 +91,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
         acc0[0] = authorityLeaf0;
         IUnivocity.ConsistencyReceipt memory consistency0 =
             _buildConsistencyReceipt(acc0);
+        vm.prank(BOOTSTRAP);
         univocity.publishCheckpoint(
             consistency0, _emptyInclusionProof(), IDTIMESTAMP_AUTH, grant0
         );
@@ -712,6 +713,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
         IUnivocity.ConsistencyReceipt memory consistency =
             _buildConsistencyReceipt(_toAcc(wrongLeaf));
         vm.expectRevert(IUnivocityErrors.InvalidReceiptInclusionProof.selector);
+        vm.prank(BOOTSTRAP);
         fresh.publishCheckpoint(
             consistency, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g
         );
@@ -792,11 +794,11 @@ contract UnivocityTest is Test, IUnivocityEvents {
             AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0, bytes32(0), false
         );
         bytes32 leaf0 = _leafCommitment(IDTIMESTAMP_AUTH, g0);
+        IUnivocity.ConsistencyReceipt memory consistency0 =
+            _buildConsistencyReceipt(_toAcc(leaf0));
+        vm.prank(BOOTSTRAP);
         fresh.publishCheckpoint(
-            _buildConsistencyReceipt(_toAcc(leaf0)),
-            _emptyInclusionProof(),
-            IDTIMESTAMP_AUTH,
-            g0
+            consistency0, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g0
         );
         IUnivocity.PaymentGrant memory gChild = _paymentGrant(
             childId, KS256_SIGNER, 0, 10, 0, 0, AUTHORITY_LOG_ID, true
@@ -841,6 +843,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
 
         vm.expectEmit(true, true, false, false);
         emit Initialized(BOOTSTRAP, AUTHORITY_LOG_ID);
+        vm.prank(BOOTSTRAP);
         newUnivocity.publishCheckpoint(
             consistency, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g
         );
@@ -861,6 +864,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
             AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0, bytes32(0), false
         );
         vm.expectRevert(IUnivocityErrors.InvalidReceiptInclusionProof.selector);
+        vm.prank(BOOTSTRAP);
         newUnivocity.publishCheckpoint(
             consistency, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g
         );
@@ -885,6 +889,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
         IUnivocity.ConsistencyReceipt memory consistency =
             _buildConsistencyReceipt(_toAcc(leaf0));
         vm.expectRevert(IUnivocityErrors.InvalidReceiptInclusionProof.selector);
+        vm.prank(BOOTSTRAP);
         fresh.publishCheckpoint(
             consistency, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g
         );
@@ -903,11 +908,13 @@ contract UnivocityTest is Test, IUnivocityEvents {
             _buildConsistencyReceipt(_toAcc(keccak256("wrong-peak")));
 
         vm.expectRevert(IUnivocityErrors.InvalidReceiptInclusionProof.selector);
+        vm.prank(BOOTSTRAP);
         fresh.publishCheckpoint(
             consistency, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g
         );
     }
 
+    /// @notice Only bootstrap may publish the first checkpoint (establish root).
     function test_firstCheckpoint_succeedsFromNonBootstrapSender() public {
         Univocity fresh = new Univocity(
             BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
@@ -920,12 +927,11 @@ contract UnivocityTest is Test, IUnivocityEvents {
             _buildConsistencyReceipt(_toAcc(leaf0));
 
         vm.prank(address(0x999));
+        vm.expectRevert(IUnivocityErrors.OnlyBootstrapAuthority.selector);
         fresh.publishCheckpoint(
             consistency, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g
         );
-
-        assertEq(fresh.rootLogId(), AUTHORITY_LOG_ID);
-        assertTrue(fresh.isLogInitialized(AUTHORITY_LOG_ID));
+        assertEq(fresh.rootLogId(), bytes32(0));
     }
 
     function test_firstCheckpoint_sizeTwo_succeeds() public {
@@ -936,11 +942,11 @@ contract UnivocityTest is Test, IUnivocityEvents {
             AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0, bytes32(0), false
         );
         bytes32 leaf0 = _leafCommitment(IDTIMESTAMP_AUTH, g0);
+        IUnivocity.ConsistencyReceipt memory consistency0 =
+            _buildConsistencyReceipt(_toAcc(leaf0));
+        vm.prank(BOOTSTRAP);
         fresh.publishCheckpoint(
-            _buildConsistencyReceipt(_toAcc(leaf0)),
-            _emptyInclusionProof(),
-            IDTIMESTAMP_AUTH,
-            g0
+            consistency0, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g0
         );
         IUnivocity.PaymentGrant memory g1 = _paymentGrant(
             TEST_LOG_ID, KS256_SIGNER, 0, 10, 0, 0, AUTHORITY_LOG_ID, false
@@ -989,11 +995,11 @@ contract UnivocityTest is Test, IUnivocityEvents {
             AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0, bytes32(0), false
         );
         bytes32 expectedLeaf = _leafCommitment(IDTIMESTAMP_AUTH, g);
+        IUnivocity.ConsistencyReceipt memory consistency =
+            _buildConsistencyReceipt(_toAcc(expectedLeaf));
+        vm.prank(BOOTSTRAP);
         fresh.publishCheckpoint(
-            _buildConsistencyReceipt(_toAcc(expectedLeaf)),
-            _emptyInclusionProof(),
-            IDTIMESTAMP_AUTH,
-            g
+            consistency, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g
         );
         bytes32[] memory stored =
         fresh.getLogState(AUTHORITY_LOG_ID).accumulator;
@@ -1256,11 +1262,11 @@ contract UnivocityTest is Test, IUnivocityEvents {
             AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0, bytes32(0), false
         );
         bytes32 leaf0 = _leafCommitment(IDTIMESTAMP_AUTH, g0);
+        IUnivocity.ConsistencyReceipt memory consistency0 =
+            _buildConsistencyReceipt(_toAcc(leaf0));
+        vm.prank(BOOTSTRAP);
         fresh.publishCheckpoint(
-            _buildConsistencyReceipt(_toAcc(leaf0)),
-            _emptyInclusionProof(),
-            IDTIMESTAMP_AUTH,
-            g0
+            consistency0, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g0
         );
 
         IUnivocity.PaymentGrant memory g1 = _paymentGrant(
@@ -1380,12 +1386,11 @@ contract UnivocityTest is Test, IUnivocityEvents {
             AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0, bytes32(0), false
         );
         bytes32 leaf0 = _leafCommitment(IDTIMESTAMP_AUTH, g0);
+        IUnivocity.ConsistencyReceipt memory consistency0 =
+            _buildConsistencyReceipt(_toAcc(leaf0));
         vm.prank(BOOTSTRAP);
         fresh.publishCheckpoint(
-            _buildConsistencyReceipt(_toAcc(leaf0)),
-            _emptyInclusionProof(),
-            IDTIMESTAMP_AUTH,
-            g0
+            consistency0, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g0
         );
         IUnivocity.PaymentGrant memory g1 = _paymentGrant(
             AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 1, 0, bytes32(0), false
@@ -1525,12 +1530,11 @@ contract UnivocityTest is Test, IUnivocityEvents {
             AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0, bytes32(0), false
         );
         bytes32 leaf0 = _leafCommitment(IDTIMESTAMP_AUTH, g0);
+        IUnivocity.ConsistencyReceipt memory consistency0 =
+            _buildConsistencyReceipt(_toAcc(leaf0));
         vm.prank(BOOTSTRAP);
         fresh.publishCheckpoint(
-            _buildConsistencyReceipt(_toAcc(leaf0)),
-            _emptyInclusionProof(),
-            IDTIMESTAMP_AUTH,
-            g0
+            consistency0, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g0
         );
         IUnivocity.PaymentGrant memory g = _paymentGrant(
             TEST_LOG_ID, KS256_SIGNER, 0, 10, 2, 0, AUTHORITY_LOG_ID, false
@@ -1655,6 +1659,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
         bytes32 leaf0 = _leafCommitment(idtimestampBe, g);
         IUnivocity.ConsistencyReceipt memory consistency =
             _buildConsistencyReceiptES256(_toAcc(leaf0), es256Pk);
+        vm.prank(BOOTSTRAP);
         es256Univocity.publishCheckpoint(
             consistency, _emptyInclusionProof(), idtimestampBe, g
         );
@@ -1806,11 +1811,11 @@ contract UnivocityTest is Test, IUnivocityEvents {
             AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0, bytes32(0), false
         );
         bytes32 leaf0 = _leafCommitment(idt0, g0);
+        IUnivocity.ConsistencyReceipt memory consistency0 =
+            _buildConsistencyReceipt(_toAcc(leaf0));
+        vm.prank(BOOTSTRAP);
         fresh.publishCheckpoint(
-            _buildConsistencyReceipt(_toAcc(leaf0)),
-            _emptyInclusionProof(),
-            idt0,
-            g0
+            consistency0, _emptyInclusionProof(), idt0, g0
         );
         assertEq(fresh.rootLogId(), AUTHORITY_LOG_ID);
 

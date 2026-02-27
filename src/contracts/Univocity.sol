@@ -338,6 +338,8 @@ contract Univocity is IUnivocity, IUnivocityErrors {
 
         if (rootLogId == bytes32(0)) {
             // Rule 1: First checkpoint ever = bootstrap creates root authority.
+            // Only the bootstrap authority may establish the root log.
+            _onlyBootstrap();
             // No payment path; grant is self-inclusion (index 0) in the new tree.
             if (claimedSize < 1) revert FirstCheckpointSizeTooSmall();
             if (paymentInclusionProof.path.length != 0) {
