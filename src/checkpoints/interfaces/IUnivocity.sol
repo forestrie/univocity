@@ -7,8 +7,9 @@ import {IUnivocityEvents} from "./IUnivocityEvents.sol";
 /// @notice Interface for univocity transparency log contract (payment-bounded
 ///    checkpoint authorization via grant inclusion proof and bounds).
 interface IUnivocity is IUnivocityEvents {
-    /// @notice Log role in the hierarchy (ARC-0017). 0 = not set.
+    /// @notice Log role in the hierarchy (ARC-0017). 0 = not set (uninitialized).
     enum LogKind {
+        Undefined,
         Authority,
         Data
     }
@@ -101,10 +102,6 @@ interface IUnivocity is IUnivocityEvents {
     function isLogInitialized(bytes32 logId) external view returns (bool);
 
     // === State-Changing Functions ===
-
-    /// @notice Set the root public key for a log (bootstrap only). Plan 0016.
-    ///    rootKey must be 64 bytes (P-256 x || y) for the only supported alg.
-    function setLogRoot(bytes32 logId, bytes calldata rootKey) external;
 
     /// @notice Publish a checkpoint from pre-decoded consistency receipt and
     ///    optional pre-decoded inclusion proof (plan 0016).

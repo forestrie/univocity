@@ -8,8 +8,8 @@
 ## Decision
 
 Generalise the Univocity constructor to accept bootstrap key(s) as **alg +
-opaque bytes**, consistent with `LogState.rootKey`, `setLogRoot(bytes calldata
-rootKey)`, and `DelegationProof.delegationKey`. Implementation remains
+opaque bytes**, consistent with `LogConfig.rootKey`, internal `setLogRoot`, and
+`DelegationProof.delegationKey`. Implementation remains
 restricted to current key types (KS256 = 20-byte address, ES256 = 64-byte
 P-256); only the **public** constructor (and optional getter) is generalised.
 
@@ -18,7 +18,8 @@ bytes memory _bootstrapKey)` with `_bootstrapAlg` = ALG_KS256 or ALG_ES256 and
 `_bootstrapKey` length 20 (KS256) or 64 (ES256). At least one key must be set.
 Revert `InvalidBootstrapAlgorithm` or `InvalidBootstrapKeyLength` on invalid
 input. Decode in constructor and store in the same immutables as before;
-downstream code (getBootstrapKeys, verification) unchanged.
+downstream code (verification) unchanged. No `getBootstrapKeys()`; use
+`getBootstrapKeyConfig()` (alg + opaque key).
 
 ## Context
 

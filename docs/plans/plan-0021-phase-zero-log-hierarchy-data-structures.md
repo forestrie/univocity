@@ -2,11 +2,12 @@
 
 **Status:** DRAFT  
 **Date:** 2026-02-23  
-**Related:** [ARC-0017](../arc/arc-0017-log-hierarchy-and-authority.md),
+**Related:** [ADR-0004](../adr/adr-0004-root-log-self-grant-extension.md),
+[ARC-0017](../arc/arc-0017-log-hierarchy-and-authority.md),
 [ARC-0016](../arc/arc-0016-checkpoint-incentivisation-implementation.md),
 [plan-0012](plan-0012-arc-0016-implementation-review.md)
 
-**Design summary.** Phase 0 of [ARC-0017](../arc/arc-0017-log-hierarchy-and-authority.md): data structures for the log hierarchy. **Authorization:** ARC-0017 §2 — rootKey at first checkpoint (direct or **recovered rootKey** in delegation); grant = inclusion against owner; **ownerLogId** in grant for log creation; bootstrap special case. **Grant bounds:** growth-based only (max_size/maxHeight, min_range/minGrowth); effective cap (max_size − current_size) / min_range. No checkpoint counter (Phase E). **Phase F (optional):** Create new authority logs via grant (ownerLogId + createAsAuthority; extend leaf commitment) so tests cover root→child→data hierarchy.
+**Design summary.** Phase 0 of [ARC-0017](../arc/arc-0017-log-hierarchy-and-authority.md): data structures for the log hierarchy. **Authorization:** ARC-0017 §2 — rootKey at first checkpoint (direct or **recovered rootKey** in delegation); grant = inclusion against owner; **ownerLogId** in grant for log creation; bootstrap only for **first checkpoint ever**; root has authLogId = self ([ADR-0004](../adr/adr-0004-root-log-self-grant-extension.md)). **Grant bounds:** growth-based only (max_size/maxHeight, min_range/minGrowth); effective cap (max_size − current_size) / min_range. No checkpoint counter (Phase E). **Phase F (optional):** Create new authority logs via grant (ownerLogId + createAsAuthority; extend leaf commitment) so tests cover root→child→data hierarchy.
 
 ---
 
@@ -64,7 +65,7 @@ Phase F (authority log creation) — optional extension so hierarchy is testable
        commitment (inner hash) to include both when used for log creation.
   F.2  First checkpoint to new log: if createAsAuthority, verify inclusion
        against ownerLogId (parent), set kind=Authority, authLogId=parent.
-  F.3  Extend existing log: when config.kind==Authority and authLogId!=0
+  F.3  Extend existing log: when config.kind==Authority and authLogId!=rootLogId (child)
        (child), verify inclusion against parent (_logs[config.authLogId]);
        no OnlyBootstrapAuthority.
   F.4  _updateLogState: when isNewLog and not root, set kind from grant
@@ -91,11 +92,11 @@ will supply. Phase F depends on C (authForInclusion and ownerLogId already used 
 |------|--------|--------|
 | **PaymentGrant** | Add `ownerLogId` (already planned for data log creation), add `createAsAuthority bool`. | One extra field; both needed so first checkpoint sets kind correctly (Authority vs Data). |
 | **Leaf commitment** | Extend inner hash to include `ownerLogId` and `createAsAuthority` when present. | Breaks existing receipt format; new deployments use extended format. Document or version. |
-| **publishCheckpoint** | New branch: existing log with kind==Authority and authLogId!=0 → verify inclusion against parent, consistency against child’s rootKey; no bootstrap. First checkpoint to new log with createAsAuthority → verify inclusion against ownerLogId, set kind=Authority, authLogId=ownerLogId. | Reuse existing authForInclusion logic; root remains the only log with OnlyBootstrapAuthority (logId==authorityLogId). |
+| **publishCheckpoint** | New branch: existing log with kind==Authority and authLogId!=rootLogId (child) → verify inclusion against parent, consistency against child’s rootKey; no bootstrap. First checkpoint to new log with createAsAuthority → verify inclusion against ownerLogId, set kind=Authority, authLogId=ownerLogId. | Reuse existing authForInclusion logic; Only first checkpoint ever uses OnlyBootstrapAuthority; root extension requires grant in root (ADR-0004). |
 | **_updateLogState** | When isNewLog and not root: set kind from grant (Authority if createAsAuthority else Data), authLogId=ownerLogId. | Single extra parameter or derive from grant. |
 | **Tests** | D.5–D.8: create child authority (first checkpoint, createAsAuthority, inclusion in root); extend child; create data under child; extend data under child. | Four test cases; reuses same publishCheckpoint path. |
 
-**Recommendation:** Include Phase F in Phase 0 so that a single implementation delivers testable hierarchy (root → child authority → data under child). The extra work is bounded: one grant field, one branch for “extend child authority,” one branch for “first checkpoint = new authority,” and leaf commitment extension. Alternatively, ship A–E first and add F in a follow-up; then hierarchy tests would land in that follow-up.
+**Recommendation:** Include Phase F in Phase 0 so that a single implementation delivers testable hierarchy (root → child authority → data under child). The extra work is bounded: one grant field, one branch for “extend child authority,” one branch for “first checkpoint = new authority,” and leaf commitment extension. **Must have:** Hierarchy tests D.5–D.8 and grant expiry tests (including cascading effect on child logs) are required; include Phase F and a grant-expiry test phase.
 
 ---
 
@@ -110,6 +111,7 @@ Values start at 1 so that 0 (storage default) means undefined/not set:
 /// @notice Log role in the hierarchy (ARC-0017 Phase 0).
 ///    Zero = undefined/not set (uninitialized log state).
 enum LogKind {
+    Undefined,      // 0 = not set (uninitialized)
     Authority = 1,  // authority log (root or future child)
     Data = 2        // data log (owned by an authority log)
 }
@@ -133,7 +135,7 @@ In `IUnivocity.sol`, add `LogConfig` and define `LogState` as:
 /// Stored in a separate mapping from LogState; use same logId to look up both.
 struct LogConfig {
     LogKind kind;           // 0 = not set; Authority = 1; Data = 2.
-    bytes32 authLogId;      // If kind==Data: owning. If kind==Authority: parent (0 = root).
+    bytes32 authLogId;      // If kind==Data: owning. If kind==Authority: parent (root = self = rootLogId).
     bytes rootKey;          // P-256 root key (64 bytes); established at first checkpoint (ARC §2 rule 1).
     uint256 initializedAt;  // Block number of first checkpoint.
 }
@@ -190,7 +192,8 @@ logId** (or equivalent) whenever it is used to create a log; the contract
 verifies the inclusion proof against that owner log and sets
 authLogId = owner logId when applying the first checkpoint.
 
-- **Bootstrap log:** Grant against self (first leaf in new tree); OnlyBootstrapAuthority; no owner field (N/A).
+- **First checkpoint ever (bootstrap):** Grant against self (first leaf in new tree); OnlyBootstrapAuthority; creates root with authLogId = rootLogId (self). No owner field (N/A).
+- **Root extension (after creation):** Grant in root; ownerLogId == rootLogId; verify inclusion against root’s accumulator; permissionless (no bootstrap check).
 - **Data log:** Inclusion proof against owning authority (`_logConfigs[logId].authLogId`). First checkpoint: **owner logId from grant** = associated auth log; set authLogId from that.
 - **Child authority:** Inclusion proof against **parent** log. First checkpoint: **owner logId from grant** = parent logId; set kind = Authority, authLogId = parentLogId.
 
@@ -232,29 +235,29 @@ When non-zero, use `_logs[authorityLogIdForInclusion]` for `verifyInclusion`.
 | Step | Location | Action | Acceptance |
 |------|----------|--------|------------|
 | B.1 | `src/contracts/Univocity.sol` | Use `IUnivocity.LogState` and `IUnivocity.LogConfig`. Add second mapping `_logConfigs(bytes32 => LogConfig)`. Move config fields out of `_logs` into `_logConfigs[logId]`. Keep `_logs[logId]` for accumulator and size only (no checkpointCount). | Contract compiles; storage uses separate mappings; association by logId. |
-| B.2 | `Univocity.sol` — `_updateLogState` | When `isNewLog` is true, set `_logConfigs[logId].initializedAt`, `_logConfigs[logId].rootKey` (from the key that signed the first checkpoint — rule 1), `_logConfigs[logId].kind`, and `_logConfigs[logId].authLogId`. For the **authority** log (when `logId == authorityLogId`), set kind = Authority, authLogId = 0. For a **data** log, set kind = Data, authLogId = &lt;param&gt;. For a **child authority**, set kind = Authority, authLogId = parentLogId. | First bootstrap: Authority, authLogId=0, rootKey from bootstrap or stored. First data/child: kind and authLogId set; rootKey from first-checkpoint signer. |
-| B.3 | `Univocity.sol` — `_updateLogState` | Add parameter `bytes32 authorityLogIdUsed`. When `isNewLog` and authority log, pass `bytes32(0)` and set `_logConfigs[logId].authLogId = 0`. When isNewLog and data log, set `_logConfigs[logId].authLogId = authorityLogIdUsed`. When !isNewLog, do not overwrite _logConfigs[logId]. | _updateLogState receives authority log id; new data logs get correct _logConfigs[logId].authLogId (owning). |
+| B.2 | `Univocity.sol` — `_updateLogState` | When `isNewLog` is true, set `_logConfigs[logId].initializedAt`, `_logConfigs[logId].rootKey` (from the key that signed the first checkpoint — rule 1), `_logConfigs[logId].kind`, and `_logConfigs[logId].authLogId`. For the **root** (when `logId == rootLogId`), set kind = Authority, authLogId = logId (self). For a **data** log, set kind = Data, authLogId = &lt;param&gt;. For a **child authority**, set kind = Authority, authLogId = parentLogId. | First bootstrap: Authority, authLogId=rootLogId (self), rootKey from bootstrap or stored. First data/child: kind and authLogId set; rootKey from first-checkpoint signer. |
+| B.3 | `Univocity.sol` — `_updateLogState` | Add parameter `bytes32 authorityLogIdUsed`. When `isNewLog` and root log, set `_logConfigs[logId].authLogId = logId` (self). When isNewLog and data/child log, set `_logConfigs[logId].authLogId = authorityLogIdUsed`. When !isNewLog, do not overwrite _logConfigs[logId]. | _updateLogState receives authority log id; new data logs get correct _logConfigs[logId].authLogId (owning); root gets authLogId = self. |
 
 ### Phase C: Inclusion proof routing
 
 | Step | Location | Action | Acceptance |
 |------|----------|--------|------------|
-| C.1 | `Univocity.sol` — `publishCheckpoint`, `IUnivocity.sol` | When grant allows log creation (first checkpoint to target log), grant must include **ownerLogId** (auth log for data log, parent for authority log). Compute `authForInclusion = (paymentGrant.logId == authorityLogId) ? bytes32(0) : (_logConfigs[paymentGrant.logId].initializedAt == 0 ? paymentGrant.ownerLogId : _logConfigs[paymentGrant.logId].authLogId)`. Add `ownerLogId` to PaymentGrant (or equivalent) for log-creation use. | ownerLogId in grant; authForInclusion uses it for first checkpoint. |
-| C.2 | `Univocity.sol` — `publishCheckpoint` | In the branch where we verify inclusion for a data log (non-authority, non-first-bootstrap), replace `LogState storage authorityLog = _logs[authorityLogId];` with `LogState storage authorityLog = _logs[authForInclusion];` (and ensure `authForInclusion != bytes32(0)` in that branch). | Inclusion proof is verified against the log’s owning authority. |
-| C.3 | `Univocity.sol` — `publishCheckpoint` and `_updateLogState` | When calling `_updateLogState`, pass the authority log id: first bootstrap pass `bytes32(0)`; root authority subsequent pass `bytes32(0)`; data or child first pass `authForInclusion`; data or child subsequent pass `authForInclusion` (ignored for existing). In _updateLogState when isNewLog: if logId == authorityLogId set kind=Authority, authLogId=0; else set kind from grant (Phase F: createAsAuthority → Authority, else Data), authLogId=ownerLogId/authorityLogIdUsed. Set initializedAt, rootKey per rule 1. | Single authority log works; data logs get correct config; (Phase F) child authority gets kind=Authority, authLogId=parent. |
+| C.1 | `Univocity.sol` — `publishCheckpoint`, `IUnivocity.sol` | When grant allows log creation (first checkpoint to target log), grant must include **ownerLogId** (auth log for data log, parent for authority log). For **root extension**, ownerLogId == rootLogId and verify inclusion against root. Compute `authForInclusion` from config.authLogId (root = self, so rootLogId) or ownerLogId for first checkpoint. Add `ownerLogId` to PaymentGrant (or equivalent) for log-creation use. | ownerLogId in grant; authForInclusion uses it for first checkpoint; root extension uses rootLogId. |
+| C.2 | `Univocity.sol` — `publishCheckpoint` | Verify inclusion against `_logs[authForInclusion]` where authForInclusion is the log’s authLogId (for root extension = rootLogId; for data = owning; for child = parent). No separate “root = bytes32(0)” branch for extension. | Inclusion proof verified against the log’s owner (root = self). |
+| C.3 | `Univocity.sol` — `publishCheckpoint` and `_updateLogState` | When calling `_updateLogState`, pass authForInclusion (root: rootLogId; first checkpoint ever: bytes32(0) for “root created”; data/child: owner or authLogId). In _updateLogState when isNewLog: if logId == rootLogId set kind=Authority, authLogId=logId (self); else set kind from grant (Phase F: createAsAuthority → Authority, else Data), authLogId=ownerLogId/authorityLogIdUsed. Set initializedAt, rootKey per rule 1. | Root gets authLogId=self; data logs and (Phase F) child authority get correct config. |
 | C.4 | `Univocity.sol` — `publishCheckpoint` (consistency receipt) | Key for consistency receipt per §3.3: **first checkpoint** — bootstrap log → bootstrap keys; other log → verify key from receipt (direct or owner delegation) and store as rootKey. **Later checkpoint** — verify against _decodeLogRootKey(target log). | First: bootstrap keys or verify+store; later: target's rootKey. |
 
 **Note:** Detecting “is this the authority log?” in _updateLogState: pass
 `logId` and compare `logId == authorityLogId` (state var). So when
-isNewLog && logId == authorityLogId → _logConfigs[logId].kind=Authority,
-_logConfigs[logId].authLogId=0; when isNewLog && logId != authorityLogId →
+isNewLog && logId == rootLogId → _logConfigs[logId].kind=Authority,
+_logConfigs[logId].authLogId=logId (self); when isNewLog && logId != rootLogId →
 _logConfigs[logId].kind=Data, _logConfigs[logId].authLogId=authorityLogIdUsed.
 
 ### Phase D: Tests and views
 
 | Step | Location | Action | Acceptance |
 |------|----------|--------|------------|
-| D.1 | `test/` (e.g. Univocity.t.sol or CheckpointFlow) | After first bootstrap checkpoint, read getLogConfig(authorityLogId): kind == Authority, authLogId == 0. | Test passes. |
+| D.1 | `test/` (e.g. Univocity.t.sol or CheckpointFlow) | After first bootstrap checkpoint, read getLogConfig(rootLogId): kind == Authority, authLogId == rootLogId (self). | Test passes. |
 | D.2 | `test/` | Publish first checkpoint to a **data** log (inclusion proof against authority log). Read getLogConfig(dataLogId): kind == Data, authLogId == authorityLogId. | Test passes. |
 | D.3 | `test/` | Publish second checkpoint to the same data log. Verify inclusion is still checked (e.g. wrong proof reverts). Optionally assert getLogConfig(dataLogId).authLogId unchanged. | Test passes. |
 | D.4 | `test/` | Tests that need config use getLogConfig(logId) (initializedAt, rootKey, kind, authLogId). Tests that need mutable state use getLogState(logId). For Foundry/invariants, ensure both mappings are covered where appropriate. | All existing tests pass; no regression. |

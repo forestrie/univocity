@@ -82,8 +82,9 @@ divergences and gaps for review before considering ARC-0017.
 - **CheckpointPublished:** Every successful checkpoint (logId, sender, payer,
   size, checkpointCount, accumulator, paymentIndex, paymentPath).
 
-Not emitted in current path: CheckpointAuthorized, PaymentReceiptRegistered,
-AuthorizationFailed (defined in IUnivocityEvents only).
+CheckpointAuthorized and PaymentReceiptRegistered have been removed (implied
+by successful publish). Authorization failures revert with custom errors; see
+[ARC-0016 § Authorization failure revert codes](../arc/arc-0016-checkpoint-incentivisation-implementation.md#authorization-failure-revert-codes).
 
 ---
 
@@ -98,7 +99,7 @@ AuthorizationFailed (defined in IUnivocityEvents only).
 | Authority log bootstrap-only publishing | Implemented. |
 | First checkpoint establishes authority log | Implemented. |
 | Event: CheckpointPublished with sender and payer indexed | Implemented. |
-| Event sourcing (all state changes emit events) | Partial: only checkpoint path emits; CheckpointAuthorized etc. not emitted. |
+| Event sourcing (all state changes emit events) | CheckpointPublished (with logKind), Initialized, LogRegistered; auth failures revert. |
 | Payment as COSE Receipt of Inclusion | Not implemented; payment is pre-decoded inclusion proof only. |
 | Consistency receipt as single COSE blob | Not implemented; pre-decoded (plan 0016). |
 
@@ -126,11 +127,10 @@ single-doc review.
    proof only; no COSE for payment, no payment-receipt signature
    verification.
 
-2. **Events: CheckpointAuthorized, PaymentReceiptRegistered,
-   AuthorizationFailed not emitted**  
-   Defined in IUnivocityEvents; not emitted by Univocity.sol. Observability
-   gap for “authorization verified” and “payment receipt registered” as
-   separate events.
+2. **Events: CheckpointAuthorized and PaymentReceiptRegistered removed**  
+   No longer defined. Successfully publishing implies grant authorized.
+   Authorization failures revert; ARC-0016 maintains a registry of
+   reason codes for tooling.
 
 3. **Consistency receipt: pre-decoded only**  
    Design (plan-0014/0013) assumed raw COSE Receipt of Consistency as

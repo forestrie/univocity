@@ -15,43 +15,19 @@ interface IUnivocityEvents {
         bytes32 indexed logId, address indexed registeredBy, uint64 initialSize
     );
 
-    /// @notice Checkpoint published (all logs including authority)
+    /// @notice Checkpoint published (all logs including root/auth logs).
     /// @dev Block number recoverable from tx receipt. size = MMR size after
-    ///    checkpoint (last mmrIndex + 1). Both sender and payer are attributed
-    ///    and indexed (filterable). sender = submitter; payer = from
-    ///    PaymentGrant (who paid). paymentIndex and paymentPath are the
-    ///    inclusion proof payload (empty when no payment receipt).
+    ///    checkpoint. logKind = config.kind (Authority or Data). Both sender
+    ///    and payer are attributed and indexed. paymentIndex and paymentPath
+    ///    are the inclusion proof payload (empty when no payment proof).
     event CheckpointPublished(
         bytes32 indexed logId,
         address indexed sender,
         address indexed payer,
+        uint8 logKind,
         uint64 size,
         bytes32[] accumulator,
         uint64 paymentIndex,
         bytes32[] paymentPath
-    );
-
-    /// @notice Grant authorization verified (not emitted for bootstrap)
-    event CheckpointAuthorized(
-        bytes32 indexed logId,
-        address indexed payer,
-        uint64 checkpointStart,
-        uint64 checkpointEnd,
-        uint64 maxHeight
-    );
-
-    /// @notice Payment receipt added to authority log
-    event PaymentReceiptRegistered(
-        bytes32 indexed logId,
-        address indexed payer,
-        uint64 checkpointStart,
-        uint64 checkpointEnd,
-        uint64 maxHeight,
-        uint64 minGrowth
-    );
-
-    /// @notice Authorization failed (emitted before revert for debugging)
-    event AuthorizationFailed(
-        bytes32 indexed logId, address indexed payer, string reason
     );
 }

@@ -721,12 +721,12 @@ contract UnivocityTest is Test, IUnivocityEvents {
         assertEq(univocity.rootLogId(), AUTHORITY_LOG_ID);
     }
 
-    /// @notice Phase D.1: First bootstrap sets kind=Authority, authLogId=0.
+    /// @notice Phase D.1: First bootstrap sets kind=Authority, authLogId=self (ADR-0004).
     function test_getLogConfig_bootstrapSetsAuthorityKind() public view {
         IUnivocity.LogConfig memory config =
             univocity.getLogConfig(AUTHORITY_LOG_ID);
         assertEq(uint8(config.kind), uint8(IUnivocity.LogKind.Authority));
-        assertEq(config.authLogId, bytes32(0));
+        assertEq(config.authLogId, AUTHORITY_LOG_ID); // root's parent is self
         assertGt(config.initializedAt, 0);
     }
 
@@ -904,8 +904,8 @@ contract UnivocityTest is Test, IUnivocityEvents {
         assertEq(fresh.getLogState(AUTHORITY_LOG_ID).size, 2);
     }
 
-    /// @notice Plan 0012 §4.2: authority log path does not require
-    ///    inclusion proof (second checkpoint to authority).
+    /// @notice Root extension requires grant (inclusion proof) in root
+    ///    (ADR-0004). After setUp root has size 2; prove inclusion of leaf 0.
     function test_publishCheckpoint_authorityLogSecondCheckpoint_noInclusionProofRequired()
         public
     {
@@ -916,9 +916,13 @@ contract UnivocityTest is Test, IUnivocityEvents {
         IUnivocity.PaymentGrant memory g = _paymentGrant(
             AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0, bytes32(0), false
         );
+        bytes32[] memory pathToLeaf0 = _path1(authorityLeaf1);
         vm.prank(BOOTSTRAP);
         univocity.publishCheckpoint(
-            consistency2, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g
+            consistency2,
+            _buildPaymentInclusionProof(0, pathToLeaf0),
+            IDTIMESTAMP_AUTH,
+            g
         );
         assertEq(univocity.getLogState(AUTHORITY_LOG_ID).size, 3);
     }
@@ -957,9 +961,13 @@ contract UnivocityTest is Test, IUnivocityEvents {
         IUnivocity.PaymentGrant memory g = _paymentGrant(
             AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0, bytes32(0), false
         );
+        bytes32[] memory pathToLeaf0 = _path1(authorityLeaf1);
         vm.prank(BOOTSTRAP);
         univocity.publishCheckpoint(
-            consistency2, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g
+            consistency2,
+            _buildPaymentInclusionProof(0, pathToLeaf0),
+            IDTIMESTAMP_AUTH,
+            g
         );
 
         assertTrue(univocity.isLogInitialized(AUTHORITY_LOG_ID));
@@ -987,6 +995,7 @@ contract UnivocityTest is Test, IUnivocityEvents {
             TEST_LOG_ID,
             address(this),
             KS256_SIGNER,
+            uint8(IUnivocity.LogKind.Authority),
             1,
             acc,
             uint64(1),
@@ -1147,6 +1156,8 @@ contract UnivocityTest is Test, IUnivocityEvents {
 
     // === Authorization Tests ===
 
+    /// @notice ADR-0004: non-bootstrap can extend root with valid grant
+    ///    (permissionless submission; root extension requires grant in root).
     function test_publishCheckpoint_authorityLogOnlyBootstrap() public {
         IUnivocity.ConsistencyReceipt memory consistency2 =
             _buildConsistencyReceipt2To3(
@@ -1155,11 +1166,15 @@ contract UnivocityTest is Test, IUnivocityEvents {
         IUnivocity.PaymentGrant memory g = _paymentGrant(
             AUTHORITY_LOG_ID, KS256_SIGNER, 0, 10, 0, 0, bytes32(0), false
         );
+        bytes32[] memory pathToLeaf0 = _path1(authorityLeaf1);
         vm.prank(address(0x999));
-        vm.expectRevert(IUnivocityErrors.OnlyBootstrapAuthority.selector);
         univocity.publishCheckpoint(
-            consistency2, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g
+            consistency2,
+            _buildPaymentInclusionProof(0, pathToLeaf0),
+            IDTIMESTAMP_AUTH,
+            g
         );
+        assertEq(univocity.getLogState(AUTHORITY_LOG_ID).size, 3);
     }
 
     function test_publishCheckpoint_nonBootstrapNeedsReceipt() public {

@@ -213,10 +213,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
     ///    root is never derived from a delegation cert. P-256 only: 64 bytes.
     /// @param logId The 32-byte log identifier.
     /// @param rootKey Opaque key; must be 64 bytes (P-256 x || y).
-    function setLogRoot(bytes32 logId, bytes calldata rootKey)
-        external
-        onlyBootstrap
-    {
+    function setLogRoot(bytes32 logId, bytes calldata rootKey) internal {
         if (rootKey.length != 64) {
             revert InvalidRootKeyLength(rootKey.length);
         }
@@ -301,6 +298,10 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             accMem
         );
 
+        // We emit paymentInclusionProof.index as-is. Where it is used for
+        // verification (new log or extend), a wrong index already reverts.
+        // On root paths we do not use it (we verify with 0 or skip inclusion);
+        // the emitted value is then unverified but has no authorization effect.
         _updateLogState(
             logId,
             claimedSize,
@@ -315,7 +316,8 @@ contract Univocity is IUnivocity, IUnivocityErrors {
     }
 
     /// @notice Enforce grant/inclusion rules (1, 2, 3). Reverts on failure.
-    /// @return authLogId Log against which inclusion was verified (or bytes32(0) for root).
+    /// @return authLogId Log against which inclusion was verified (bytes32(0)
+    ///    when creating the root; rootLogId for root extension; owner for others).
     function _verifyInclusionGrant(
         bytes32 logId,
         uint64 claimedSize,
@@ -347,16 +349,8 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             _initializeAuthorityLog(logId);
             return bytes32(0);
         }
-        if (logId == rootLogId) {
-            // Rule 1: Extending the root authority log: only bootstrap; no grant path.
-            if (paymentInclusionProof.path.length != 0) {
-                revert InvalidPaymentReceipt();
-            }
-            if (msg.sender != bootstrapAuthority) {
-                revert OnlyBootstrapAuthority();
-            }
-            return bytes32(0);
-        }
+        // Root extension (after creation) and extend existing data/child log:
+        // grant = inclusion proof against this log's authLogId (root = self).
         if (config.initializedAt == 0) {
             // Rules 2 & 3: First checkpoint to a new (data or child authority) log.
             // Grant must include ownerLogId; we verify inclusion against that owner.
@@ -382,15 +376,18 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             return paymentGrant.ownerLogId;
         }
 
-        // Rule 2: Extend existing data log or child authority; grant is
-        // inclusion proof against this log's owner (authLogId).
+        // Rule 2: Extend existing log (root, data, or child authority); grant
+        // is inclusion proof against this log's authLogId (root = self).
+        LogState storage extendOwnerLog = _logs[config.authLogId];
+        // Empty path is valid only when owner has size 1 and index 0 (peak =
+        // leaf).
         if (paymentInclusionProof.path.length == 0) {
-            revert InvalidPaymentReceipt();
+            if (!(extendOwnerLog.size == 1
+                        && paymentInclusionProof.index == 0)) revert InvalidPaymentReceipt();
         }
         if (paymentInclusionProof.path.length > MAX_HEIGHT) {
             revert ProofPayloadExceedsMaxHeight();
         }
-        LogState storage extendOwnerLog = _logs[config.authLogId];
         if (!verifyInclusion(
                 paymentInclusionProof.index,
                 leafCommitment,
@@ -536,18 +533,17 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             bytes32 verifierY
         )
     {
-        // Path A: root log (or first checkpoint ever). Root key is bootstrap.
-        if (rootLogId == bytes32(0) || logId == rootLogId) {
-            return (es256X, es256Y, es256X, es256Y);
-        }
-        // Path B: child log. Root key from storage, or we must recover on first checkpoint.
+        // Root key from storage, or recover from receipt/delegation on first
+        // checkpoint. For the bootstrap (first checkpoint ever) the recovered
+        // signer is used and stored; verification already ensures the receipt
+        // is valid, so no special case for root log.
         (rootX, rootY) = _decodeLogRootKeyES256(logId);
 
         if (rootX == bytes32(0) && rootY == bytes32(0)) {
             if (config.initializedAt != 0) revert LogRootKeyNotSet();
 
             if (delegationProof.signature.length == 0) {
-                // Path B2: No delegation. Root signed the receipt; recover root from receipt signature.
+                // No delegation. Root signed the receipt; recover root from receipt signature.
                 (rootX, rootY) = recoverES256FromDetachedPayload(
                     consistencyParts.protectedHeader,
                     detachedPayload,
@@ -559,7 +555,9 @@ contract Univocity is IUnivocity, IUnivocityErrors {
                 return (rootX, rootY, rootX, rootY);
             }
 
-            // Path B1: Delegation present. Decode delegate key; recover root from delegation signature.
+            // Delegation present. Decode delegate (needed for recovery message
+            // hash); recover root from delegation signature; fall through to
+            // shared verify + return below.
             (verifierX, verifierY) =
                 decodeDelegationKeyES256(delegationProof.delegationKey);
             (rootX, rootY) = recoverDelegationSignerES256(
@@ -573,22 +571,14 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             if (rootX == bytes32(0) && rootY == bytes32(0)) {
                 revert DelegationSignatureInvalid();
             }
-            verifyDelegationProofES256(
-                delegationProof.mmrStart,
-                delegationProof.mmrEnd,
-                delegationProof.signature,
-                logId,
-                claimedSize > 0 ? claimedSize - 1 : 0,
-                rootX,
-                rootY,
-                verifierX,
-                verifierY
-            );
-            return (rootX, rootY, verifierX, verifierY);
         }
 
-        // Stored root key present. Verifier is delegate if delegation, else root.
+        // Root key present (from storage or just recovered). Verifier is
+        // delegate if delegation, else root.
         if (delegationProof.signature.length > 0) {
+
+            // Note: We do this twice for the very first checkpoint (root auth log),
+            // but that is harmless and cheap.
             (verifierX, verifierY) =
                 decodeDelegationKeyES256(delegationProof.delegationKey);
             verifyDelegationProofES256(
@@ -745,7 +735,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             config.initializedAt = block.number;
             if (logId == rootLogId) {
                 config.kind = IUnivocity.LogKind.Authority;
-                config.authLogId = bytes32(0);
+                config.authLogId = logId; // root's parent is self (ADR-0004)
             }
             if (rootKeyToSet.length == 64 || rootKeyToSet.length == 20) {
                 config.rootKey = rootKeyToSet;
@@ -770,6 +760,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             logId,
             _msgSender(),
             payer,
+            uint8(config.kind),
             size,
             accumulator,
             paymentIndex,

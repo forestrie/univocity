@@ -12,8 +12,8 @@
 
 **After the grant is made to any payer, any sender may publish the checkpoint.**
 
-The authority log commits to a leaf that includes the payer (who paid), the
-checkpoint range, and bounds (including min_growth; see
+The owner’s log (root or auth log) commits to a leaf that includes the payer
+(who paid) and bounds (including min_growth; see
 [ARC-0001](../arc/arc-0001-grant-minimum-range.md)). The contract does not check
 `msg.sender` against `paymentGrant.payer`. Payer is for attribution only (who
 paid for the grant); submission is permissionless. In `CheckpointPublished`,
@@ -32,9 +32,10 @@ vs “who may submit”).
   and events for attribution. No check of `msg.sender` against payer;
   submission is permissionless.
 - **Implementation:** Aligned: no `msg.sender == paymentGrant.payer` check;
-  payer used only in leaf commitment and event types. The only gap is that
-  `CheckpointAuthorized`, `PaymentReceiptRegistered`, and `AuthorizationFailed`
-  are not currently emitted (observability gap, not a semantics change).
+  payer used only in leaf commitment and in `CheckpointPublished`. The events
+  `CheckpointAuthorized` and `PaymentReceiptRegistered` were removed (implied
+  by successful publish); authorization failures revert with custom errors
+  (see [ARC-0016](../arc/arc-0016-checkpoint-incentivisation-implementation.md#authorization-failure-revert-codes)).
 
 ## Consequences
 
