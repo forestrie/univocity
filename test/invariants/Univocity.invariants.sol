@@ -16,18 +16,17 @@ contract UnivocityHandler is Test {
 
     address public bootstrap;
     address public ks256Signer;
-    bytes32 public authorityLogId;
+    bytes32 public rootLogId;
     bool public initialized;
 
     uint256 internal constant SIGNER_PK = 1;
 
     mapping(bytes32 => uint64) public ghost_lastSize;
-    mapping(bytes32 => uint64) public ghost_lastCheckpointCount;
 
     constructor() {
         bootstrap = address(0xB007);
         ks256Signer = vm.addr(SIGNER_PK);
-        authorityLogId = keccak256("authority");
+        rootLogId = keccak256("authority");
         vm.prank(bootstrap);
         univocity =
             new Univocity(bootstrap, ALG_KS256, abi.encodePacked(ks256Signer));
@@ -36,8 +35,9 @@ contract UnivocityHandler is Test {
     function initialize() external {
         if (initialized) return;
         bytes8 idts = bytes8(0);
-        IUnivocity.PaymentGrant memory g =
-            _paymentGrant(authorityLogId, ks256Signer, 0, 10, 0, 0);
+        IUnivocity.PaymentGrant memory g = _paymentGrant(
+            rootLogId, ks256Signer, 0, 10, 0, 0, bytes32(0), false
+        );
         _authorityLeaf0 = _leafCommitment(idts, g);
         IUnivocity.ConsistencyReceipt memory consistency =
             _buildConsistencyReceipt(_toAcc(_authorityLeaf0));
@@ -58,7 +58,9 @@ contract UnivocityHandler is Test {
                 g.checkpointStart,
                 g.checkpointEnd,
                 g.maxHeight,
-                g.minGrowth
+                g.minGrowth,
+                g.ownerLogId,
+                g.createAsAuthority
             )
         );
         return sha256(abi.encodePacked(idtimestampBe, inner));
@@ -70,7 +72,9 @@ contract UnivocityHandler is Test {
         uint64 start,
         uint64 end,
         uint64 maxHeight,
-        uint64 minGrowth
+        uint64 minGrowth,
+        bytes32 ownerLogId,
+        bool createAsAuthority
     ) internal pure returns (IUnivocity.PaymentGrant memory) {
         return IUnivocity.PaymentGrant({
             logId: logId,
@@ -78,7 +82,9 @@ contract UnivocityHandler is Test {
             checkpointStart: start,
             checkpointEnd: end,
             maxHeight: maxHeight,
-            minGrowth: minGrowth
+            minGrowth: minGrowth,
+            ownerLogId: ownerLogId,
+            createAsAuthority: createAsAuthority
         });
     }
 
@@ -209,10 +215,11 @@ contract UnivocityHandler is Test {
         if (!initialized) return;
         vm.prank(bootstrap);
         bytes8 idts = bytes8(sizeSeed % 256);
-        IUnivocity.PaymentGrant memory gAuth =
-            _paymentGrant(authorityLogId, ks256Signer, 0, 10, 0, 0);
+        IUnivocity.PaymentGrant memory gAuth = _paymentGrant(
+            rootLogId, ks256Signer, 0, 10, 0, 0, bytes32(0), false
+        );
         IUnivocity.PaymentGrant memory gLog =
-            _paymentGrant(logId, ks256Signer, 0, 10, 0, 0);
+            _paymentGrant(logId, ks256Signer, 0, 10, 0, 0, rootLogId, false);
         bytes32 leaf1 = _leafCommitment(idts, gLog);
         IUnivocity.ConsistencyReceipt memory consistency1to2 =
             _buildConsistencyReceipt1To2(_authorityLeaf0, leaf1);
@@ -220,9 +227,8 @@ contract UnivocityHandler is Test {
             consistency1to2, _emptyInclusionProof(), bytes8(0), gAuth
         );
 
-        IUnivocity.LogState memory s = univocity.getLogState(authorityLogId);
-        ghost_lastSize[authorityLogId] = s.size;
-        ghost_lastCheckpointCount[authorityLogId] = s.checkpointCount;
+        IUnivocity.LogState memory s = univocity.getLogState(rootLogId);
+        ghost_lastSize[rootLogId] = s.size;
     }
 
     function _buildConsistencyReceipt1To2(bytes32 leaf0, bytes32 leaf1)
@@ -289,21 +295,6 @@ contract UnivocityInvariantTest is Test {
         return s;
     }
 
-    function invariant_checkpointCountMonotonic() public view {
-        bytes32[] memory logIds = _knownLogIds();
-        for (uint256 i = 0; i < logIds.length; i++) {
-            bytes32 id = logIds[i];
-            if (!handler.univocity().isLogInitialized(id)) continue;
-            uint64 onChain =
-                handler.univocity().getLogState(id).checkpointCount;
-            assertGe(
-                onChain,
-                handler.ghost_lastCheckpointCount(id),
-                "checkpoint count must not decrease"
-            );
-        }
-    }
-
     function invariant_sizeMonotonic() public view {
         bytes32[] memory logIds = _knownLogIds();
         for (uint256 i = 0; i < logIds.length; i++) {
@@ -334,7 +325,7 @@ contract UnivocityInvariantTest is Test {
 
     function _knownLogIds() internal view returns (bytes32[] memory) {
         bytes32[] memory ids = new bytes32[](4);
-        ids[0] = handler.authorityLogId();
+        ids[0] = handler.rootLogId();
         ids[1] = keccak256("log1");
         ids[2] = keccak256("log2");
         ids[3] = keccak256("log3");

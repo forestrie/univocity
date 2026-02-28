@@ -2,7 +2,7 @@
 
 **Status:** DRAFT  
 **Date:** 2025-02-22  
-**Related:** [ARC-0001](../arc-0001-grant-minimum-range.md), [plan-0013](plan-0013-adr-0032-delegated-checkpoint-verification.md) Appendix A, ADR-0032, SCITT MMR profile (draft-bryce-cose-receipts-mmr-profile)
+**Related:** [ARC-0001](../arc/arc-0001-grant-minimum-range.md), [plan-0013](plan-0013-adr-0032-delegated-checkpoint-verification.md) Appendix A, ADR-0032, SCITT MMR profile (draft-bryce-cose-receipts-mmr-profile)
 
 ## 1. Goal
 
@@ -280,7 +280,7 @@ cannot be recovered from the receipts and must be supplied by the caller.
    keys), decode claims, and verify that this receipt is **included in the
    authority log** at a given MMR index with an inclusion path. The grant’s
    min_growth lets the authority control the minimum range of any checkpoint;
-   see [ARC-0001](../arc-0001-grant-minimum-range.md). The payer claim
+   see [ARC-0001](../arc/arc-0001-grant-minimum-range.md). The payer claim
    identifies who paid; it does not restrict who may submit. **Any sender**
    may call publishCheckpoint with a valid receipt (permissionless submission).
 

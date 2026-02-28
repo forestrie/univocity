@@ -13,17 +13,16 @@ import {
 ///    proof). Must be memory (copy from storage in caller if needed).
 /// @param decodedProofs Pre-decoded consistency proof payloads (order
 ///    preserved). Passed as calldata; no copy of proof material.
-/// @return finalAccumulator Peaks after applying all proofs (memory).
-/// @return size Tree size (leaf count) after the last proof.
+/// @return finalAccumulator Peaks after applying all proofs (memory). The
+///    proven tree size is the last proof's treeSize2; caller should use that
+///    for grant bounds and state update.
 function verifyConsistencyProofChain(
     bytes32[] memory initialAccumulator,
     IUnivocity.ConsistencyProof[] calldata decodedProofs
-) pure returns (bytes32[] memory finalAccumulator, uint64 size) {
+) pure returns (bytes32[] memory finalAccumulator) {
     uint256 n = decodedProofs.length;
     if (n == 0) {
-        finalAccumulator = new bytes32[](0);
-        size = 0;
-        return (finalAccumulator, size);
+        return new bytes32[](0);
     }
 
     bytes32[] memory accMem;
@@ -46,10 +45,9 @@ function verifyConsistencyProofChain(
                 consistentRootsMemory(ifrom, accumulatorFrom, p.paths);
             accMem = _concatAccumulator(roots, p.rightPeaks);
         }
-        size = p.treeSize2;
     }
 
-    finalAccumulator = accMem;
+    return accMem;
 }
 
 /// @notice Build the detached payload (commitment) for consistency receipt

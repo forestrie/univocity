@@ -7,7 +7,7 @@
 
 | Document | Description |
 |----------|-------------|
-| [ARC-0001](../arc-0001-grant-minimum-range.md) | Grant minimum range (min_growth) and permissionless submission |
+| [ARC-0001](../arc/arc-0001-grant-minimum-range.md) | Grant minimum range (min_growth) and permissionless submission |
 | [ARC-0016](https://github.com/forestrie/devdocs/blob/main/arc/arc-0016-checkpoint-incentivisation-model.md) | Checkpoint Incentivisation Model |
 | [ADR-0025](https://github.com/forestrie/devdocs/blob/main/adr/adr-0025-log-based-checkpoint-authority.md) | Log-Based Checkpoint Publishing Authority |
 | [ADR-0026](https://github.com/forestrie/devdocs/blob/main/adr/adr-0026-content-exclusion-proofs.md) | Content-Based Exclusion Proofs (deferred) |
@@ -287,7 +287,7 @@ growth per checkpoint). Under permissionless submission, financial incentives
 can push submitters to always submit minimally extending checkpoints. The
 authority log controls the **minimum** range of any checkpoint via the grant,
 so the authority sets the floor and submitters cannot arbitrarily minimize
-extension. See [ARC-0001](../arc-0001-grant-minimum-range.md) for the full
+extension. See [ARC-0001](../arc/arc-0001-grant-minimum-range.md) for the full
 rationale.
 
 ---

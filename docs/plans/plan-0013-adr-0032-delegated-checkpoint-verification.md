@@ -35,12 +35,11 @@ P256 (ES256), WitnetBuffer (Trail of Bits audited), native ecrecover (KS256).
 | `src/checkpoints/lib/LibAuthorityVerifier.sol` | Receipt verification; reference for COSE decode usage. |
 | OpenZeppelin `P256.sol` | `P256.verify`, `P256.recovery(h, v, r, s)` for ES256. |
 
-LogState today: `accumulator`, `size`, `checkpointCount`, `initializedAt`. Plan adds
-`rootKeyX`, `rootKeyY` (or equivalent) per log; leave zero until first checkpoint.
+LogState today: `accumulator`, `size`, `initializedAt` (plan-0021 Phase E removes `checkpointCount`). Plan adds `rootKeyX`, `rootKeyY` (or equivalent) per log; leave zero until first checkpoint.
 
 ## 1. Prerequisites
 
-- Plan 0012 (ARC-0016 implementation review) completed or current.
+- [Plan 0012](plan-0012-arc-0016-implementation-review.md) (ARC-0016 implementation review) completed or current.
 - Univocity receipt and MMR behaviour unchanged; this plan **adds** checkpoint
   COSE verification and **does not** remove existing receipt/consistency checks.
 - Forestrie checkpoint producer emits COSE_Sign1 per ARC-0010 with delegation

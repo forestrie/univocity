@@ -14,6 +14,20 @@ parsing on-chain, no Receipt of Inclusion for payment, no delegation cert
 decode. Raw proof data is calldata at the edge; first consistency proof uses
 storage for the initial accumulator (no copy).
 
+**Design intents (current implementation reflects all COSE/CBOR we need):**
+
+- Without breaking the cryptographic guarantees of COSE_Sign1, we accept
+  **pre-decoded COSE envelopes and supplemental material** to significantly
+  reduce the need for COSE/CBOR on-chain handling.
+- The remaining COSE/CBOR needs are **explicitly in support of the MMR
+  profile** and the aspects of SCITT that are unavoidably on-chain (e.g.
+  signature verification, algorithm extraction, Sig_structure).
+- We make **no attempt at generalised COSE/CBOR handling**; only the
+  minimal surface required for consistency receipt verification and
+  delegation proof.
+- Future algorithm support or extended COSE use would require **contract
+  upgrade or new deployment**, not in-contract generality.
+
 **Decisions (fixed):**
 
 - **Consistency receipt:** Pre-decoded only. Caller supplies

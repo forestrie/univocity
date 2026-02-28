@@ -16,24 +16,36 @@ interface IUnivocityErrors {
     error InvalidBootstrapKeyLength(int64 alg, uint256 length);
     error FirstCheckpointSizeTooSmall();
     error BootstrapReceiptMustBeFirstEntry();
+    /// @notice Root's first checkpoint: recovered signer must match bootstrap
+    ///    key to prevent front-running (no grant-based protection for root).
+    error RootSignerMustMatchBootstrap();
 
     // Log state
     error LogNotFound(bytes32 logId);
     error SizeMustIncrease(uint64 current, uint64 proposed);
     error InvalidAccumulatorLength(uint256 expected, uint256 actual);
     error InvalidRootKeyLength(uint256 length);
+    /// @notice Log has no root key set; only allowed on first checkpoint for
+    ///    that log (root key is then established from receipt/delegation).
+    error LogRootKeyNotSet();
 
     // Proofs
     error InvalidConsistencyProof();
     error InvalidSignatureChain();
     error InvalidReceiptInclusionProof();
 
-    // R5 Authorization
+    // Grant bounds / payment authorization
     error CheckpointCountExceeded(uint64 current, uint64 limit);
     error MaxHeightExceeded(uint64 size, uint64 maxHeight);
     error ReceiptLogIdMismatch(bytes32 expected, bytes32 actual);
 
     // ADR-0032 checkpoint COSE / delegation
+    /// @notice Delegation proof supplied but algorithm does not support
+    ///    delegation (e.g. KS256).
+    error DelegationUnsupportedForAlg(int64 alg);
+    /// @notice Receipt signed with one algorithm but log configured for another
+    ///    (e.g. ES256 receipt for a KS256 log).
+    error InconsistentReceiptSignature(int64 algProvided, int64 algLog);
     error InvalidCheckpointCose();
     error MissingDelegationCert();
     error InvalidDelegationSignatureLength(uint256 length);
