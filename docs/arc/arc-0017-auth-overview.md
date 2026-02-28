@@ -1,4 +1,4 @@
-# ARC-0017: Authorization model overview
+#https://dashboard.tenderly.co/sentientdogs/flip/testnet/ef72b7d9-2787-42be-8eaa-c2bf796c5c39?kind=standard ARC-0017: Authorization model overview
 
 **Status:** DRAFT  
 **Date:** 2026-02-23  
@@ -28,24 +28,19 @@ are owned by an authority log.
 
 ```mermaid
 flowchart TB
-  subgraph auth["Authority logs (hierarchy)"]
-    ROOT["Root authority log\nauthLogId = self"]
-    CHILD["Child authority log\nauthLogId = parent"]
-  end
-
-  subgraph data["Data logs"]
-    D1["Data log A\nauthLogId = owning auth"]
-    D2["Data log B\nauthLogId = owning auth"]
-  end
+  ROOT["Root authority log\nauthLogId = self"]
+  CHILD["Child authority log\nauthLogId = parent"]
+  D1["Data log A\nauthLogId = owning auth"]
+  D2["Data log B\nauthLogId = owning auth"]
 
   ROOT -->|"owner (parent)"| CHILD
   ROOT -->|"owner"| D1
   CHILD -->|"owner"| D2
 
-  ROOT -.->|"extend: grant in self"| ROOT
-  CHILD -.->|"extend: grant in parent"| CHILD
-  D1 -.->|"extend: grant in owner"| D1
-  D2 -.->|"extend: grant in owner"| D2
+  ROOT -.->|extend: grant in self| ROOT
+  CHILD -.->|extend: grant in parent| ROOT
+  D1 -.->|extend: grant in owner| ROOT
+  D2 -.->|extend: grant in owner| CHILD
 ```
 
 **Rules 2 & 3:** To extend a log, the grant is always an inclusion proof
