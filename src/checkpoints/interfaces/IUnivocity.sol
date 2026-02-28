@@ -107,8 +107,9 @@ interface IUnivocity is IUnivocityEvents {
     ///    optional pre-decoded inclusion proof (plan 0016).
     /// @param consistencyParts Pre-decoded (protectedHeader, signature,
     ///    consistencyProofs, delegationProof). No COSE/CBOR parse.
-    /// @param paymentInclusionProof Pre-decoded (index, path). path.length == 0
-    ///    when not required (bootstrap or authority log).
+    /// @param paymentInclusionProof Pre-decoded (index, path). Root's first
+    ///    checkpoint: index 0, path length up to MAX_HEIGHT. Other checkpoints:
+    ///    inclusion in grant's owner (path length up to MAX_HEIGHT).
     /// @param paymentIDTimestampBe Big-endian idtimestamp of included content.
     /// @param paymentGrant LogId, payer (who paid; any sender may submit),
     ///    checkpoint range, max_height, min_growth for leaf commitment and

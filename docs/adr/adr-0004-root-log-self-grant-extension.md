@@ -22,7 +22,7 @@ Today the **root authority log** is extended under different rules than other
 logs:
 
 - **Root extension:** Only `bootstrapAuthority` may publish; no inclusion
-  proof is required (path must be empty). The contract checks
+  proof is required (index 0; path length up to MAX_HEIGHT). The contract checks
   `msg.sender == bootstrapAuthority`.
 - **Other logs:** Extension requires a **grant** — an inclusion proof against
   the log’s **owner** (data log → owning auth log; child authority → parent
@@ -54,7 +54,7 @@ grant (inclusion proof against the root log itself).
 3. **Single special case: first checkpoint ever.** The only remaining
    special case is the **creation** of the root (no log exists yet). That
    still requires the bootstrap authority and a self-inclusion style proof
-   (index 0, empty path, new tree). After that, the root exists with
+   (index 0; path length up to MAX_HEIGHT, new tree). After that, the root exists with
    `authLogId = rootLogId`, and all further extensions (root and non-root)
    use the same rule: grant from the log’s authLogId.
 
@@ -140,7 +140,7 @@ grant (inclusion proof against the root log itself).
   root extension requires grant in root (inclusion proof); bootstrap only for
   first checkpoint ever.
 - **Contract:** `_verifyInclusionGrant` would drop the “if root, check
-  bootstrap and require empty path” branch for extension; add root to the
+  bootstrap and require index 0 (path length up to MAX_HEIGHT)” branch for extension; add root to the
   “grant from authLogId” path with authLogId == rootLogId. Set
   `config.authLogId = logId` when creating the root in `_initializeAuthorityLog`.
 - **Tests and docs:** Root extension tests would use inclusion proofs against

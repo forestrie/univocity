@@ -2,6 +2,7 @@
 
 **Status:** DRAFT  
 **Date:** 2026-02-23  
+**Overview:** [ARC-0017 authorization model (diagrams)](arc-0017-auth-overview.md)  
 **Related:** [ADR-0004](../adr/adr-0004-root-log-self-grant-extension.md),
 [ARC-0016](arc-0016-checkpoint-incentivisation-implementation.md),
 [ARC-0001](arc-0001-grant-minimum-range.md),
@@ -61,10 +62,11 @@ to support it and any future multi-authority design.
    log’s established rootKey — or it is the first checkpoint, in which case
    the key (or recovered rootKey) is stored as rootKey.
 4. **Bootstrap** is used only for the **first checkpoint ever** (no log
-   exists yet): grant is self-inclusion (index 0, empty path) in the new
-   tree, signature must verify with bootstrap keys (OnlyBootstrapAuthority).
-   After that, the root has authLogId = rootLogId; root extension requires a
-   grant (inclusion proof) in the root, like any other log.
+   exists yet): grant is self-inclusion (index 0; path length up to
+   MAX_HEIGHT) in the new tree; receipt signer must match bootstrap key
+   (prevents front-running; OnlyBootstrapAuthority). After that, the root
+   has authLogId = rootLogId; root extension requires a grant (inclusion
+   proof) in the root, like any other log.
 5. **Log creation:** when a grant allows creating a log (first checkpoint to
    a new data or authority log), the grant must include the **owner logId**
    (auth log for data, parent for authority).
@@ -216,11 +218,14 @@ support it.
 **Goal:** Clarify how the **right to extend** the root and other authority
 logs is determined.
 
-**Unified model (per [ADR-0004](../adr/adr-0004-root-log-self-grant-extension.md)):**
+**Unified model (per [ADR-0004](../adr/adr-0004-root-log-self-grant-extension.md)).**
+For payment evidence (path length, bootstrap signer) see
+[ARC-0016](arc-0016-checkpoint-incentivisation-implementation.md) §2.2, §3.1.
 
 - **First checkpoint ever:** Only `bootstrapAuthority` may publish. No log
-  exists yet; grant is self-inclusion (index 0, empty path) in the new tree.
-  This creates the root with `authLogId = rootLogId` (self).
+  exists yet; grant is self-inclusion (index 0; path length up to
+  MAX_HEIGHT); receipt signer must match bootstrap key. This creates the root
+  with `authLogId = rootLogId` (self).
 - **Root extension (after creation):** Extension of the root requires a
   **grant** (inclusion proof) in the root log itself. `paymentGrant.ownerLogId
   == rootLogId` and the contract verifies inclusion against the root's

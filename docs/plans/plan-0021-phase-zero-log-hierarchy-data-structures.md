@@ -169,11 +169,13 @@ expose config.
 
 ### 3.3 Authority model (ARC-0017 §2)
 
-The four canonical rules and how they govern log extension are in **ARC-0017 §2 (Authorization rules)**. Summary: (1) RootKey at first checkpoint — direct key or **recovered rootKey** in delegation; (2) Grant = inclusion against owner (parent for authority, auth log for data); (3) First checkpoint establishes kind and authLogId; (4) Bootstrap only special case (grant against self, size > 1, bootstrap keys); (5) Log-creation grants must include **ownerLogId**.
+The four canonical rules and how they govern log extension are in **ARC-0017 §2 (Authorization rules)**. Summary: (1) RootKey at first checkpoint — direct key or **recovered rootKey** in delegation; (2) Grant = inclusion against owner (parent for authority, auth log for data); (3) First checkpoint establishes kind and authLogId; (4) Bootstrap only for first checkpoint ever (grant against self, index 0,
+    path up to MAX_HEIGHT; receipt signer must match bootstrap key); (5) Log-creation grants must include **ownerLogId**.
 
 **Derived: key for consistency receipt**
 
-- **First checkpoint, bootstrap:** Bootstrap keys; store or treat as rootKey.
+- **First checkpoint, bootstrap:** Receipt signer must match bootstrap key;
+    store as rootKey (prevents front-running).
 - **First checkpoint, other log (direct):** Signing key from receipt; verify, then store as rootKey.
 - **First checkpoint, other log (delegation):** Verify delegation; store the **recovered rootKey** (the key that signed the delegation) as rootKey. Grant/receipt may need to supply both delegation and public root key.
 - **Later checkpoint, any log:** That log's established rootKey (or delegation from it).
@@ -192,7 +194,10 @@ logId** (or equivalent) whenever it is used to create a log; the contract
 verifies the inclusion proof against that owner log and sets
 authLogId = owner logId when applying the first checkpoint.
 
-- **First checkpoint ever (bootstrap):** Grant against self (first leaf in new tree); OnlyBootstrapAuthority; creates root with authLogId = rootLogId (self). No owner field (N/A).
+- **First checkpoint ever (bootstrap):** Grant against self (index 0, path
+    length up to MAX_HEIGHT); OnlyBootstrapAuthority; receipt signer must
+    match bootstrap key; creates root with authLogId = rootLogId (self). No
+    owner field (N/A). See [ARC-0016](../arc/arc-0016-checkpoint-incentivisation-implementation.md) §2.2, §3.1.
 - **Root extension (after creation):** Grant in root; ownerLogId == rootLogId; verify inclusion against root’s accumulator; permissionless (no bootstrap check).
 - **Data log:** Inclusion proof against owning authority (`_logConfigs[logId].authLogId`). First checkpoint: **owner logId from grant** = associated auth log; set authLogId from that.
 - **Child authority:** Inclusion proof against **parent** log. First checkpoint: **owner logId from grant** = parent logId; set kind = Authority, authLogId = parentLogId.

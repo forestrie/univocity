@@ -41,7 +41,6 @@ contract UnivocityHandler is Test {
         _authorityLeaf0 = _leafCommitment(idts, g);
         IUnivocity.ConsistencyReceipt memory consistency =
             _buildConsistencyReceipt(_toAcc(_authorityLeaf0));
-        vm.prank(bootstrap);
         univocity.publishCheckpoint(
             consistency, _emptyInclusionProof(), idts, g
         );

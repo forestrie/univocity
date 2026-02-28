@@ -33,10 +33,13 @@ import {peaks} from "@univocity/algorithms/peaks.sol";
 ///    receipts.
 ///
 /// ## Authorization model (enforced rules)
-/// 1. **Bootstrap only for first checkpoint:** Only the bootstrap authority
-///    may publish the first checkpoint ever (establishing the root authority
-///    log). Root extension requires a grant (inclusion proof in the root,
-///    self-issued) and is permissionless once the grant exists.
+/// 1. **First checkpoint ever (root):** The first checkpoint establishes the
+///    root authority log. Grant is self-inclusion (index 0; path length up to
+///    MAX_HEIGHT). The receipt signer becomes that log's root key; for the
+///    root's first checkpoint the recovered signer must match the bootstrap
+///    key (no grant-based protection; prevents front-running). Submission is
+///    permissionless; bootstrapAuthority is the contract's configured
+///    identity (for off-chain use); CheckpointPublished carries the sender.
 /// 2. **Grant = inclusion against owner:** To extend any other log, the caller
 ///    must supply a grant evidenced by an inclusion proof in that log's
 ///    *owner* (data log → owning authority log; child authority → parent log).
@@ -53,9 +56,8 @@ import {peaks} from "@univocity/algorithms/peaks.sol";
 contract Univocity is IUnivocity, IUnivocityErrors {
     // === State ===
 
-    /// @notice Address permitted to publish the first checkpoint (establishing
-    ///    the authority log)
-    ///    and to publish to the authority log.
+    /// @notice Address of the identity whose key must sign the root's first
+    ///    checkpoint (signer constraint, not caller). Emitted in Initialized.
     address public immutable bootstrapAuthority;
 
     /// @notice Ethereum address used to verify KS256 (secp256k1) signatures on
@@ -82,12 +84,16 @@ contract Univocity is IUnivocity, IUnivocityErrors {
     /// @notice Deploys the Univocity transparency contract with bootstrap
     ///    authority and a single bootstrap key (alg + opaque bytes, same
     ///    pattern as rootKey / delegationKey). Plan 0018.
-    /// @dev Establishes the single identity that may create and extend the
-    ///    root authority log (rule 1). Authority log id is set on first
-    ///    publishCheckpoint from this address; only this address may ever
-    ///    publish to that root log.
-    /// @param _bootstrapAuthority Address allowed to publish the first
-    ///    checkpoint and to publish to the authority log. Must not be zero.
+    /// @dev The bootstrap key (from _bootstrapAlg + _bootstrapKey) constrains
+    ///    the **signer** of the root's first checkpoint: the consistency receipt
+    ///    must be signed by that key (prevents front-running). Calling
+    ///    publishCheckpoint is always permissionless (anyone with a valid grant
+    ///    and validly signed checkpoint may submit; the caller pays gas).
+    ///    _bootstrapAuthority is the address of that identity (emitted in
+    ///    Initialized; not checked against msg.sender for publishCheckpoint).
+    /// @param _bootstrapAuthority Address of the identity whose key must sign
+    ///    the root's first checkpoint. Constrains the signer, not the caller.
+    ///    Must not be zero.
     /// @param _bootstrapAlg COSE algorithm: ALG_KS256 (-65799) or ALG_ES256
     ///    (-7). Key format depends on alg.
     /// @param _bootstrapKey Opaque key: KS256 = 20 bytes (Ethereum address);
@@ -167,19 +173,6 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         if (msg.sender != bootstrapAuthority) revert OnlyBootstrapAuthority();
     }
 
-    // === Initialization (internal;
-    // authority established by first bootstrap checkpoint) ===
-
-    /// @notice Set authority log from first checkpoint;
-    ///    only callable when not yet initialized.
-    /// @dev Called from publishCheckpoint when rootLogId is unset and
-    ///    msg.sender is bootstrap.
-    function _initializeAuthorityLog(bytes32 logId) internal {
-        if (rootLogId != bytes32(0)) revert AlreadyInitialized();
-        rootLogId = logId;
-        emit Initialized(bootstrapAuthority, logId);
-    }
-
     // === View Functions ===
 
     /// @notice Returns the mutable state of a log (accumulator, size).
@@ -233,14 +226,13 @@ contract Univocity is IUnivocity, IUnivocityErrors {
 
     /// @notice Publish a checkpoint from a pre-decoded consistency receipt
     ///    and optional inclusion proof (grant).
-    /// @dev Authorization is enforced as follows:
-    ///   - Root not yet set: bootstrap only; grant is self-inclusion (rule 1).
-    ///   - Target is root authority: bootstrap only; no inclusion proof (rule 1).
-    ///   - First checkpoint to a new log: ownerLogId required; inclusion
-    ///     verified against owner; kind set from createAsAuthority (rule 2, 3).
-    ///   - Extend existing data or child authority: inclusion verified against
-    ///     that log's owner (config.authLogId) (rule 2).
-    ///   Grant bounds (minGrowth, maxHeight) are checked before acceptance (rule 4).
+    /// @dev Authorization: target = paymentGrant.logId. Root not yet set:
+    ///   first checkpoint ever; grant = self-inclusion (index 0, path length
+    ///   up to MAX_HEIGHT); receipt signer must match bootstrap key (rule 1).
+    ///   First checkpoint to a new log: ownerLogId required; inclusion
+    ///   verified against owner; kind from createAsAuthority (rule 2, 3).
+    ///   Extend existing log: inclusion verified against config.authLogId
+    ///   (rule 2). Grant bounds minGrowth, maxHeight checked (rule 4).
     function publishCheckpoint(
         IUnivocity.ConsistencyReceipt calldata consistencyParts,
         IUnivocity.InclusionProof calldata paymentInclusionProof,
@@ -262,6 +254,8 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             consistencyParts.consistencyProofs.length - 1
         ]
         .treeSize2;
+
+        // New log must have at least one leaf; reject claimed size 0.
         if (config.initializedAt == 0 && claimedSize == 0) {
             revert InvalidConsistencyProof();
         }
@@ -304,17 +298,12 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             accMem
         );
 
-        // Emit payment index only when path was used for verification;
-        // when path is empty (root first checkpoint or size-1 extend) emit 0.
-        uint64 paymentIndex = paymentInclusionProof.path.length == 0
-            ? 0
-            : paymentInclusionProof.index;
         _updateLogState(
             logId,
             claimedSize,
             accMem,
             paymentGrant.payer,
-            paymentIndex,
+            paymentInclusionProof.index,
             paymentInclusionProof.path,
             authForInclusion,
             paymentGrant.createAsAuthority,
@@ -338,16 +327,17 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             _leafCommitment(paymentIDTimestampBe, paymentGrant);
 
         if (rootLogId == bytes32(0)) {
-            // Rule 1: First checkpoint ever = bootstrap creates root authority.
-            // Only the bootstrap authority may establish the root log.
-            _onlyBootstrap();
-            // No payment path; grant is self-inclusion (index 0) in the new tree.
+            // Rule 1: First checkpoint ever = root authority log. Grant is
+            // inclusion proof against the first leaf (index 0) in the new tree.
             if (claimedSize < 1) revert FirstCheckpointSizeTooSmall();
-            if (paymentInclusionProof.path.length != 0) {
-                revert InvalidPaymentReceipt();
-            }
+
+            // Root's first checkpoint: grant is self-inclusion at index 0;
+            // path may be any length up to MAX_HEIGHT (claimedSize >= 1).
             if (paymentInclusionProof.index != 0) {
                 revert InvalidPaymentReceipt();
+            }
+            if (paymentInclusionProof.path.length > MAX_HEIGHT) {
+                revert ProofPayloadExceedsMaxHeight();
             }
             if (!verifyInclusion(
                     0,
@@ -358,44 +348,36 @@ contract Univocity is IUnivocity, IUnivocityErrors {
                 )) {
                 revert InvalidReceiptInclusionProof();
             }
-            _initializeAuthorityLog(logId);
+
+            rootLogId = logId;
+            // Emit contract's bootstrap identity and new root log id;
+            // CheckpointPublished carries the actual sender.
+            emit Initialized(bootstrapAuthority, logId);
+
             return bytes32(0);
         }
         // Root extension (after creation) and extend existing data/child log:
         // grant = inclusion proof against this log's authLogId (root = self).
-        if (config.initializedAt == 0) {
-            // Rules 2 & 3: First checkpoint to a new (data or child authority) log.
-            // Grant must include ownerLogId; we verify inclusion against that owner.
-            if (paymentGrant.ownerLogId == bytes32(0)) {
-                revert InvalidPaymentReceipt();
-            }
-            if (paymentInclusionProof.path.length == 0) {
-                revert InvalidPaymentReceipt();
-            }
-            if (paymentInclusionProof.path.length > MAX_HEIGHT) {
-                revert ProofPayloadExceedsMaxHeight();
-            }
-            LogState storage ownerLog = _logs[paymentGrant.ownerLogId];
-            if (!verifyInclusion(
-                    paymentInclusionProof.index,
-                    leafCommitment,
-                    paymentInclusionProof.path,
-                    ownerLog.accumulator,
-                    ownerLog.size
-                )) {
-                revert InvalidPaymentReceipt();
-            }
-            return paymentGrant.ownerLogId;
+        // First checkpoint to a non-root log (root already exists; this branch
+        // cannot be reached for the root authority log). Resolve the log
+        // against which we verify the grant (owner), then use the same
+        // proof checks as for extending an existing log.
+        bytes32 resolvedAuthLogId = config.initializedAt == 0
+            ? paymentGrant.ownerLogId
+            : config.authLogId;
+
+        if (paymentGrant.ownerLogId == bytes32(0) && config.initializedAt == 0)
+        {
+            revert InvalidPaymentReceipt();
         }
 
-        // Rule 2: Extend existing log (root, data, or child authority); grant
-        // is inclusion proof against this log's authLogId (root = self).
-        LogState storage extendOwnerLog = _logs[config.authLogId];
+        LogState storage ownerLog = _logs[resolvedAuthLogId];
         // Empty path is valid only when owner has size 1 and index 0 (peak =
-        // leaf).
+        // leaf); e.g. when creating a child log and the owner has one leaf.
         if (paymentInclusionProof.path.length == 0) {
-            if (!(extendOwnerLog.size == 1
-                        && paymentInclusionProof.index == 0)) revert InvalidPaymentReceipt();
+            if (!(ownerLog.size == 1 && paymentInclusionProof.index == 0)) {
+                revert InvalidPaymentReceipt();
+            }
         }
         if (paymentInclusionProof.path.length > MAX_HEIGHT) {
             revert ProofPayloadExceedsMaxHeight();
@@ -404,12 +386,12 @@ contract Univocity is IUnivocity, IUnivocityErrors {
                 paymentInclusionProof.index,
                 leafCommitment,
                 paymentInclusionProof.path,
-                extendOwnerLog.accumulator,
-                extendOwnerLog.size
+                ownerLog.accumulator,
+                ownerLog.size
             )) {
             revert InvalidPaymentReceipt();
         }
-        return config.authLogId;
+        return resolvedAuthLogId;
     }
 
     function _verifyCheckpointSignature(
@@ -482,6 +464,13 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         }
         // Persist the log root key for new logs so future checkpoints can verify against it.
         if (config.initializedAt == 0) {
+            // Root's first checkpoint has no grant-based protection; require
+            // recovered signer to match bootstrap key to prevent front-running.
+            if (
+                rootLogId == bytes32(0) && (rootX != es256X || rootY != es256Y)
+            ) {
+                revert RootSignerMustMatchBootstrap();
+            }
             return abi.encodePacked(rootX, rootY);
         }
         return new bytes(0);
@@ -498,7 +487,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
     ) internal view returns (bytes memory initialRoot) {
         // KS256: no delegation support. Verifier key is root (bootstrap for root log) or stored log key.
         if (delegationProof.signature.length > 0) {
-            revert DelegationNotSupportedForAlg(ALG_KS256);
+            revert DelegationUnsupportedForAlg(ALG_KS256);
         }
         bool isFirstCheckpointKs = config.initializedAt == 0;
         address keyAddr = (rootLogId == bytes32(0) || logId == rootLogId)
@@ -506,9 +495,9 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             : _decodeLogRootKeyKS256(logId);
         if (keyAddr == address(0)) {
             // Distinguish missing key from algorithm mismatch (log created
-            // under ES256 has rootKey.length == 64).
+            // under ES256 has rootKey.length == 64): receipt is KS256, log is ES256.
             if (config.rootKey.length == 64) {
-                revert UnsupportedAlgorithm(ALG_ES256);
+                revert InconsistentReceiptSignature(ALG_KS256, ALG_ES256);
             }
             if (!isFirstCheckpointKs) revert LogRootKeyNotSet();
             keyAddr = ks256Signer;
@@ -551,16 +540,15 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         )
     {
         // Root key from storage, or recover from receipt/delegation on first
-        // checkpoint. For the bootstrap (first checkpoint ever) the recovered
-        // signer is used and stored; verification already ensures the receipt
-        // is valid, so no special case for root log.
+        // checkpoint. Caller enforces for the root's first checkpoint that the
+        // recovered signer matches the bootstrap key (no grant-based protection).
         (rootX, rootY) = _decodeLogRootKeyES256(logId);
 
         if (rootX == bytes32(0) && rootY == bytes32(0)) {
             // Distinguish unset key from key-type mismatch (log created under
-            // KS256 has rootKey.length == 20).
+            // KS256 has rootKey.length == 20): receipt is ES256, log is KS256.
             if (config.rootKey.length == 20) {
-                revert UnsupportedAlgorithm(ALG_KS256);
+                revert InconsistentReceiptSignature(ALG_ES256, ALG_KS256);
             }
             if (config.initializedAt != 0) revert LogRootKeyNotSet();
 
@@ -736,7 +724,8 @@ contract Univocity is IUnivocity, IUnivocityErrors {
     }
 
     /// @notice Update log storage and emit CheckpointPublished.
-    /// @param rootKeyToSet When isNewLog and length 64 (ES256), set as log root key.
+    /// @param rootKeyToSet When isNewLog and length 64 (ES256) or 20 (KS256),
+    ///    set as log root key.
     function _updateLogState(
         bytes32 logId,
         uint64 size,

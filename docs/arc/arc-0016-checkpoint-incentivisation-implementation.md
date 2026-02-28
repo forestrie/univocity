@@ -45,9 +45,11 @@ Signer, payer, and submitter are independent. The contract does **not** verify
   bootstrap authority establishes `rootLogId` (the root authority log). No
   separate “create authority” tx.
 - **Root log publishing:** **First checkpoint ever:** only the bootstrap
-  authority; self-inclusion (path empty). **Root extension (after creation):**
-  requires a **grant** (inclusion proof) in the root; `paymentGrant.ownerLogId
-  == rootLogId`; any sender with a valid grant may publish (permissionless).
+  authority; self-inclusion (index 0; path length up to MAX_HEIGHT);
+  receipt signer must match bootstrap key. **Root extension (after
+  creation):** requires a **grant** (inclusion proof) in the root;
+  `paymentGrant.ownerLogId == rootLogId`; any sender with a valid grant may
+  publish (permissionless).
 - **Other logs (data logs; child auth logs):** Any sender may publish
   checkpoints to non-root logs provided they supply a valid consistency
   receipt and a valid **inclusion proof** that the grant leaf is in the
@@ -77,9 +79,10 @@ Payment is evidenced by a **pre-decoded inclusion proof** against the
 log’s **owner** (root log for first bootstrap; owning auth log for data
 logs; parent for child auth logs):
 
-- **First checkpoint (bootstrap):** No prior log; path must be empty; only
-  bootstrap may call. Leaf commitment is verified as the single leaf in the
-  new root log.
+- **First checkpoint (bootstrap):** No prior log; index 0; path length up to
+  MAX_HEIGHT; only bootstrap may call. Receipt signer must match bootstrap
+  key (prevents front-running; see RootSignerMustMatchBootstrap). Leaf
+  commitment verified as the first leaf in the new root log.
 - **Root extension (after creation):** Caller must supply `InclusionProof`
   (index, path) against the **root’s** accumulator; `paymentGrant.ownerLogId
   == rootLogId`. Same as other logs (grant-based, permissionless).
@@ -173,9 +176,9 @@ paymentIDTimestampBe, PaymentGrant calldata paymentGrant)`.
 - **ConsistencyReceipt:** Pre-decoded (protectedHeader, signature,
   consistencyProofs[], delegationProof). No COSE/CBOR parse on-chain for the
   consistency receipt.
-- **InclusionProof:** Pre-decoded (index, path). Empty path only for first
-  checkpoint ever (bootstrap); root extension and all other logs require
-  inclusion proof against the log’s authLogId.
+- **InclusionProof:** Pre-decoded (index, path). Root's first checkpoint:
+  index 0, path length up to MAX_HEIGHT. Root extension and all other logs:
+  inclusion proof against the log's authLogId (path length up to MAX_HEIGHT).
 - Consistency proof chain is run in memory; detached payload is
   `sha256(abi.encodePacked(accumulator))`; signature verified with bootstrap
   or delegated key. Then bounds and (where required) inclusion proof are

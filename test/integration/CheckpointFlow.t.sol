@@ -94,7 +94,6 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
         bytes32 leaf0 = _leafCommitment(IDTIMESTAMP_0, g);
         IUnivocity.ConsistencyReceipt memory consistency =
             _buildConsistencyReceipt(_toAcc(leaf0));
-        vm.prank(BOOTSTRAP);
         fresh.publishCheckpoint(
             consistency, _emptyInclusionProof(), IDTIMESTAMP_0, g
         );
@@ -388,11 +387,11 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
             rootLogId, ks256Signer, 0, 10, 1000, 0, bytes32(0), false
         );
         bytes32 authLeaf0 = _leafCommitment(IDTIMESTAMP_0, g0);
-        IUnivocity.ConsistencyReceipt memory consistency0 =
-            _buildConsistencyReceipt(_toAcc(authLeaf0));
-        vm.prank(BOOTSTRAP);
         univocity.publishCheckpoint(
-            consistency0, _emptyInclusionProof(), IDTIMESTAMP_0, g0
+            _buildConsistencyReceipt(_toAcc(authLeaf0)),
+            _emptyInclusionProof(),
+            IDTIMESTAMP_0,
+            g0
         );
 
         IUnivocity.PaymentGrant memory gTarget = _paymentGrant(
@@ -424,11 +423,11 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
             rootLogId, ks256Signer, 0, 10, 1000, 0, bytes32(0), false
         );
         bytes32 authLeaf0 = _leafCommitment(IDTIMESTAMP_0, g0);
-        IUnivocity.ConsistencyReceipt memory consistency0 =
-            _buildConsistencyReceipt(_toAcc(authLeaf0));
-        vm.prank(BOOTSTRAP);
         univocity.publishCheckpoint(
-            consistency0, _emptyInclusionProof(), IDTIMESTAMP_0, g0
+            _buildConsistencyReceipt(_toAcc(authLeaf0)),
+            _emptyInclusionProof(),
+            IDTIMESTAMP_0,
+            g0
         );
 
         IUnivocity.PaymentGrant memory gTarget = _paymentGrant(

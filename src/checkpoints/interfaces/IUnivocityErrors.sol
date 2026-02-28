@@ -16,6 +16,9 @@ interface IUnivocityErrors {
     error InvalidBootstrapKeyLength(int64 alg, uint256 length);
     error FirstCheckpointSizeTooSmall();
     error BootstrapReceiptMustBeFirstEntry();
+    /// @notice Root's first checkpoint: recovered signer must match bootstrap
+    ///    key to prevent front-running (no grant-based protection for root).
+    error RootSignerMustMatchBootstrap();
 
     // Log state
     error LogNotFound(bytes32 logId);
@@ -39,7 +42,10 @@ interface IUnivocityErrors {
     // ADR-0032 checkpoint COSE / delegation
     /// @notice Delegation proof supplied but algorithm does not support
     ///    delegation (e.g. KS256).
-    error DelegationNotSupportedForAlg(int64 alg);
+    error DelegationUnsupportedForAlg(int64 alg);
+    /// @notice Receipt signed with one algorithm but log configured for another
+    ///    (e.g. ES256 receipt for a KS256 log).
+    error InconsistentReceiptSignature(int64 algProvided, int64 algLog);
     error InvalidCheckpointCose();
     error MissingDelegationCert();
     error InvalidDelegationSignatureLength(uint256 length);
