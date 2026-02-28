@@ -36,7 +36,14 @@ contract UnivocityHandler is Test {
         if (initialized) return;
         bytes8 idts = bytes8(0);
         IUnivocity.PaymentGrant memory g = _paymentGrant(
-            rootLogId, ks256Signer, GRANT_ROOT, 0, 0, bytes32(0), ""
+            rootLogId,
+            ks256Signer,
+            GRANT_ROOT,
+            GC_AUTH_LOG,
+            0,
+            0,
+            bytes32(0),
+            ""
         );
         _authorityLeaf0 = _leafCommitment(idts, g);
         IUnivocity.ConsistencyReceipt memory consistency =
@@ -69,6 +76,8 @@ contract UnivocityHandler is Test {
     uint256 internal constant GF_EXTEND = uint256(1) << 33;
     uint256 internal constant GF_AUTH = uint256(1);
     uint256 internal constant GF_DATA = uint256(2);
+    uint256 internal constant GC_AUTH_LOG = uint256(1) << 224;
+    uint256 internal constant GC_DATA_LOG = uint256(2) << 224;
     uint256 internal constant GRANT_ROOT = GF_CREATE | GF_EXTEND | GF_AUTH;
     uint256 internal constant GRANT_DATA = GF_CREATE | GF_EXTEND | GF_DATA;
 
@@ -76,6 +85,7 @@ contract UnivocityHandler is Test {
         bytes32 logId,
         address payer,
         uint256 grant,
+        uint256 request,
         uint64 maxHeight,
         uint64 minGrowth,
         bytes32 ownerLogId,
@@ -85,6 +95,7 @@ contract UnivocityHandler is Test {
             logId: logId,
             payer: payer,
             grant: grant,
+            request: request,
             maxHeight: maxHeight,
             minGrowth: minGrowth,
             ownerLogId: ownerLogId,
@@ -220,10 +231,18 @@ contract UnivocityHandler is Test {
         vm.prank(bootstrap);
         bytes8 idts = bytes8(sizeSeed % 256);
         IUnivocity.PaymentGrant memory gAuth = _paymentGrant(
-            rootLogId, ks256Signer, GRANT_ROOT, 0, 0, bytes32(0), ""
+            rootLogId,
+            ks256Signer,
+            GRANT_ROOT,
+            GC_AUTH_LOG,
+            0,
+            0,
+            bytes32(0),
+            ""
         );
-        IUnivocity.PaymentGrant memory gLog =
-            _paymentGrant(logId, ks256Signer, GRANT_DATA, 0, 0, rootLogId, "");
+        IUnivocity.PaymentGrant memory gLog = _paymentGrant(
+            logId, ks256Signer, GRANT_DATA, GC_DATA_LOG, 0, 0, rootLogId, ""
+        );
         bytes32 leaf1 = _leafCommitment(idts, gLog);
         IUnivocity.ConsistencyReceipt memory consistency1to2 =
             _buildConsistencyReceipt1To2(_authorityLeaf0, leaf1);

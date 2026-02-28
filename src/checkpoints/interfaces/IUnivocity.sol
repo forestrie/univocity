@@ -65,13 +65,16 @@ interface IUnivocity is IUnivocityEvents {
     }
 
     /// @notice Caller-supplied payment grant for leaf commitment and bounds.
-    ///    grant is a uint256 flag set: GF_CREATE (1<<32), GF_EXTEND (1<<33),
-    ///    GF_AUTH_LOG (1), GF_DATA_LOG (2). Leaf inner hash: logId, payer,
-    ///    grant, maxHeight, minGrowth, ownerLogId, grantData.
+    ///    grant (in commitment): GF_CREATE (1<<32), GF_EXTEND (1<<33),
+    ///    GF_AUTH_LOG (1), GF_DATA_LOG (2). request is NOT in the commitment;
+    ///    high 32 bits = GC_AUTH_LOG or GC_DATA_LOG (mutually exclusive), must
+    ///    be allowed by grant. Leaf inner hash: logId, payer, grant, maxHeight,
+    ///    minGrowth, ownerLogId, grantData (no request).
     struct PaymentGrant {
         bytes32 logId;
         address payer;
         uint256 grant;
+        uint256 request;
         uint64 maxHeight;
         uint64 minGrowth;
         bytes32 ownerLogId;

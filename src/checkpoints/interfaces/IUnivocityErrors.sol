@@ -8,6 +8,8 @@ interface IUnivocityErrors {
     error AlreadyInitialized();
     error NotInitialized();
     error OnlyBootstrapAuthority();
+    error BootstrapLogMustUseSelf();
+    error BootstrapLogMustBeAuthLog();
     /// @notice Bootstrap algorithm not supported (use COSE ALG_ES256 or
     ///    ALG_KS256).
     error InvalidBootstrapAlgorithm(int64 alg);
@@ -66,9 +68,9 @@ interface IUnivocityErrors {
 
     // Plan 0015: Payment receipt as Receipt of Inclusion
     error InvalidPaymentReceipt();
-    /// @notice Grant code or flags do not match the required values for this
-    ///    operation (e.g. first root checkpoint requires GC_CREATE, GF_AUTH_LOG).
-    error GrantRequirement(uint256 requiredGrant);
+    /// @notice Grant or request does not match the required values for this
+    ///    operation. requiredGrant = GF_* flags; requiredRequest = GC_* (or 0).
+    error GrantRequirement(uint256 requiredGrant, uint256 requiredRequest);
     error MinGrowthNotMet(
         uint64 currentSize, uint64 newSize, uint64 minGrowth
     );

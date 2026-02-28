@@ -89,7 +89,14 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
         Univocity fresh =
             new Univocity(BOOTSTRAP, ALG_KS256, abi.encodePacked(ks256Signer));
         IUnivocity.PaymentGrant memory g = _paymentGrant(
-            rootLogId, ks256Signer, GRANT_ROOT, 0, 0, bytes32(0), ""
+            rootLogId,
+            ks256Signer,
+            GRANT_ROOT,
+            GC_AUTH_LOG,
+            0,
+            0,
+            bytes32(0),
+            ""
         );
         bytes32 leaf0 = _leafCommitment(IDTIMESTAMP_0, g);
         IUnivocity.ConsistencyReceipt memory consistency =
@@ -125,6 +132,8 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
     uint256 internal constant GF_EXTEND = uint256(1) << 33;
     uint256 internal constant GF_AUTH = uint256(1);
     uint256 internal constant GF_DATA = uint256(2);
+    uint256 internal constant GC_AUTH_LOG = uint256(1) << 224;
+    uint256 internal constant GC_DATA_LOG = uint256(2) << 224;
     uint256 internal constant GRANT_ROOT = GF_CREATE | GF_EXTEND | GF_AUTH;
     uint256 internal constant GRANT_DATA = GF_CREATE | GF_EXTEND | GF_DATA;
 
@@ -132,6 +141,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
         bytes32 logId,
         address payer,
         uint256 grant,
+        uint256 request,
         uint64 maxHeight,
         uint64 minGrowth,
         bytes32 ownerLogId,
@@ -141,6 +151,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
             logId: logId,
             payer: payer,
             grant: grant,
+            request: request,
             maxHeight: maxHeight,
             minGrowth: minGrowth,
             ownerLogId: ownerLogId,
@@ -388,7 +399,14 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
 
     function test_fullFlow_userCheckpointsWithReceipt() public {
         IUnivocity.PaymentGrant memory g0 = _paymentGrant(
-            rootLogId, ks256Signer, GRANT_ROOT, 1000, 0, bytes32(0), ""
+            rootLogId,
+            ks256Signer,
+            GRANT_ROOT,
+            GC_AUTH_LOG,
+            1000,
+            0,
+            bytes32(0),
+            ""
         );
         bytes32 authLeaf0 = _leafCommitment(IDTIMESTAMP_0, g0);
         univocity.publishCheckpoint(
@@ -399,7 +417,14 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
         );
 
         IUnivocity.PaymentGrant memory gTarget = _paymentGrant(
-            TARGET_LOG, ks256Signer, GRANT_DATA, 1000, 0, rootLogId, ""
+            TARGET_LOG,
+            ks256Signer,
+            GRANT_DATA,
+            GC_DATA_LOG,
+            1000,
+            0,
+            rootLogId,
+            ""
         );
         bytes32 targetLeaf = _leafCommitment(IDTIMESTAMP_1, gTarget);
         IUnivocity.ConsistencyReceipt memory consistency1 =
@@ -424,7 +449,14 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
 
     function test_fullFlow_sameReceiptDifferentSubmitters() public {
         IUnivocity.PaymentGrant memory g0 = _paymentGrant(
-            rootLogId, ks256Signer, GRANT_ROOT, 1000, 0, bytes32(0), ""
+            rootLogId,
+            ks256Signer,
+            GRANT_ROOT,
+            GC_AUTH_LOG,
+            1000,
+            0,
+            bytes32(0),
+            ""
         );
         bytes32 authLeaf0 = _leafCommitment(IDTIMESTAMP_0, g0);
         univocity.publishCheckpoint(
@@ -435,7 +467,14 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
         );
 
         IUnivocity.PaymentGrant memory gTarget = _paymentGrant(
-            TARGET_LOG, ks256Signer, GRANT_DATA, 0, 0, rootLogId, ""
+            TARGET_LOG,
+            ks256Signer,
+            GRANT_DATA,
+            GC_DATA_LOG,
+            0,
+            0,
+            rootLogId,
+            ""
         );
         bytes32 targetLeaf = _leafCommitment(IDTIMESTAMP_1, gTarget);
         IUnivocity.ConsistencyReceipt memory consistency1 =
