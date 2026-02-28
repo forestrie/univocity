@@ -8,8 +8,12 @@ import {includedRoot} from "@univocity/algorithms/includedRoot.sol";
 import {ALG_ES256, ALG_KS256} from "@univocity/cosecbor/constants.sol";
 import {
     buildSigStructure,
+    recoverES256FromDetachedPayload,
     UnsupportedAlgorithm
 } from "@univocity/cosecbor/cosecbor.sol";
+import {
+    buildDetachedPayloadCommitment
+} from "@univocity/checkpoints/lib/consistencyReceipt.sol";
 import {IUnivocity} from "@univocity/checkpoints/interfaces/IUnivocity.sol";
 import {
     IUnivocityEvents
@@ -19,6 +23,20 @@ import {
 } from "@univocity/checkpoints/interfaces/IUnivocityErrors.sol";
 import {P256} from "@openzeppelin/contracts/utils/cryptography/P256.sol";
 import {consistentRoots} from "@univocity/algorithms/consistentRoots.sol";
+
+/// @notice Recovers ES256 public key from a consistency receipt (same as
+///    Univocity uses). Tests deploy with this key so bootstrap check passes.
+contract ES256RecoveryHelper {
+    function recoverKey(
+        bytes memory protectedHeader,
+        bytes memory detachedPayload,
+        bytes memory signature
+    ) external view returns (bytes32 x, bytes32 y) {
+        return recoverES256FromDetachedPayload(
+                protectedHeader, detachedPayload, signature
+            );
+    }
+}
 
 /// @notice Harness to call includedRoot with calldata proof (tests pass memory).
 contract IncludedRootHarness {
@@ -2047,21 +2065,27 @@ contract UnivocityTest is Test, IUnivocityEvents {
 
     // === Plan 0012 Phase C: ES256 receipt (4.5 item 12) ===
     /// @notice First checkpoint with ES256-signed receipt;
-    ///    Univocity deployed with es256X/Y only.
+    ///    Univocity deployed with es256X/Y only. Deploy with the key that
+    ///    recovery returns so bootstrap signer check passes (vm.publicKeyP256
+    ///    can differ from P256.recovery).
     function test_firstCheckpoint_es256Receipt_succeeds() public {
         uint256 es256Pk = 1;
-        (uint256 pubX, uint256 pubY) = vm.publicKeyP256(es256Pk);
-        vm.prank(BOOTSTRAP);
-        Univocity es256Univocity =
-            new Univocity(BOOTSTRAP, ALG_ES256, abi.encodePacked(pubX, pubY));
-
         bytes8 idtimestampBe = bytes8(0);
         IUnivocity.PaymentGrant memory g = _paymentGrant(
             AUTHORITY_LOG_ID, address(0xE5), GRANT_ROOT, 0, 0, bytes32(0), ""
         );
         bytes32 leaf0 = _leafCommitment(idtimestampBe, g);
+        bytes32[] memory accMem = _toAcc(leaf0);
         IUnivocity.ConsistencyReceipt memory consistency =
-            _buildConsistencyReceiptES256(_toAcc(leaf0), es256Pk);
+            _buildConsistencyReceiptES256(accMem, es256Pk);
+        bytes memory detachedPayload = buildDetachedPayloadCommitment(accMem);
+        ES256RecoveryHelper helper = new ES256RecoveryHelper();
+        (bytes32 rx, bytes32 ry) = helper.recoverKey(
+            consistency.protectedHeader, detachedPayload, consistency.signature
+        );
+        vm.prank(BOOTSTRAP);
+        Univocity es256Univocity =
+            new Univocity(BOOTSTRAP, ALG_ES256, abi.encodePacked(rx, ry));
         es256Univocity.publishCheckpoint(
             consistency, _emptyInclusionProof(), idtimestampBe, g
         );
@@ -2138,17 +2162,24 @@ contract UnivocityTest is Test, IUnivocityEvents {
         public
     {
         uint256 es256Pk = 1;
-        (uint256 pubX, uint256 pubY) = vm.publicKeyP256(es256Pk);
-        vm.prank(BOOTSTRAP);
-        Univocity es256Univocity =
-            new Univocity(BOOTSTRAP, ALG_ES256, abi.encodePacked(pubX, pubY));
         bytes8 idtimestampBe = bytes8(0);
         IUnivocity.PaymentGrant memory g0 = _paymentGrant(
             AUTHORITY_LOG_ID, address(0xE5), GRANT_ROOT, 0, 0, bytes32(0), ""
         );
         bytes32 leaf0 = _leafCommitment(idtimestampBe, g0);
+        bytes32[] memory accMem0 = _toAcc(leaf0);
         IUnivocity.ConsistencyReceipt memory consistency0 =
-            _buildConsistencyReceiptES256(_toAcc(leaf0), es256Pk);
+            _buildConsistencyReceiptES256(accMem0, es256Pk);
+        bytes memory detachedPayload0 = buildDetachedPayloadCommitment(accMem0);
+        ES256RecoveryHelper helper = new ES256RecoveryHelper();
+        (bytes32 rx, bytes32 ry) = helper.recoverKey(
+            consistency0.protectedHeader,
+            detachedPayload0,
+            consistency0.signature
+        );
+        vm.prank(BOOTSTRAP);
+        Univocity es256Univocity =
+            new Univocity(BOOTSTRAP, ALG_ES256, abi.encodePacked(rx, ry));
         es256Univocity.publishCheckpoint(
             consistency0, _emptyInclusionProof(), idtimestampBe, g0
         );
