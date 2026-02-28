@@ -373,11 +373,9 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         if (config.initializedAt == 0) {
             authLogId = paymentGrant.ownerLogId;
 
-            uint256 gNew = paymentGrant.grant;
-            if (
-                (gNew & GF_CREATE) == 0
-                    || (gNew & (GF_AUTH_LOG | GF_DATA_LOG)) == 0
-            ) {
+            uint256 g = paymentGrant.grant;
+            if ((g & GF_CREATE) == 0 || (g & (GF_AUTH_LOG | GF_DATA_LOG)) == 0)
+            {
                 revert GrantRequirement(GF_CREATE | GF_AUTH_LOG | GF_DATA_LOG);
             }
 
