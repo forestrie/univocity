@@ -46,7 +46,7 @@ import {peaks} from "@univocity/algorithms/peaks.sol";
 /// 3. **Log creation requires ownerLogId:** The first checkpoint to a new log
 ///    (data or child authority) requires paymentGrant.ownerLogId and an
 ///    inclusion proof against that owner; kind (Authority/Data) is set from
-///    createAsAuthority.
+///    grant (GF_CREATE, GF_EXTEND, GF_AUTH_LOG, GF_DATA_LOG).
 /// 4. **Grant bounds:** Growth is bounded only by minGrowth and maxHeight
 ///    (no checkpoint counter); size must satisfy currentSize + minGrowth <=
 ///    size <= maxHeight (when maxHeight != 0).
@@ -78,6 +78,15 @@ contract Univocity is IUnivocity, IUnivocityErrors {
 
     mapping(bytes32 => LogState) private _logs;
     mapping(bytes32 => IUnivocity.LogConfig) private _logConfigs;
+
+    /// @notice Grant flag: create a new log (first checkpoint to that logId).
+    uint256 public constant GF_CREATE = uint256(1) << 32;
+    /// @notice Grant flag: extend an existing log.
+    uint256 public constant GF_EXTEND = uint256(1) << 33;
+    /// @notice Grant flag: new log is an authority log (child authority).
+    uint256 public constant GF_AUTH_LOG = uint256(1);
+    /// @notice Grant flag: new log is a data log.
+    uint256 public constant GF_DATA_LOG = uint256(2);
 
     // === Constructor ===
 
@@ -162,17 +171,6 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         return (ALG_ES256, abi.encodePacked(es256X, es256Y));
     }
 
-    // === Modifiers ===
-
-    modifier onlyBootstrap() {
-        _onlyBootstrap();
-        _;
-    }
-
-    function _onlyBootstrap() internal view {
-        if (msg.sender != bootstrapAuthority) revert OnlyBootstrapAuthority();
-    }
-
     // === View Functions ===
 
     /// @notice Returns the mutable state of a log (accumulator, size).
@@ -230,7 +228,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
     ///   first checkpoint ever; grant = self-inclusion (index 0, path length
     ///   up to MAX_HEIGHT); receipt signer must match bootstrap key (rule 1).
     ///   First checkpoint to a new log: ownerLogId required; inclusion
-    ///   verified against owner; kind from createAsAuthority (rule 2, 3).
+    ///   verified against owner; kind from grant (rule 2, 3).
     ///   Extend existing log: inclusion verified against config.authLogId
     ///   (rule 2). Grant bounds minGrowth, maxHeight checked (rule 4).
     function publishCheckpoint(
@@ -268,7 +266,6 @@ contract Univocity is IUnivocity, IUnivocityErrors {
                 currentSize, claimedSize, paymentGrant.minGrowth
             );
         }
-
         bytes32[] memory initialAcc = _accumulatorToMemory(log);
         bytes32[] memory accMem = verifyConsistencyProofChain(
             initialAcc, consistencyParts.consistencyProofs
@@ -306,7 +303,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             paymentInclusionProof.index,
             paymentInclusionProof.path,
             authForInclusion,
-            paymentGrant.createAsAuthority,
+            paymentGrant.grant,
             rootKeyToSet
         );
     }
@@ -327,8 +324,18 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             _leafCommitment(paymentIDTimestampBe, paymentGrant);
 
         if (rootLogId == bytes32(0)) {
-            // Rule 1: First checkpoint ever = root authority log. Grant is
-            // inclusion proof against the first leaf (index 0) in the new tree.
+            // Rule 1: First checkpoint ever = root authority log. Grant must
+            // have GF_CREATE and GF_AUTH_LOG, and not GF_DATA_LOG.
+            uint256 g = paymentGrant.grant;
+            if (
+                (g & GF_CREATE) == 0 || (g & GF_AUTH_LOG) == 0
+                    || (g & GF_DATA_LOG) != 0
+            ) {
+                revert GrantRequirement(GF_CREATE | GF_AUTH_LOG);
+            }
+
+            // Grant is inclusion proof against the first leaf (index 0) in the
+            // new tree.
             if (claimedSize < 1) revert FirstCheckpointSizeTooSmall();
 
             // Root's first checkpoint: grant is self-inclusion at index 0;
@@ -362,16 +369,30 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         // cannot be reached for the root authority log). Resolve the log
         // against which we verify the grant (owner), then use the same
         // proof checks as for extending an existing log.
-        bytes32 resolvedAuthLogId = config.initializedAt == 0
-            ? paymentGrant.ownerLogId
-            : config.authLogId;
 
-        if (paymentGrant.ownerLogId == bytes32(0) && config.initializedAt == 0)
-        {
-            revert InvalidPaymentReceipt();
+        if (config.initializedAt == 0) {
+            authLogId = paymentGrant.ownerLogId;
+
+            uint256 gNew = paymentGrant.grant;
+            if (
+                (gNew & GF_CREATE) == 0
+                    || (gNew & (GF_AUTH_LOG | GF_DATA_LOG)) == 0
+            ) {
+                revert GrantRequirement(GF_CREATE | GF_AUTH_LOG | GF_DATA_LOG);
+            }
+
+            if (paymentGrant.ownerLogId == bytes32(0)) {
+                revert InvalidPaymentReceipt();
+            }
+        } else {
+            authLogId = config.authLogId;
+
+            if ((paymentGrant.grant & GF_EXTEND) == 0) {
+                revert GrantRequirement(GF_EXTEND);
+            }
         }
 
-        LogState storage ownerLog = _logs[resolvedAuthLogId];
+        LogState storage ownerLog = _logs[authLogId];
         // Empty path is valid only when owner has size 1 and index 0 (peak =
         // leaf); e.g. when creating a child log and the owner has one leaf.
         if (paymentInclusionProof.path.length == 0) {
@@ -391,7 +412,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             )) {
             revert InvalidPaymentReceipt();
         }
-        return resolvedAuthLogId;
+        return authLogId;
     }
 
     function _verifyCheckpointSignature(
@@ -664,12 +685,11 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             abi.encodePacked(
                 g.logId,
                 g.payer,
-                g.checkpointStart,
-                g.checkpointEnd,
+                g.grant,
                 g.maxHeight,
                 g.minGrowth,
                 g.ownerLogId,
-                g.createAsAuthority
+                g.grantData
             )
         );
         return sha256(abi.encodePacked(paymentIDTimestampBe, inner));
@@ -734,7 +754,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         uint64 paymentIndex,
         bytes32[] calldata paymentPath,
         bytes32 authorityLogIdUsed,
-        bool createAsAuthority,
+        uint256 grant,
         bytes memory rootKeyToSet
     ) private {
         LogState storage log = _logs[logId];
@@ -751,7 +771,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
                 config.rootKey = rootKeyToSet;
             }
             if (logId != rootLogId) {
-                config.kind = createAsAuthority
+                config.kind = (grant & GF_AUTH_LOG) != 0
                     ? IUnivocity.LogKind.Authority
                     : IUnivocity.LogKind.Data;
                 config.authLogId = authorityLogIdUsed;

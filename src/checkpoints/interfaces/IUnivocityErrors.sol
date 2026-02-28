@@ -66,6 +66,9 @@ interface IUnivocityErrors {
 
     // Plan 0015: Payment receipt as Receipt of Inclusion
     error InvalidPaymentReceipt();
+    /// @notice Grant code or flags do not match the required values for this
+    ///    operation (e.g. first root checkpoint requires GC_CREATE, GF_AUTH_LOG).
+    error GrantRequirement(uint256 requiredGrant);
     error MinGrowthNotMet(
         uint64 currentSize, uint64 newSize, uint64 minGrowth
     );

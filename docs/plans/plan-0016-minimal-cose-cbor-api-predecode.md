@@ -1,9 +1,9 @@
 # Plan 0016: Minimal COSE/CBOR API and pre-decode (agent execution guide)
 
-**Status:** DRAFT  
+**Status:** Implemented  
 **Date:** 2025-02-23  
-**Related:** [plan-0014](plan-0014-feasibility-consistency-receipt-calldata-memory.md),
-[plan-0015](plan-0015-publishCheckpoint-payment-receipt-as-roi.md),
+**Related:** [plan-0014 feasibility](../history/plans/plan-0014-feasibility-consistency-receipt-calldata-memory.md),
+[plan-0015](../history/plans/plan-0015-publishCheckpoint-payment-receipt-as-roi.md),
 [draft-bryce-cose-receipts-mmr-profile](https://raw.githubusercontent.com/robinbryce/draft-bryce-cose-receipts-mmr-profile/refs/heads/main/draft-bryce-cose-receipts-mmr-profile.md)
 
 ## 1. Goal and decisions

@@ -2,42 +2,34 @@
 
 Implementation plans describe detailed work breakdown for significant
 features or changes to the univocity contracts. They reference ADRs
-and ARCs from the [forestrie/devdocs](https://github.com/forestrie/devdocs)
-repository.
+and ARCs in this repo and in [forestrie/devdocs](https://github.com/forestrie/devdocs).
 
 ## Index
 
-[plan-0012-arc-0016-implementation-review.md](plan-0012-arc-0016-implementation-review.md)
-ARC-0016 implementation review: current state and appendix of
-divergences/gaps for holistic reflection (e.g. before ARC-0017).
+[plan-0013-adr-0032-delegated-checkpoint-verification.md](plan-0013-adr-0032-delegated-checkpoint-verification.md)  
+ADR-0032 delegated checkpoint verification (ES256 delegation, root from first
+checkpoint). **Implemented.**
 
-[plan-0021-phase-zero-log-hierarchy-data-structures.md](plan-0021-phase-zero-log-hierarchy-data-structures.md)
-Phase 0 log hierarchy (ARC-0017): data structures — LogKind, authLogId, separate LogConfig; authorization per ARC-0017 §2 (rootKey at first checkpoint, recovered rootKey in delegation; ownerLogId in grant for log creation). Grant bounds growth-based only (maxHeight, minGrowth; no checkpointCount). Agent execution guide and dependency graph.
+[plan-0016-minimal-cose-cbor-api-predecode.md](plan-0016-minimal-cose-cbor-api-predecode.md)  
+Pre-decoded consistency receipt and inclusion proof API; minimal COSE/CBOR
+on-chain. **Implemented.**
 
-[plan-0001-r5-authority.md](plan-0001-r5-authority.md)
-Implementation plan for adding R5 payment-bounded authority to the
-univocity contracts. Covers multi-log support, authority log
-infrastructure, receipt verification, hybrid coverage model
-(checkpoint_end + max_height), and comprehensive event sourcing.
+[plan-0021-phase-zero-log-hierarchy-data-structures.md](plan-0021-phase-zero-log-hierarchy-data-structures.md)  
+Phase 0 log hierarchy (ARC-0017): LogKind, authLogId, LogConfig; grant =
+inclusion against owner; rootKey at first checkpoint. **Implemented.**
 
-## Related Documentation
+[plan-0020-algorithms-test-coverage-parity.md](plan-0020-algorithms-test-coverage-parity.md)  
+Algorithms test coverage parity.
 
-This repo also has:
+[plan-0014-gas-metrics.md](plan-0014-gas-metrics.md)  
+Gas metrics (if present).
 
-- **[../adr/](../adr/)** — Architecture Decision Records (decisions with
-  context and rationale). E.g. ADR-0001 (payer attribution), ADR-0002
-  (CoseVerifierKeys caller dispatch), ADR-0003 (bootstrap keys opaque
-  constructor).
-- **[../arc/](../arc/)** — Architecture Reference Content (specs and
-  reference). E.g. ARC-0001 (grant minimum range), ARC-0002 (delegation cert
-  label alignment), ARC-0016 (incentivisation implementation reflection),
-  ARC-0017 (log hierarchy and authority).
+## Historical plans
 
-Design documents and architecture decisions are also maintained in the
-[forestrie/devdocs](https://github.com/forestrie/devdocs) repository:
+Superseded or point-in-time plans are in [../history/plans/](../history/plans/).
 
-- **ADR** (Architecture Decision Records): Document specific technical
-  decisions with context, options considered, and rationale.
-- **ARC** (Architecture Reference Content): Detailed specifications
-  and reference material for system components.
-- **Plans**: Implementation plans for significant features.
+## Related documentation
+
+- **[../adr/](../adr/)** — Architecture Decision Records.
+- **[../arc/](../arc/)** — Architecture Reference Content (ARC-0016,
+  ARC-0017, [auth overview](../arc/arc-0017-auth-overview.md)).
