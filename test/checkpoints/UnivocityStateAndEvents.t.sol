@@ -49,7 +49,7 @@ contract UnivocityStateAndEventsTest is UnivocityTestHelper, IUnivocityEvents {
     function test_publishCheckpoint_emitsCheckpointPublished() public {
         bytes32[] memory acc = _toAcc(keccak256("peak1"));
         vm.expectEmit(true, true, true, false);
-        bytes32[] memory pathEmits;
+        bytes32[] memory pathEmits = new bytes32[](0);
         emit CheckpointPublished(
             TEST_LOG_ID,
             address(this),
