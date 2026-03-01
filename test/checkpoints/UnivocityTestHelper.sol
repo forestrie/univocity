@@ -33,7 +33,8 @@ import {
     recoverES256FromDetachedPayload
 } from "@univocity/cosecbor/cosecbor.sol";
 import {
-    buildDetachedPayloadCommitment
+    buildDetachedPayloadCommitment,
+    verifyConsistencyProofChain
 } from "@univocity/checkpoints/lib/consistencyReceipt.sol";
 import {IUnivocity} from "@univocity/checkpoints/interfaces/IUnivocity.sol";
 import {
@@ -42,8 +43,8 @@ import {
 import {P256} from "@openzeppelin/contracts/utils/cryptography/P256.sol";
 import {consistentRoots} from "@univocity/algorithms/consistentRoots.sol";
 
-/// @notice Recovers ES256 public key from a consistency receipt (same as
-///    Univocity uses). Tests deploy with this key so bootstrap check passes.
+/// @notice Recovers ES256 public key from (protectedHeader, payload, sig).
+///    Same recovery path as Univocity; use so deploy key matches contract.
 contract ES256RecoveryHelper {
     function recoverKey(
         bytes memory protectedHeader,
@@ -53,6 +54,154 @@ contract ES256RecoveryHelper {
         return recoverES256FromDetachedPayload(
                 protectedHeader, detachedPayload, signature
             );
+    }
+}
+
+/// @notice Builds payload from receipt (same as Univocity) and recovers key.
+///    Test-only: use when you need the key the contract would recover from a
+///    given receipt (e.g. to align deploy bootstrap with contract recovery).
+contract ES256RecoveredKeyFromReceiptHelper {
+    function getRecoveredKey(IUnivocity.ConsistencyReceipt calldata receipt)
+        external
+        view
+        returns (bytes32 x, bytes32 y)
+    {
+        bytes32[] memory initialAcc = new bytes32[](0);
+        bytes32[] memory accMem =
+            verifyConsistencyProofChain(initialAcc, receipt.consistencyProofs);
+        bytes memory detached = buildDetachedPayloadCommitment(accMem);
+        return recoverES256FromDetachedPayload(
+            receipt.protectedHeader, detached, receipt.signature
+        );
+    }
+
+    /// @notice First peak of first proof (for tests: assert contract sees same).
+    function getFirstPeak(IUnivocity.ConsistencyReceipt calldata receipt)
+        external
+        pure
+        returns (bytes32)
+    {
+        return receipt.consistencyProofs[0].rightPeaks[0];
+    }
+}
+
+/// @notice Same 4-arg calldata layout as publishCheckpoint; returns first peak
+///    and recovered key so tests can assert decode matches one-arg helper.
+///    Plan 0023: if this returns same peak/key as one-arg helper for same
+///    receipt, ABI decode is aligned and bug is elsewhere.
+contract ES256ReceiptDecodeVerifier {
+    function decodeAndRecover(
+        IUnivocity.ConsistencyReceipt calldata consistencyParts,
+        IUnivocity.InclusionProof calldata,
+        bytes8,
+        IUnivocity.PaymentGrant calldata
+    ) external view returns (bytes32 firstPeak, bytes32 keyX, bytes32 keyY) {
+        firstPeak = consistencyParts.consistencyProofs[0].rightPeaks[0];
+        bytes32[] memory initialAcc = new bytes32[](0);
+        bytes32[] memory accMem = verifyConsistencyProofChain(
+            initialAcc, consistencyParts.consistencyProofs
+        );
+        bytes memory detached = buildDetachedPayloadCommitment(accMem);
+        (keyX, keyY) = recoverES256FromDetachedPayload(
+            consistencyParts.protectedHeader,
+            detached,
+            consistencyParts.signature
+        );
+    }
+
+    /// @notice Same 4-arg layout as publishCheckpoint; returns leaf commitment
+    ///    so tests can assert grant decodes identically (same leaf as helper).
+    function getLeafCommitment(
+        IUnivocity.ConsistencyReceipt calldata,
+        IUnivocity.InclusionProof calldata,
+        bytes8 paymentIDTimestampBe,
+        IUnivocity.PaymentGrant calldata g
+    ) external pure returns (bytes32) {
+        bytes32 inner = sha256(
+            abi.encodePacked(
+                g.logId,
+                g.payer,
+                g.grant,
+                g.maxHeight,
+                g.minGrowth,
+                g.ownerLogId,
+                g.grantData
+            )
+        );
+        return sha256(abi.encodePacked(paymentIDTimestampBe, inner));
+    }
+}
+
+/// @notice Returns every decoded grant field from the same 4-arg calldata
+///    layout as publishCheckpoint. Used to pinpoint which field (if any)
+///    decodes differently and causes the leaf mismatch.
+contract GrantDecodeHarness {
+    struct DecodedGrant {
+        bytes32 leaf;
+        bytes32 logId;
+        address payer;
+        uint256 grant;
+        uint256 request;
+        uint64 maxHeight;
+        uint64 minGrowth;
+        bytes32 ownerLogId;
+        bytes32 grantDataKeccak;
+    }
+
+    function decodeGrantFourArgs(
+        IUnivocity.ConsistencyReceipt calldata,
+        IUnivocity.InclusionProof calldata,
+        bytes8 paymentIDTimestampBe,
+        IUnivocity.PaymentGrant calldata g
+    ) external pure returns (DecodedGrant memory out) {
+        out.logId = g.logId;
+        out.payer = g.payer;
+        out.grant = g.grant;
+        out.request = g.request;
+        out.maxHeight = g.maxHeight;
+        out.minGrowth = g.minGrowth;
+        out.ownerLogId = g.ownerLogId;
+        out.grantDataKeccak = keccak256(g.grantData);
+        bytes32 inner = sha256(
+            abi.encodePacked(
+                g.logId,
+                g.payer,
+                g.grant,
+                g.maxHeight,
+                g.minGrowth,
+                g.ownerLogId,
+                g.grantData
+            )
+        );
+        out.leaf = sha256(abi.encodePacked(paymentIDTimestampBe, inner));
+    }
+}
+
+/// @notice Decodes grant from abi.encode(PaymentGrant) and returns leaf.
+///    Same leaf formula as contract. Used to test whether abi.encode
+///    round-trip yields stable leaf vs 4-arg struct pass.
+contract GrantDecodeHarnessEncoded {
+    function decodeGrantEncoded(
+        IUnivocity.ConsistencyReceipt calldata,
+        IUnivocity.InclusionProof calldata,
+        bytes8 paymentIDTimestampBe,
+        bytes calldata encodedGrant
+    ) external pure returns (bytes32 leaf) {
+        IUnivocity.PaymentGrant memory g = abi.decode(
+            encodedGrant, (IUnivocity.PaymentGrant)
+        );
+        bytes32 inner = sha256(
+            abi.encodePacked(
+                g.logId,
+                g.payer,
+                g.grant,
+                g.maxHeight,
+                g.minGrowth,
+                g.ownerLogId,
+                g.grantData
+            )
+        );
+        return sha256(abi.encodePacked(paymentIDTimestampBe, inner));
     }
 }
 
@@ -114,9 +263,14 @@ abstract contract UnivocityTestHelper is Test {
     uint256 internal constant GF_EXTEND = uint256(1) << 33;
     uint256 internal constant GF_AUTH = uint256(1);
     uint256 internal constant GF_DATA = uint256(2);
+    /// @notice ADR-0005: when set with GF_CREATE, grantData is allowed signer.
+    uint256 internal constant GF_REQUIRE_SIGNER = uint256(1) << 2;
     uint256 internal constant GC_AUTH_LOG = uint256(1) << 224;
     uint256 internal constant GC_DATA_LOG = uint256(2) << 224;
-    uint256 internal constant GRANT_ROOT = GF_CREATE | GF_EXTEND | GF_AUTH;
+    /// @notice Root grant: create + extend + auth + require signer (grantData =
+    ///    bootstrap key for first checkpoint).
+    uint256 internal constant GRANT_ROOT =
+        GF_CREATE | GF_EXTEND | GF_AUTH | GF_REQUIRE_SIGNER;
     uint256 internal constant GRANT_DATA = GF_CREATE | GF_EXTEND | GF_DATA;
 
     function setUp() public virtual {

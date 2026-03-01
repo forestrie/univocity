@@ -45,48 +45,52 @@
 
 **Goal.** Add the new grant flag and any new errors used when grantData length is wrong or signer does not match grant.
 
-**1.1** In `Univocity.sol`, define the new constant (next bit after GF_EXTEND):
+**1.1** In `Univocity.sol`, define the new constant. **Low bits are modifiers on
+operation** (high bits are operational constraints like GF_CREATE/GF_EXTEND).
+Use the next low bit after GF_DATA_LOG (2):
 
 ```solidity
-/// @notice Grant flag: when set with GF_CREATE, grantData is the allowed
-///    signer (public key bytes). Only enforced on first checkpoint to a log.
-uint256 public constant GF_REQUIRE_SIGNER = uint256(1) << 34;
+/// @notice Grant flag (modifier): when set with GF_CREATE, grantData is the
+///    allowed signer (public key bytes). Only enforced on first checkpoint.
+uint256 public constant GF_REQUIRE_SIGNER = uint256(1) << 2;
 ```
 
-> Change: the high bit flags are operational constraints. the low flags are
-> modifiers on operation. please use GF_REQUIRE_SIGNER = uint256(1) << 2
+**1.2** In `IUnivocity.sol` (or in NatSpec only if constants are not in the
+interface), document that the grant may include GF_REQUIRE_SIGNER; when set
+with GF_CREATE, grantData must be the allowed signer key (length 20 or 64).
+No interface change required if the contract already exposes constants via
+public getters.
 
-**1.2** In `IUnivocity.sol` (or in NatSpec only if constants are not in the interface), document that the grant may include GF_REQUIRE_SIGNER; when set with GF_CREATE, grantData must be the allowed signer key (length 20 or 64). No interface change required if the contract already exposes constants via public getters.
-
-**1.3** In `IUnivocityErrors.sol`, add errors for ADR-0005 (agent may choose names; suggested):
+**1.3** In `IUnivocityErrors.sol`, add only the **length** error for ADR-0005.
+Use the existing **GrantRequirement(uint256 requiredGrant, uint256
+requiredRequest)** when the recovered signer (or delegation root) does not
+match grantData — e.g. revert `GrantRequirement(GF_REQUIRE_SIGNER, 0)` so the
+error surface stays uniform:
 
 ```solidity
-/// @notice Root's first checkpoint must set GF_REQUIRE_SIGNER and grantData
-///    equal to bootstrap key (ADR-0005).
-error BootstrapGrantMustRequireSigner();
 /// @notice When GF_REQUIRE_SIGNER is set, grantData length must be 20 (KS256)
 ///    or 64 (ES256).
 error GrantDataInvalidKeyLength(uint256 length);
-/// @notice Recovered signer (or delegation root) must equal grantData when
-///    GF_REQUIRE_SIGNER is set.
-error SignerMustMatchGrantData();
 ```
 
-> Change: instead of SignerMustMatchGrantData I think we should use the more
-> uniform error GrantRequirement(uint256 requiredGrant, uint256 requiredRequest)
+When the signer does not match grantData (or for root, grantData does not
+equal bootstrap key), revert **GrantRequirement(GF_REQUIRE_SIGNER, 0)**.
+Optional strict mode “root must set GF_REQUIRE_SIGNER” can also use
+GrantRequirement(GF_REQUIRE_SIGNER, 0).
 
 **1.4** Export or re-export any new errors in the contract so tests can use them.
 
-**Example diff (Univocity.sol constants):**
+**Example diff (Univocity.sol constants — low bits):**
 
 ```diff
-     /// @notice Grant flag: extend an existing log.
-     uint256 public constant GF_EXTEND = uint256(1) << 33;
-+    /// @notice Grant flag: when set with GF_CREATE, grantData is the allowed
-+    ///    signer (public key bytes). Only enforced on first checkpoint to a log.
-+    uint256 public constant GF_REQUIRE_SIGNER = uint256(1) << 34;
-     /// @notice Grant flag: new log is an authority log (child authority).
-     uint256 public constant GF_AUTH_LOG = uint256(1);
+     /// @notice Grant flag: new log is a data log.
+     uint256 public constant GF_DATA_LOG = uint256(2);
++    /// @notice Grant flag (modifier): when set with GF_CREATE, grantData is
++    ///    the allowed signer (public key bytes). Only enforced on first
++    ///    checkpoint to a log.
++    uint256 public constant GF_REQUIRE_SIGNER = uint256(1) << 2;
+
+     /// @notice Grant code (high 32 bits): mutually exclusive log kind
 ```
 
 **Example diff (IUnivocityErrors.sol):**
@@ -97,99 +101,65 @@ error SignerMustMatchGrantData();
 +    // ADR-0005 GF_REQUIRE_SIGNER
 +    /// @notice When GF_REQUIRE_SIGNER is set, grantData length must be 20 or 64.
 +    error GrantDataInvalidKeyLength(uint256 length);
-+    /// @notice Recovered signer must equal grantData when GF_REQUIRE_SIGNER set.
-+    error SignerMustMatchGrantData();
-+    /// @notice Root's first checkpoint must set GF_REQUIRE_SIGNER and grantData
-+    ///    equal to bootstrap key (optional strict mode).
-+    error BootstrapGrantMustRequireSigner();
 
      // Log state
 ```
 
 ---
 
-## 3. Phase 2 — Enforce GF_REQUIRE_SIGNER in publishCheckpoint (first checkpoint only)
+## 3. Phase 2 — Enforce GF_REQUIRE_SIGNER (inline in _verifyCheckpointSignature)
 
-**Goal.** In `publishCheckpoint`, after `_verifyCheckpointSignature` and before `_updateLogState`, add a check that runs **only when this is the first checkpoint to the log** (`config.initializedAt == 0`). For that case only:
+**Goal.** Enforce GF_REQUIRE_SIGNER **inside** the existing first-checkpoint
+branches of `_verifyCheckpointSignature` (and its ES256/KS256 helpers), so that
+context (root vs non-root, first checkpoint) is in one place and no separate
+helper is needed. **Do not** add a standalone
+`_enforceRequireSignerIfFirstCheckpoint` helper.
 
-- **Root's first checkpoint:** If `(paymentGrant.grant & GF_REQUIRE_SIGNER) != 0`, require `paymentGrant.grantData.length == bootstrapKey.length` and `grantData` equals the contract's bootstrap key (e.g. `keccak256(paymentGrant.grantData) == keccak256(bootstrapKey)`). If GF_REQUIRE_SIGNER is **not** set, do nothing extra (legacy: existing `RootSignerMustMatchBootstrap` in _verifyCheckpointSignature remains).
-- **Non-root first checkpoint:** If `(paymentGrant.grant & GF_REQUIRE_SIGNER) != 0`, require `grantData.length == 20 || grantData.length == 64`, and require `rootKeyToSet` equals `paymentGrant.grantData` (bytes comparison). If GF_REQUIRE_SIGNER is not set, do nothing.
-- **Subsequent checkpoints:** Do not read or enforce GF_REQUIRE_SIGNER (ignored).
-
-**2.1** Add a private/internal helper to avoid duplicating logic, e.g.:
-
-> Change: I'm not convinced this helper is significantly reducing duplication
-> given the existing handling. I suspect that the necessary checks can be made
-> inline in existing logic branches and that will not overly duplicate but will
-> eliminate the checking in the helper as the context establishes which
-> branches are appropriate. Please provide revised diffs for the affected code
-> paths so I can asses
+**2.1** Pass the grant (or at least `grant` and `grantData`) into
+`_verifyCheckpointSignature` and thence into `_verifyCheckpointSignatureES256`
+and `_verifyCheckpointSignatureKS256`. The call site in `publishCheckpoint`
+becomes e.g.:
 
 ```solidity
-/// @notice Enforce GF_REQUIRE_SIGNER for first checkpoint only (ADR-0005).
-///    Reverts if grant has GF_REQUIRE_SIGNER but grantData/rootKey mismatch.
-///    GF_REQUIRE_SIGNER is ignored when config.initializedAt != 0.
-function _enforceRequireSignerIfFirstCheckpoint(
-    bytes32 logId,
-    bytes32 currentRootLogId,
-    IUnivocity.PaymentGrant calldata paymentGrant,
-    bytes memory rootKeyToSet
-) private view {
-    IUnivocity.LogConfig storage config = _logConfigs[logId];
-    if (config.initializedAt != 0) return; // Not first checkpoint; ignore.
-
-    uint256 g = paymentGrant.grant;
-    if ((g & GF_REQUIRE_SIGNER) == 0) {
-        // Legacy root: no GF_REQUIRE_SIGNER; _verifyCheckpointSignature
-        // already enforces RootSignerMustMatchBootstrap.
-        if (currentRootLogId == bytes32(0)) return;
-        // Non-root, no binding.
-        return;
-    }
-
-    if (currentRootLogId == bytes32(0)) {
-        // Root's first checkpoint: grantData must equal bootstrap key.
-        (, bytes memory bootstrapKey) = getBootstrapKeyConfig();
-        if (paymentGrant.grantData.length != bootstrapKey.length) {
-            revert GrantDataInvalidKeyLength(paymentGrant.grantData.length);
-        }
-        if (keccak256(paymentGrant.grantData) != keccak256(bootstrapKey)) {
-            revert SignerMustMatchGrantData();
-        }
-        return;
-    }
-
-    // Non-root first checkpoint: grantData must be allowed key length and
-    // match recovered signer.
-    if (paymentGrant.grantData.length != 20 && paymentGrant.grantData.length != 64) {
-        revert GrantDataInvalidKeyLength(paymentGrant.grantData.length);
-    }
-    if (keccak256(rootKeyToSet) != keccak256(paymentGrant.grantData)) {
-        revert SignerMustMatchGrantData();
-    }
-}
-```
-
-**2.2** In `publishCheckpoint`, after computing `rootKeyToSet` and **before** calling `_verifyInclusionGrant`, call the new helper. Pass `rootLogId` as the “current” root log id (before this checkpoint is applied). So the call site looks like:
-
-```solidity
-bytes memory rootKeyToSet = _verifyCheckpointSignature(...);
-
-_enforceRequireSignerIfFirstCheckpoint(
+bytes memory rootKeyToSet = _verifyCheckpointSignature(
     logId,
-    rootLogId,
-    paymentGrant,
-    rootKeyToSet
+    claimedSize,
+    consistencyParts,
+    detachedPayload,
+    config,
+    consistencyParts.delegationProof,
+    paymentGrant.grant,
+    paymentGrant.grantData
 );
-
-bytes32 authForInclusion = _verifyInclusionGrant(...);
 ```
 
-**Note.** For root's first checkpoint, `rootLogId` is still `bytes32(0)` at this point, so the helper correctly identifies “root's first checkpoint.” For non-root first checkpoint, `rootLogId` is already set, so the helper treats it as non-root.
+**2.2** In **ES256** and **KS256** helpers, in the branch where
+`config.initializedAt == 0` and we are about to return the root key bytes:
 
-**2.3** Optional hardening for **new** root creation: ADR-0005 says “New root creation requires the grant to commit to the bootstrap key.” So we could **revert** when it is root's first checkpoint and GF_REQUIRE_SIGNER is **not** set (reject legacy root grants in new deployments). This plan leaves that as an optional follow-up; Phase 2 implements “when GF_REQUIRE_SIGNER is set, enforce; when not set, legacy behaviour” so existing tests that do not set GF_REQUIRE_SIGNER for root still pass. If the product decision is to require GF_REQUIRE_SIGNER for all new root checkpoints, add a revert in the branch `currentRootLogId == bytes32(0) && (g & GF_REQUIRE_SIGNER) == 0` with `BootstrapGrantMustRequireSigner()`.
+- If `(grant & GF_REQUIRE_SIGNER) == 0`: keep current behaviour (for root,
+  existing RootSignerMustMatchBootstrap remains; for non-root, return
+  rootKeyToSet).
+- If `(grant & GF_REQUIRE_SIGNER) != 0`:
+  - **Root** (`rootLogId == bytes32(0)`): require `grantData.length ==
+    bootstrapKey.length` (revert `GrantDataInvalidKeyLength` otherwise) and
+    `keccak256(grantData) == keccak256(bootstrapKey)` (else revert
+    `GrantRequirement(GF_REQUIRE_SIGNER, 0)`).
+  - **Non-root:** require `grantData.length == 20 || grantData.length == 64`
+    (revert `GrantDataInvalidKeyLength` otherwise) and
+    `keccak256(rootKeyToSet) == keccak256(grantData)` (else revert
+    `GrantRequirement(GF_REQUIRE_SIGNER, 0)`).
 
-**Example diff (publishCheckpoint call site in Univocity.sol):**
+**2.3** For **subsequent** checkpoints (`config.initializedAt != 0`), the
+helpers already return empty bytes and never read the grant; GF_REQUIRE_SIGNER
+is ignored.
+
+**2.4** **Required** for root's first checkpoint: when it is root's first
+checkpoint and `(grant & GF_REQUIRE_SIGNER) == 0`, revert
+`GrantRequirement(GF_REQUIRE_SIGNER, 0)`. There is no legacy path; root must
+always set GF_REQUIRE_SIGNER and grantData = bootstrap key. Tests must assert
+this behaviour.
+
+**Revised diff (publishCheckpoint — pass grant/grantData into signature verification):**
 
 ```diff
          bytes memory rootKeyToSet = _verifyCheckpointSignature(
@@ -198,31 +168,89 @@ bytes32 authForInclusion = _verifyInclusionGrant(...);
              consistencyParts,
              detachedPayload,
              config,
-             consistencyParts.delegationProof
+-            consistencyParts.delegationProof
++            consistencyParts.delegationProof,
++            paymentGrant.grant,
++            paymentGrant.grantData
          );
-+
-+        _enforceRequireSignerIfFirstCheckpoint(
-+            logId,
-+            rootLogId,
-+            paymentGrant,
-+            rootKeyToSet
-+        );
-+
          // --- Grant / inclusion enforcement (rules 1, 2, 3) ---
-         bytes32 authForInclusion = _verifyInclusionGrant(
 ```
 
-**Example (new helper — add before _updateLogState):** see the full `_enforceRequireSignerIfFirstCheckpoint` implementation in §2.1 above.
+**Revised diff (ES256 helper — first-checkpoint branch, after computing root key):**
+
+Inside `_verifyCheckpointSignatureES256`, in the block where
+`config.initializedAt == 0` and we have `(rootX, rootY)` and are about to
+`return abi.encodePacked(rootX, rootY)`:
+
+```diff
+         if (config.initializedAt == 0) {
+             if (
+                 rootLogId == bytes32(0) && (rootX != es256X || rootY != es256Y)
+             ) {
+                 revert RootSignerMustMatchBootstrap();
+             }
++            if ((grant & GF_REQUIRE_SIGNER) != 0) {
++                if (rootLogId == bytes32(0)) {
++                    (, bytes memory bootstrapKey) = getBootstrapKeyConfig();
++                    if (grantData.length != bootstrapKey.length)
++                        revert GrantDataInvalidKeyLength(grantData.length);
++                    if (keccak256(grantData) != keccak256(bootstrapKey))
++                        revert GrantRequirement(GF_REQUIRE_SIGNER, 0);
++                } else {
++                    if (grantData.length != 20 && grantData.length != 64)
++                        revert GrantDataInvalidKeyLength(grantData.length);
++                    if (keccak256(abi.encodePacked(rootX, rootY)) != keccak256(grantData))
++                        revert GrantRequirement(GF_REQUIRE_SIGNER, 0);
++                }
++            }
+             return abi.encodePacked(rootX, rootY);
+         }
+```
+
+**Revised diff (KS256 helper — first-checkpoint branch):**
+
+Inside `_verifyCheckpointSignatureKS256`, in the block where
+`config.initializedAt == 0` and we `return abi.encodePacked(keyAddr)`:
+
+```diff
+         if (config.initializedAt == 0) {
++            if ((grant & GF_REQUIRE_SIGNER) != 0) {
++                if (rootLogId == bytes32(0)) {
++                    (, bytes memory bootstrapKey) = getBootstrapKeyConfig();
++                    if (grantData.length != bootstrapKey.length)
++                        revert GrantDataInvalidKeyLength(grantData.length);
++                    if (keccak256(grantData) != keccak256(bootstrapKey))
++                        revert GrantRequirement(GF_REQUIRE_SIGNER, 0);
++                } else {
++                    if (grantData.length != 20 && grantData.length != 64)
++                        revert GrantDataInvalidKeyLength(grantData.length);
++                    if (keccak256(abi.encodePacked(keyAddr)) != keccak256(grantData))
++                        revert GrantRequirement(GF_REQUIRE_SIGNER, 0);
++                }
++            }
+             return abi.encodePacked(keyAddr);
+         }
+```
+
+The dispatcher `_verifyCheckpointSignature` must take `grant` and `grantData`
+(calldata or memory) and pass them through to the ES256/KS256 helpers.
 
 ---
 
 ## 4. Phase 3 — Legacy root and bootstrap key check
 
-**Goal.** Keep existing behaviour when the root's first checkpoint does **not** set GF_REQUIRE_SIGNER (legacy leaves). No change to `_verifyCheckpointSignature`: the existing `RootSignerMustMatchBootstrap()` logic for root's first checkpoint remains. Phase 2 already skips the new enforcement when GF_REQUIRE_SIGNER is not set; no further code change unless the optional “require GF_REQUIRE_SIGNER for new root” is adopted (then revert with `BootstrapGrantMustRequireSigner()` when root first checkpoint and grant has no GF_REQUIRE_SIGNER).
+**Goal.** Keep existing behaviour when the root's first checkpoint does **not**
+set GF_REQUIRE_SIGNER (legacy leaves). Inlining the GF_REQUIRE_SIGNER checks
+inside `_verifyCheckpointSignature` (Phase 2) makes this straightforward: when
+`(grant & GF_REQUIRE_SIGNER) == 0`, the first-checkpoint branches do nothing
+extra and the existing `RootSignerMustMatchBootstrap()` logic for root
+remains. No further code change unless the optional “require GF_REQUIRE_SIGNER
+for new root” is adopted (then revert `GrantRequirement(GF_REQUIRE_SIGNER, 0)`
+when root first checkpoint and grant has no GF_REQUIRE_SIGNER).
 
 **3.1** Ensure tests that currently publish the root's first checkpoint with empty `grantData` and no GF_REQUIRE_SIGNER still pass (legacy path). If Phase 0 refactor moved those tests, run the full suite.
 
-**3.2** (Optional) Add a test that root's first checkpoint **with** GF_REQUIRE_SIGNER and correct `grantData` = bootstrap key succeeds, and that root's first checkpoint with GF_REQUIRE_SIGNER but wrong `grantData` reverts with `SignerMustMatchGrantData` or `GrantDataInvalidKeyLength`. These can be part of Phase 4.
+**3.2** (Optional) Add a test that root's first checkpoint **with** GF_REQUIRE_SIGNER and correct `grantData` = bootstrap key succeeds, and that root's first checkpoint with GF_REQUIRE_SIGNER but wrong `grantData` reverts with `GrantRequirement(GF_REQUIRE_SIGNER, 0)` or `GrantDataInvalidKeyLength`. These can be part of Phase 4.
 
 ---
 
@@ -237,8 +265,8 @@ bytes32 authForInclusion = _verifyInclusionGrant(...);
   - Root's **first** checkpoint with GF_REQUIRE_SIGNER and `grantData = bootstrapKey` (ES256 64 bytes, if supported in test setup): succeeds.
 - **Negative**
   - Root's first checkpoint with GF_REQUIRE_SIGNER but `grantData.length != bootstrapKey.length`: revert `GrantDataInvalidKeyLength`.
-  - Root's first checkpoint with GF_REQUIRE_SIGNER but `grantData` not equal to bootstrap key (wrong key bytes): revert `SignerMustMatchGrantData` (or equivalent).
-  - (If “require GF_REQUIRE_SIGNER for new root” is implemented) Root's first checkpoint without GF_REQUIRE_SIGNER: revert `BootstrapGrantMustRequireSigner`.
+  - Root's first checkpoint with GF_REQUIRE_SIGNER but `grantData` not equal to bootstrap key (wrong key bytes): revert `GrantRequirement(GF_REQUIRE_SIGNER, 0)`.
+  - (If “require GF_REQUIRE_SIGNER for new root” is implemented) Root's first checkpoint without GF_REQUIRE_SIGNER: revert `GrantRequirement(GF_REQUIRE_SIGNER, 0)`.
 - **Legacy**
   - Root's first checkpoint **without** GF_REQUIRE_SIGNER (empty grantData): still succeeds (existing behaviour; RootSignerMustMatchBootstrap in _verifyCheckpointSignature).
 
@@ -249,7 +277,7 @@ bytes32 authForInclusion = _verifyInclusionGrant(...);
   - **Subsequent** checkpoint to the same log: GF_REQUIRE_SIGNER is ignored; grant may or may not set it; receipt must still be signed by the log's root key (or delegate). Existing consistency verification suffices; test that a second checkpoint with a different grant (e.g. no GF_REQUIRE_SIGNER or different grantData) still succeeds if the receipt is signed by the established root key.
 - **Negative**
   - First checkpoint to a new log with GF_REQUIRE_SIGNER and `grantData.length` not 20 or 64: revert `GrantDataInvalidKeyLength`.
-  - First checkpoint to a new log with GF_REQUIRE_SIGNER and `grantData` not equal to the recovered signer (or delegation root): revert `SignerMustMatchGrantData`.
+  - First checkpoint to a new log with GF_REQUIRE_SIGNER and `grantData` not equal to the recovered signer (or delegation root): revert `GrantRequirement(GF_REQUIRE_SIGNER, 0)`.
 - **Open signer**
   - First checkpoint to a new log **without** GF_REQUIRE_SIGNER: any signer becomes root key (existing behaviour); test still passes.
 
@@ -284,18 +312,21 @@ Phase 1
   1.4  Export errors
 
 Phase 2
-  2.1  Add _enforceRequireSignerIfFirstCheckpoint helper
-  2.2  Call it from publishCheckpoint (after _verifyCheckpointSignature,
-       before _verifyInclusionGrant)
-  2.3  (Optional) Revert BootstrapGrantMustRequireSigner for new root
-       without GF_REQUIRE_SIGNER
+  2.1  Pass grant/grantData into _verifyCheckpointSignature and ES256/KS256
+       helpers
+  2.2  In first-checkpoint branches of ES256/KS256 helpers, enforce
+       GF_REQUIRE_SIGNER (length + signer match; GrantRequirement on mismatch)
+  2.3  Require GF_REQUIRE_SIGNER for root's first checkpoint (revert
+       GrantRequirement(GF_REQUIRE_SIGNER, 0) when not set)
 
 Phase 3
-  3.1  Verify legacy root tests still pass
-  3.2  (Optional) Add one bootstrap + GF_REQUIRE_SIGNER test
+  3.1  Update existing root-first-checkpoint tests to set GF_REQUIRE_SIGNER
+       and grantData = bootstrap key
+  3.2  Run full test suite
 
 Phase 4
-  4.1  Bootstrap: positive + negative + legacy
+  4.1  Bootstrap: positive + negative (incl. root without GF_REQUIRE_SIGNER
+       reverts)
   4.2  Non-root: positive + negative + open signer
   4.3  Subsequent checkpoint: GF_REQUIRE_SIGNER ignored
   4.4  Delegation with GF_REQUIRE_SIGNER
@@ -310,8 +341,8 @@ Execute Phase 1 → 2 → 3 → 4. Phase 0 can run in parallel or before Phase 1
 
 | File | Change |
 |------|--------|
-| `Univocity.sol` | Add `GF_REQUIRE_SIGNER`; add `_enforceRequireSignerIfFirstCheckpoint`; call it from `publishCheckpoint`. |
-| `IUnivocityErrors.sol` | Add `GrantDataInvalidKeyLength`, `SignerMustMatchGrantData`, optionally `BootstrapGrantMustRequireSigner`. |
+| `Univocity.sol` | Add `GF_REQUIRE_SIGNER`; pass grant/grantData into `_verifyCheckpointSignature` and ES256/KS256 helpers; inline GF_REQUIRE_SIGNER checks in first-checkpoint branches. |
+| `IUnivocityErrors.sol` | Add `GrantDataInvalidKeyLength` only; use `GrantRequirement(GF_REQUIRE_SIGNER, 0)` for signer mismatch. |
 | `IUnivocity.sol` | NatSpec for PaymentGrant / grant flags (optional). |
 | `test/checkpoints/*.t.sol` | New tests per §4; optionally refactor per Phase 0. |
 

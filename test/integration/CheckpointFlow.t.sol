@@ -96,7 +96,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
             0,
             0,
             bytes32(0),
-            ""
+            abi.encodePacked(ks256Signer)
         );
         bytes32 leaf0 = _leafCommitment(IDTIMESTAMP_0, g);
         IUnivocity.ConsistencyReceipt memory consistency =
@@ -134,7 +134,9 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
     uint256 internal constant GF_DATA = uint256(2);
     uint256 internal constant GC_AUTH_LOG = uint256(1) << 224;
     uint256 internal constant GC_DATA_LOG = uint256(2) << 224;
-    uint256 internal constant GRANT_ROOT = GF_CREATE | GF_EXTEND | GF_AUTH;
+    uint256 internal constant GF_REQUIRE_SIGNER = uint256(1) << 2;
+    uint256 internal constant GRANT_ROOT =
+        GF_CREATE | GF_EXTEND | GF_AUTH | GF_REQUIRE_SIGNER;
     uint256 internal constant GRANT_DATA = GF_CREATE | GF_EXTEND | GF_DATA;
 
     function _paymentGrant(
@@ -406,7 +408,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
             1000,
             0,
             bytes32(0),
-            ""
+            abi.encodePacked(ks256Signer)
         );
         bytes32 authLeaf0 = _leafCommitment(IDTIMESTAMP_0, g0);
         univocity.publishCheckpoint(
@@ -456,7 +458,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
             1000,
             0,
             bytes32(0),
-            ""
+            abi.encodePacked(ks256Signer)
         );
         bytes32 authLeaf0 = _leafCommitment(IDTIMESTAMP_0, g0);
         univocity.publishCheckpoint(

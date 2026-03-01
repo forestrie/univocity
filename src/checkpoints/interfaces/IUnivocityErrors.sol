@@ -21,6 +21,9 @@ interface IUnivocityErrors {
     /// @notice Root's first checkpoint: recovered signer must match bootstrap
     ///    key to prevent front-running (no grant-based protection for root).
     error RootSignerMustMatchBootstrap();
+    /// @notice When GF_REQUIRE_SIGNER is set, grantData length must be 20
+    ///    (KS256) or 64 (ES256).
+    error GrantDataInvalidKeyLength(uint256 length);
 
     // Log state
     error LogNotFound(bytes32 logId);

@@ -87,6 +87,9 @@ contract Univocity is IUnivocity, IUnivocityErrors {
     uint256 public constant GF_AUTH_LOG = uint256(1);
     /// @notice Grant flag: new log is a data log.
     uint256 public constant GF_DATA_LOG = uint256(2);
+    /// @notice Grant flag (modifier): when set with GF_CREATE, grantData is the
+    ///    allowed signer (public key bytes). Only enforced on first checkpoint.
+    uint256 public constant GF_REQUIRE_SIGNER = uint256(1) << 2;
 
     /// @notice Grant code (high 32 bits): mutually exclusive log kind for new logs.
     uint256 public constant GC_AUTH_LOG = uint256(1) << 224;
@@ -95,6 +98,10 @@ contract Univocity is IUnivocity, IUnivocityErrors {
     /// @notice Mask for request code bits (high 32 bits); (request & GF_GC_MASK)
     ///    must be GC_AUTH_LOG or GC_DATA_LOG for new logs; not in leaf hash.
     uint256 public constant GF_GC_MASK = uint256(3) << 224;
+
+    /// @dev P-256 field prime; used to treat (x, y) and (x, P-y) as same key.
+    uint256 private constant P256_P =
+        0xFFFFFFFF00000001000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFF;
 
     // === Constructor ===
 
@@ -290,7 +297,9 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             consistencyParts,
             detachedPayload,
             config,
-            consistencyParts.delegationProof
+            consistencyParts.delegationProof,
+            paymentGrant.grant,
+            paymentGrant.grantData
         );
 
         // --- Grant / inclusion enforcement (rules 1, 2, 3) ---
@@ -447,7 +456,9 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         IUnivocity.ConsistencyReceipt calldata consistencyParts,
         bytes memory detachedPayload,
         IUnivocity.LogConfig storage config,
-        IUnivocity.DelegationProof calldata delegationProof
+        IUnivocity.DelegationProof calldata delegationProof,
+        uint256 grant,
+        bytes calldata grantData
     ) internal view returns (bytes memory initialRoot) {
         // Rule 5: consistency receipt signature verification.
         // We distinguish (1) the log root key — authority for this log, recovered or from storage —
@@ -464,7 +475,9 @@ contract Univocity is IUnivocity, IUnivocityErrors {
                 consistencyParts,
                 detachedPayload,
                 config,
-                delegationProof
+                delegationProof,
+                grant,
+                grantData
             );
         }
         if (alg == ALG_KS256) {
@@ -474,7 +487,9 @@ contract Univocity is IUnivocity, IUnivocityErrors {
                 consistencyParts,
                 detachedPayload,
                 config,
-                delegationProof
+                delegationProof,
+                grant,
+                grantData
             );
         }
 
@@ -487,7 +502,9 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         IUnivocity.ConsistencyReceipt calldata consistencyParts,
         bytes memory detachedPayload,
         IUnivocity.LogConfig storage config,
-        IUnivocity.DelegationProof calldata delegationProof
+        IUnivocity.DelegationProof calldata delegationProof,
+        uint256 grant,
+        bytes calldata grantData
     ) internal view returns (bytes memory initialRoot) {
         // --- Verifier key: the key that must have signed the consistency receipt. ---
         // With delegation: delegate signed the receipt. Without: root signed the receipt.
@@ -511,12 +528,40 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         }
         // Persist the log root key for new logs so future checkpoints can verify against it.
         if (config.initializedAt == 0) {
-            // Root's first checkpoint has no grant-based protection; require
-            // recovered signer to match bootstrap key to prevent front-running.
+            // Root's first checkpoint: recovered signer must match bootstrap key.
+            // Recovery is tooling-agnostic (no y-normalization) so we accept
+            // (x, y) or (x, P-y) as the same key.
             if (
-                rootLogId == bytes32(0) && (rootX != es256X || rootY != es256Y)
+                rootLogId == bytes32(0)
+                    && !_es256KeyMatchesBootstrap(rootX, rootY)
             ) {
                 revert RootSignerMustMatchBootstrap();
+            }
+            // ADR-0005 GF_REQUIRE_SIGNER: root must set it; non-root may set it.
+            if (rootLogId == bytes32(0)) {
+                if ((grant & GF_REQUIRE_SIGNER) == 0) {
+                    revert GrantRequirement(GF_REQUIRE_SIGNER, 0);
+                }
+                // slither-disable-next-line unused-return
+                (, bytes memory bootstrapKey) = this.getBootstrapKeyConfig();
+                if (grantData.length != bootstrapKey.length) {
+                    revert GrantDataInvalidKeyLength(grantData.length);
+                }
+                if (keccak256(grantData) != keccak256(bootstrapKey)) {
+                    revert GrantRequirement(GF_REQUIRE_SIGNER, 0);
+                }
+            } else {
+                if ((grant & GF_REQUIRE_SIGNER) != 0) {
+                    if (grantData.length != 20 && grantData.length != 64) {
+                        revert GrantDataInvalidKeyLength(grantData.length);
+                    }
+                    if (
+                        keccak256(abi.encodePacked(rootX, rootY))
+                            != keccak256(grantData)
+                    ) {
+                        revert GrantRequirement(GF_REQUIRE_SIGNER, 0);
+                    }
+                }
             }
             return abi.encodePacked(rootX, rootY);
         }
@@ -530,7 +575,9 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         IUnivocity.ConsistencyReceipt calldata consistencyParts,
         bytes memory detachedPayload,
         IUnivocity.LogConfig storage config,
-        IUnivocity.DelegationProof calldata delegationProof
+        IUnivocity.DelegationProof calldata delegationProof,
+        uint256 grant,
+        bytes calldata grantData
     ) internal view returns (bytes memory initialRoot) {
         // KS256: no delegation support. Verifier key is root (bootstrap for root log) or stored log key.
         if (delegationProof.signature.length > 0) {
@@ -559,6 +606,32 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         }
         // Persist the log root key for new logs so future checkpoints can verify against it.
         if (config.initializedAt == 0) {
+            // ADR-0005 GF_REQUIRE_SIGNER: root must set it; non-root may set it.
+            if (rootLogId == bytes32(0)) {
+                if ((grant & GF_REQUIRE_SIGNER) == 0) {
+                    revert GrantRequirement(GF_REQUIRE_SIGNER, 0);
+                }
+                // slither-disable-next-line unused-return
+                (, bytes memory bootstrapKey) = this.getBootstrapKeyConfig();
+                if (grantData.length != bootstrapKey.length) {
+                    revert GrantDataInvalidKeyLength(grantData.length);
+                }
+                if (keccak256(grantData) != keccak256(bootstrapKey)) {
+                    revert GrantRequirement(GF_REQUIRE_SIGNER, 0);
+                }
+            } else {
+                if ((grant & GF_REQUIRE_SIGNER) != 0) {
+                    if (grantData.length != 20 && grantData.length != 64) {
+                        revert GrantDataInvalidKeyLength(grantData.length);
+                    }
+                    if (
+                        keccak256(abi.encodePacked(keyAddr))
+                            != keccak256(grantData)
+                    ) {
+                        revert GrantRequirement(GF_REQUIRE_SIGNER, 0);
+                    }
+                }
+            }
             return abi.encodePacked(keyAddr);
         }
         return new bytes(0);
@@ -675,6 +748,18 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         }
     }
 
+    /// @dev True if (qx, qy) is the bootstrap ES256 key or its curve inverse.
+    function _es256KeyMatchesBootstrap(bytes32 qx, bytes32 qy)
+        private
+        view
+        returns (bool)
+    {
+        if (qx != es256X) return false;
+        uint256 qyU = uint256(qy);
+        uint256 eyU = uint256(es256Y);
+        return qyU == eyU || qyU == P256_P - eyU;
+    }
+
     /// @notice Decode stored root key for ES256 (64 bytes = P-256 x || y).
     function _decodeLogRootKeyES256(bytes32 logId)
         private
@@ -701,6 +786,56 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         assembly {
             keyAddr := shr(96, mload(add(rk, 32)))
         }
+    }
+
+    /// @notice Same 4-arg layout as publishCheckpoint; returns leaf commitment
+    ///    (for tests to compare contract decode vs test helper).
+    function viewLeafCommitment(
+        IUnivocity.ConsistencyReceipt calldata,
+        IUnivocity.InclusionProof calldata,
+        bytes8 paymentIDTimestampBe,
+        IUnivocity.PaymentGrant calldata g
+    ) external pure returns (bytes32) {
+        return _leafCommitment(paymentIDTimestampBe, g);
+    }
+
+    /// @notice Decode receipt only (no grant); return first peak and recovered
+    ///    ES256 key (for tests to compare contract vs verifier).
+    function viewDecodeReceiptAndRecover(
+        IUnivocity.ConsistencyReceipt calldata consistencyParts
+    ) external view returns (bytes32 firstPeak, bytes32 keyX, bytes32 keyY) {
+        bytes32[] memory initialAcc = new bytes32[](0);
+        bytes32[] memory accMem = verifyConsistencyProofChain(
+            initialAcc, consistencyParts.consistencyProofs
+        );
+        firstPeak = accMem[0];
+        bytes memory detached = buildDetachedPayloadCommitment(accMem);
+        (keyX, keyY) = recoverES256FromDetachedPayload(
+            consistencyParts.protectedHeader,
+            detached,
+            consistencyParts.signature
+        );
+    }
+
+    /// @notice Same 4-arg layout as publishCheckpoint; decode receipt only and
+    ///    return first peak and recovered key (for tests to compare 4-arg decode).
+    function viewDecodeReceiptAndRecover4(
+        IUnivocity.ConsistencyReceipt calldata consistencyParts,
+        IUnivocity.InclusionProof calldata,
+        bytes8,
+        IUnivocity.PaymentGrant calldata
+    ) external view returns (bytes32 firstPeak, bytes32 keyX, bytes32 keyY) {
+        bytes32[] memory initialAcc = new bytes32[](0);
+        bytes32[] memory accMem = verifyConsistencyProofChain(
+            initialAcc, consistencyParts.consistencyProofs
+        );
+        firstPeak = accMem[0];
+        bytes memory detached = buildDetachedPayloadCommitment(accMem);
+        (keyX, keyY) = recoverES256FromDetachedPayload(
+            consistencyParts.protectedHeader,
+            detached,
+            consistencyParts.signature
+        );
     }
 
     function _leafCommitment(

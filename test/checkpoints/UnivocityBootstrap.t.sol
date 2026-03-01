@@ -32,7 +32,7 @@ contract UnivocityBootstrapTest is UnivocityTestHelper {
             0,
             0,
             bytes32(0),
-            ""
+            abi.encodePacked(KS256_SIGNER)
         );
         vm.prank(BOOTSTRAP);
         try univocity.publishCheckpoint(
@@ -56,7 +56,7 @@ contract UnivocityBootstrapTest is UnivocityTestHelper {
             0,
             0,
             bytes32(0),
-            ""
+            abi.encodePacked(KS256_SIGNER)
         );
         bytes32 leaf0 = _leafCommitment(IDTIMESTAMP_AUTH, g);
         IUnivocity.ConsistencyReceipt memory consistency =

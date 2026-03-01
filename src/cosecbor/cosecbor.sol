@@ -236,6 +236,11 @@ function verifyES256Raw(
 
 /// @notice Recover P-256 signer from 64-byte signature (r || s). Tries
 ///    recovery id 0 and 1; returns (0, 0) if neither yields a valid signer.
+///    When both ids yield a verifying point, returns the one with smaller
+///    (x, y) lexicographically so the result is deterministic and independent
+///    of signer tooling (Foundry, WebAuthn, etc.). Returned point is always
+///    raw (not y-normalized) so it verifies (h, r, s). Callers that need a
+///    canonical form for comparison may normalize y (e.g. y <= P/2) themselves.
 function recoverES256(bytes32 hash, bytes memory signature)
     view
     returns (bytes32 x, bytes32 y)
@@ -249,15 +254,31 @@ function recoverES256(bytes32 hash, bytes memory signature)
         r := mload(add(signature, 32))
         s := mload(add(signature, 64))
     }
-    (x, y) = P256.recovery(hash, 0, r, s);
-    if (x != bytes32(0) || y != bytes32(0)) {
-        if (P256.verify(hash, r, s, x, y)) return (x, y);
+    (bytes32 x0, bytes32 y0) = P256.recovery(hash, 0, r, s);
+    (bytes32 x1, bytes32 y1) = P256.recovery(hash, 1, r, s);
+    bool ok0 = (x0 != bytes32(0) || y0 != bytes32(0))
+        && P256.verify(hash, r, s, x0, y0);
+    bool ok1 = (x1 != bytes32(0) || y1 != bytes32(0))
+        && P256.verify(hash, r, s, x1, y1);
+    if (ok0 && ok1) {
+        return _lexMinP256(x0, y0, x1, y1);
     }
-    (x, y) = P256.recovery(hash, 1, r, s);
-    if (x != bytes32(0) || y != bytes32(0)) {
-        if (P256.verify(hash, r, s, x, y)) return (x, y);
-    }
+    if (ok0) return (x0, y0);
+    if (ok1) return (x1, y1);
     return (bytes32(0), bytes32(0));
+}
+
+/// @dev Returns (x1, y1) if (x1, y1) is lexicographically smaller than
+///    (x2, y2), else (x2, y2). Used to pick one of two verifying points
+///    deterministically.
+function _lexMinP256(bytes32 x1, bytes32 y1, bytes32 x2, bytes32 y2)
+    pure
+    returns (bytes32, bytes32)
+{
+    if (uint256(x1) < uint256(x2)) return (x1, y1);
+    if (uint256(x1) > uint256(x2)) return (x2, y2);
+    if (uint256(y1) <= uint256(y2)) return (x1, y1);
+    return (x2, y2);
 }
 
 /// @notice Recover P-256 signer of a COSE_Sign1 detached payload (same
