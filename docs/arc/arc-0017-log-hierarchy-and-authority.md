@@ -387,11 +387,13 @@ implemented and would need new work.
    but only one authority log exists.
 
 2. **Creating an authority log via a grant**  
-   Child authority creation **is** implemented: first checkpoint to a new
-   log with createAsAuthority and inclusion in parent sets kind=Authority,
-   authLogId=parent; the first checkpoint's signer becomes the child's
-   rootKey. No per–authority bootstrap is required — the grant hierarchy
-   establishes the namespace and the signer establishes the log's key.
+   Child authority creation **is** implemented: a grant/request to create a
+   new log, with the appropriate GF_* flag(s) and GC_* code selecting
+   “authority log” as the log kind, sets `kind = Authority` and
+   `authLogId = parent`; the first checkpoint's signer becomes the child's
+   `rootKey`. No per–authority bootstrap is required — the grant hierarchy
+   (via GF_* / GC_* selection) establishes the namespace and the signer
+   establishes the log's key.
 
 3. **Per–authority log bootstrap (not required)**  
    The design does not require a bootstrap identity per authority log.
