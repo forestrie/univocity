@@ -59,8 +59,9 @@ contract UnivocityExtendTest is UnivocityTestHelper {
     }
 
     /// @notice Root extension requires grant (inclusion proof) in root
-    ///    (ADR-0004). After setUp root has size 2; prove inclusion of leaf 0.
-    function test_publishCheckpoint_authorityLogSecondCheckpoint_noInclusionProofRequired()
+    ///    (ADR-0004). After setUp root has size 2; test supplies inclusion
+    ///    proof for leaf 0 and publishes second checkpoint.
+    function test_publishCheckpoint_authorityLogSecondCheckpoint_requiresInclusionProof()
         public
     {
         IUnivocity.ConsistencyReceipt memory consistency2 =

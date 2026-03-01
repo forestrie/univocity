@@ -521,7 +521,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
         bytes32[] memory accFrom = new bytes32[](1);
         accFrom[0] = leaf0;
         commitmentHarness.setAccumulator(accFrom);
-        bytes32[] memory emptyRightPeaks;
+        bytes32[] memory emptyRightPeaks = new bytes32[](0);
         bytes32 commitment =
             commitmentHarness.getCommitment(0, paths, emptyRightPeaks);
         IUnivocity.ConsistencyProof[] memory proofs =

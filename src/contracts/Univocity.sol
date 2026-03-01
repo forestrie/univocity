@@ -527,7 +527,9 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         // verify against it. First checkpoint always uses grantData as signer key (verify-only).
         if (config.initializedAt == 0) {
             if (rootLogId == bytes32(0)) {
-                // Root's first checkpoint: grantData must match bootstrap key.
+                // Root's first checkpoint: signer must match bootstrap key
+                // (allows curve inverse (x, P-y)); grantData must be exact
+                // bootstrap bytes (same representation as deployment).
                 if (!_es256KeyMatchesBootstrap(rootX, rootY)) {
                     revert RootSignerMustMatchBootstrap();
                 }
