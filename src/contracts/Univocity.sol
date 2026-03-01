@@ -787,7 +787,6 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         IUnivocity.LogConfig storage config = _logConfigs[logId];
 
         if (config.initializedAt == 0) {
-
             config.initializedAt = block.number;
 
             if (rootKeyToSet.length == 64 || rootKeyToSet.length == 20) {
@@ -795,12 +794,16 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             }
 
             if (logId == rootLogId) {
-                if (logId != authorityLogIdUsed) revert BootstrapLogMustUseSelf();
-                if ((request & GF_GC_MASK) != GC_AUTH_LOG) revert BootstrapLogMustBeAuthLog();
+                if (logId != authorityLogIdUsed) {
+                    revert BootstrapLogMustUseSelf();
+                }
+                if ((request & GF_GC_MASK) != GC_AUTH_LOG) {
+                    revert BootstrapLogMustBeAuthLog();
+                }
             }
             config.kind = (request & GF_GC_MASK) == GC_AUTH_LOG
-                    ? IUnivocity.LogKind.Authority
-                    : IUnivocity.LogKind.Data;
+                ? IUnivocity.LogKind.Authority
+                : IUnivocity.LogKind.Data;
             config.authLogId = authorityLogIdUsed;
 
             emit LogRegistered(logId, _msgSender(), size);

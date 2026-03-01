@@ -53,6 +53,9 @@
 uint256 public constant GF_REQUIRE_SIGNER = uint256(1) << 34;
 ```
 
+> Change: the high bit flags are operational constraints. the low flags are
+> modifiers on operation. please use GF_REQUIRE_SIGNER = uint256(1) << 2
+
 **1.2** In `IUnivocity.sol` (or in NatSpec only if constants are not in the interface), document that the grant may include GF_REQUIRE_SIGNER; when set with GF_CREATE, grantData must be the allowed signer key (length 20 or 64). No interface change required if the contract already exposes constants via public getters.
 
 **1.3** In `IUnivocityErrors.sol`, add errors for ADR-0005 (agent may choose names; suggested):
@@ -68,6 +71,9 @@ error GrantDataInvalidKeyLength(uint256 length);
 ///    GF_REQUIRE_SIGNER is set.
 error SignerMustMatchGrantData();
 ```
+
+> Change: instead of SignerMustMatchGrantData I think we should use the more
+> uniform error GrantRequirement(uint256 requiredGrant, uint256 requiredRequest)
 
 **1.4** Export or re-export any new errors in the contract so tests can use them.
 
@@ -111,6 +117,13 @@ error SignerMustMatchGrantData();
 - **Subsequent checkpoints:** Do not read or enforce GF_REQUIRE_SIGNER (ignored).
 
 **2.1** Add a private/internal helper to avoid duplicating logic, e.g.:
+
+> Change: I'm not convinced this helper is significantly reducing duplication
+> given the existing handling. I suspect that the necessary checks can be made
+> inline in existing logic branches and that will not overly duplicate but will
+> eliminate the checking in the helper as the context establishes which
+> branches are appropriate. Please provide revised diffs for the affected code
+> paths so I can asses
 
 ```solidity
 /// @notice Enforce GF_REQUIRE_SIGNER for first checkpoint only (ADR-0005).
