@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.24;
 
-import {recoverES256} from "@univocity/cosecbor/cosecbor.sol";
 import {P256} from "@openzeppelin/contracts/utils/cryptography/P256.sol";
 
 /// @notice Verifies delegation: minimal proof (no COSE cert decode). Plan 0016.
@@ -68,22 +67,4 @@ function verifyDelegationProofES256(
     if (!P256.verify(canonicalHash, r, s, storedRootX, storedRootY)) {
         revert DelegationSignatureInvalid();
     }
-}
-
-/// @notice Recover ES256 delegation signer (log root key) from the delegation
-///    signature. Use when the checkpoint is the first for the log and no root
-///    key is stored yet. Canonical message is sha256(logId, mmrStart, mmrEnd,
-///    delegatedKeyX, delegatedKeyY). Returns (0, 0) if recovery fails.
-function recoverDelegationSignerES256(
-    bytes32 logId,
-    uint64 mmrStart,
-    uint64 mmrEnd,
-    bytes32 delegatedKeyX,
-    bytes32 delegatedKeyY,
-    bytes calldata signature
-) view returns (bytes32 rootX, bytes32 rootY) {
-    bytes32 canonicalHash = sha256(
-        abi.encodePacked(logId, mmrStart, mmrEnd, delegatedKeyX, delegatedKeyY)
-    );
-    return recoverES256(canonicalHash, signature);
 }

@@ -1,10 +1,13 @@
 # Plan 0013: ADR-0032 Delegated Checkpoint Signature Verification (Option 2)
 
-**Status**: Draft  
+**Status**: Implemented  
 **Date**: 2026-02-22  
-**Scope**: Implement on-chain verification of Forestrie checkpoint COSE_Sign1 and
-delegation chain in Univocity, per ADR-0032 Option 2, with robust testing and
-minimal use of well-audited third-party libraries for cryptographic operations.
+**Scope**: On-chain verification of Forestrie checkpoint COSE_Sign1 and delegation
+chain in Univocity, per ADR-0032 Option 2. Root key from first checkpoint
+(recovery or bootstrap); ES256 delegation; root’s first checkpoint requires
+receipt signer to match bootstrap key (prevents front-running). See
+`Univocity.sol` (_verifyCheckpointSignature, _checkpointSignersES256,
+delegationVerifier.sol).
 
 ## 0. Specs and References
 
@@ -39,7 +42,7 @@ LogState today: `accumulator`, `size`, `initializedAt` (plan-0021 Phase E remove
 
 ## 1. Prerequisites
 
-- [Plan 0012](plan-0012-arc-0016-implementation-review.md) (ARC-0016 implementation review) completed or current.
+- [Plan 0012](../history/plans/plan-0012-arc-0016-implementation-review.md) (historical; ARC-0016 reflection).
 - Univocity receipt and MMR behaviour unchanged; this plan **adds** checkpoint
   COSE verification and **does not** remove existing receipt/consistency checks.
 - Forestrie checkpoint producer emits COSE_Sign1 per ARC-0010 with delegation
@@ -1173,13 +1176,14 @@ form.
 ### B.4 Alignment with ADR-0030 and plan 0015
 
 - **Leaf formula (ADR-0030 / plan 0015):** Implemented: inner =
-  SHA256(logId‖payer‖checkpointStart‖checkpointEnd‖maxHeight‖minGrowth);
+  SHA256(logId‖payer‖maxHeight‖minGrowth‖ownerLogId‖createAsAuthority);
   leafCommitment = SHA256(paymentIDTimestampBe ‖ inner). Used for first-checkpoint
-  inclusion and for payment receipt RoI.
+  inclusion and for payment receipt RoI. (checkpointStart/checkpointEnd removed;
+  bounds are size-based only.)
 - **Payment receipt as RoI:** Implemented via LibInclusionReceipt; authority
   log accumulator and size used for inclusion check.
-- **PaymentGrant struct and bounds:** Implemented; checkpoint range,
-  maxHeight, minGrowth enforced.
+- **PaymentGrant struct and bounds:** Implemented; maxHeight, minGrowth
+  (size-based bounds only).
 
 ### B.5 Test coverage assessment
 

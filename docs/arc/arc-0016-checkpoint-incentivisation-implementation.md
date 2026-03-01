@@ -5,8 +5,8 @@
 **Related:** [ADR-0004](../adr/adr-0004-root-log-self-grant-extension.md),
 [ARC-0001](arc-0001-grant-minimum-range.md),
 [ADR-0001](../adr/adr-0001-payer-attribution-permissionless-submission.md),
-[plan-0001](../plans/plan-0001-r5-authority.md),
-[plan-0012](../plans/plan-0012-arc-0016-implementation-review.md),
+[plan-0001](../history/plans/plan-0001-r5-authority.md) (historical),
+[plan-0012](../history/plans/plan-0012-arc-0016-implementation-review.md) (historical),
 [ARC-0017](arc-0017-log-hierarchy-and-authority.md)
 
 This document re-drafts the checkpoint incentivisation model to reflect the
@@ -203,10 +203,10 @@ paymentIDTimestampBe, PaymentGrant calldata paymentGrant)`.
 
 The following list captures ways in which the current implementation diverges
 from or leaves gaps relative to the original ARC-0016 and related plans
-(plan-0001, plan-0015). Use this for review before considering ARC-0017.
+(see [history/plans](../history/plans/)). Use this for review.
 
 1. **Payment as inclusion proof only (no COSE Receipt of Inclusion)**  
-   Plan-0015 and the R5 model in plan-0001 describe payment as a **COSE
+   The historical plan-0015 and R5 model (plan-0001) described payment as **COSE
    signed Receipt of Inclusion**: decode payment receipt on-chain, extract
    inclusion proof from [396][-1], verify COSE signature over the derived
    root. The implementation follows plan-0016: payment is **pre-decoded
@@ -246,7 +246,7 @@ from or leaves gaps relative to the original ARC-0016 and related plans
    and the unified auth model; no divergence.
 
 7. **Event sourcing completeness**  
-   ARC-0016 and plan-0001 state that “all state changes emit events for
+   ARC-0016 and the historical plan-0001 state that “all state changes emit events for
    replay.” In practice, the only state-changing entry point is
    publishCheckpoint, and it emits CheckpointPublished (and
    Initialized/LogRegistered when applicable). So replay of “checkpoint

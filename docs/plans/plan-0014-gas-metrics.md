@@ -2,7 +2,7 @@
 
 **Status:** DRAFT  
 **Date:** 2025-02-22  
-**Related:** [plan-0014-feasibility](plan-0014-feasibility-consistency-receipt-calldata-memory.md)
+**Related:** [plan-0014-feasibility](../history/plans/plan-0014-feasibility-consistency-receipt-calldata-memory.md) (historical)
 
 ## Baseline (before memory refactor)
 

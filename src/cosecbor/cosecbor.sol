@@ -234,46 +234,6 @@ function verifyES256Raw(
     return P256.verify(hash, r, s, x, y);
 }
 
-/// @notice Recover P-256 signer from 64-byte signature (r || s). Tries
-///    recovery id 0 and 1; returns (0, 0) if neither yields a valid signer.
-function recoverES256(bytes32 hash, bytes memory signature)
-    view
-    returns (bytes32 x, bytes32 y)
-{
-    if (signature.length != 64) {
-        revert InvalidSignatureLength(64, signature.length);
-    }
-    bytes32 r;
-    bytes32 s;
-    assembly {
-        r := mload(add(signature, 32))
-        s := mload(add(signature, 64))
-    }
-    (x, y) = P256.recovery(hash, 0, r, s);
-    if (x != bytes32(0) || y != bytes32(0)) {
-        if (P256.verify(hash, r, s, x, y)) return (x, y);
-    }
-    (x, y) = P256.recovery(hash, 1, r, s);
-    if (x != bytes32(0) || y != bytes32(0)) {
-        if (P256.verify(hash, r, s, x, y)) return (x, y);
-    }
-    return (bytes32(0), bytes32(0));
-}
-
-/// @notice Recover P-256 signer of a COSE_Sign1 detached payload (same
-///    structure as verifyES256DetachedPayload). For first checkpoint without
-///    delegation, the recovered key is the log root key.
-function recoverES256FromDetachedPayload(
-    bytes memory protectedHeader,
-    bytes memory detachedPayload,
-    bytes memory signature
-) view returns (bytes32 x, bytes32 y) {
-    bytes memory sigStructure = buildSigStructure(
-        protectedHeader, detachedPayload
-    );
-    return recoverES256(sha256(sigStructure), signature);
-}
-
 function verifyKS256Raw(
     bytes memory message,
     bytes memory signature,

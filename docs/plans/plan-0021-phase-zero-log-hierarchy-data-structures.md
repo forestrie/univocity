@@ -1,13 +1,12 @@
 # Plan 0021: Phase 0 — Log hierarchy data structures (agent execution guide)
 
-**Status:** DRAFT  
+**Status:** Implemented  
 **Date:** 2026-02-23  
 **Related:** [ADR-0004](../adr/adr-0004-root-log-self-grant-extension.md),
 [ARC-0017](../arc/arc-0017-log-hierarchy-and-authority.md),
-[ARC-0016](../arc/arc-0016-checkpoint-incentivisation-implementation.md),
-[plan-0012](plan-0012-arc-0016-implementation-review.md)
+[ARC-0016](../arc/arc-0016-checkpoint-incentivisation-implementation.md)
 
-**Design summary.** Phase 0 of [ARC-0017](../arc/arc-0017-log-hierarchy-and-authority.md): data structures for the log hierarchy. **Authorization:** ARC-0017 §2 — rootKey at first checkpoint (direct or **recovered rootKey** in delegation); grant = inclusion against owner; **ownerLogId** in grant for log creation; bootstrap only for **first checkpoint ever**; root has authLogId = self ([ADR-0004](../adr/adr-0004-root-log-self-grant-extension.md)). **Grant bounds:** growth-based only (max_size/maxHeight, min_range/minGrowth); effective cap (max_size − current_size) / min_range. No checkpoint counter (Phase E). **Phase F (optional):** Create new authority logs via grant (ownerLogId + createAsAuthority; extend leaf commitment) so tests cover root→child→data hierarchy.
+**Design summary.** Phase 0 of [ARC-0017](../arc/arc-0017-log-hierarchy-and-authority.md): data structures for the log hierarchy. **Implemented** in Univocity.sol (LogConfig.kind, authLogId, rootKey; _verifyInclusionGrant; grant bounds via maxHeight, minGrowth). **Authorization:** ARC-0017 §2 — rootKey at first checkpoint (direct or **recovered rootKey** in delegation); grant = inclusion against owner; **ownerLogId** in grant for log creation; bootstrap only for **first checkpoint ever**; root has authLogId = self ([ADR-0004](../adr/adr-0004-root-log-self-grant-extension.md)). **Grant bounds:** growth-based only (max_size/maxHeight, min_range/minGrowth); effective cap (max_size − current_size) / min_range. No checkpoint counter (Phase E). **Phase F (optional):** Create new authority logs via grant (ownerLogId + createAsAuthority; extend leaf commitment) so tests cover root→child→data hierarchy.
 
 ---
 
@@ -54,7 +53,7 @@ Phase E (remove checkpointCount from current implementation)
   E.1  Remove checkpointCount from LogState (interface and contract);
        enforce grant bounds using size only (maxHeight, minGrowth).
   E.2  Remove _checkPaymentGrantBoundsCheckpointRange; drop checkpoint
-       range check (checkpointStart/checkpointEnd) from publishCheckpoint.
+       range check from publishCheckpoint (done; checkpointStart/End removed).
   E.3  Update CheckpointPublished event (drop checkpointCount); emit size
        only (observers use size as progression index).
   E.4  Update tests and invariants that assert on checkpointCount.
@@ -283,11 +282,11 @@ _logConfigs[logId].kind=Data, _logConfigs[logId].authLogId=authorityLogIdUsed.
 | Step | Location | Action | Acceptance |
 |------|----------|--------|------------|
 | E.1 | `IUnivocity.sol`, `Univocity.sol` | Remove `checkpointCount` from `LogState` struct and from `_logs` storage. Grant bounds are enforced only via size: `_checkPaymentGrantBoundsMaxHeight(size, paymentGrant)` and `size >= currentSize + paymentGrant.minGrowth`. | LogState has accumulator and size only; no counter in state. |
-| E.2 | `Univocity.sol` — `publishCheckpoint` | Remove call to `_checkPaymentGrantBoundsCheckpointRange`. Remove or repurpose `_checkPaymentGrantBoundsCheckpointRange`; grant no longer uses checkpointStart/checkpointEnd for bounds (max checkpoints implied by (maxHeight − currentSize) / minGrowth). | No checkpoint-range check; size and maxHeight/minGrowth define allowed publishes. |
+| E.2 | `Univocity.sol` — `publishCheckpoint` | Remove call to `_checkPaymentGrantBoundsCheckpointRange`; remove checkpointStart/checkpointEnd from PaymentGrant and leaf commitment (done). Bounds are size and maxHeight/minGrowth only. | No checkpoint-range check; size and maxHeight/minGrowth define allowed publishes. |
 | E.3 | `IUnivocityEvents.sol`, `Univocity.sol` | Remove `checkpointCount` parameter from `CheckpointPublished` event. Emit `size` only (observers use size as progression index). | Event signature and emit updated; no checkpointCount in events. |
 | E.4 | `test/`, invariants | Update tests that assert on `getLogState(...).checkpointCount` to use `size` (or remove assertion). Update `invariant_checkpointCountMonotonic` to a size-monotonic invariant or remove. | All tests and invariants pass. |
 
-**Note (Phase E):** PaymentGrant may retain `checkpointStart` and `checkpointEnd` in the struct and in the leaf commitment for receipt binding; they are simply not used for on-chain bounds. Alternatively, grant can be refactored to size-based fields in a follow-up.
+**Note (Phase E):** checkpointStart and checkpointEnd have been removed from PaymentGrant and from the leaf commitment; bounds are size-based only (maxHeight, minGrowth).
 
 ---
 

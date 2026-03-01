@@ -37,7 +37,7 @@ flowchart TB
   ROOT -->|"owner"| D1
   CHILD -->|"owner"| D2
 
-  ROOT -.->|extend: grant in self| ROOT
+  ROOT -.->|extend: grant in self| R1
   CHILD -.->|extend: grant in parent| ROOT
   D1 -.->|extend: grant in owner| ROOT
   D2 -.->|extend: grant in owner| CHILD

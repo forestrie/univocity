@@ -3,10 +3,10 @@
 **Status:** ACCEPTED  
 **Date:** 2026-02-23  
 **Related:** [ARC-0001](../arc/arc-0001-grant-minimum-range.md),
-[plan-0001](../plans/plan-0001-r5-authority.md),
-[plan-0015](../plans/plan-0015-publishCheckpoint-payment-receipt-as-roi.md),
-[plan-0014](../plans/plan-0014-feasibility-consistency-receipt-calldata-memory.md),
-[plan-0013](../plans/plan-0013-adr-0032-delegated-checkpoint-verification.md)
+[plan-0013](../plans/plan-0013-adr-0032-delegated-checkpoint-verification.md).
+Historical: [plan-0001](../history/plans/plan-0001-r5-authority.md),
+[plan-0015](../history/plans/plan-0015-publishCheckpoint-payment-receipt-as-roi.md),
+[plan-0014](../history/plans/plan-0014-feasibility-consistency-receipt-calldata-memory.md).
 
 ## Decision
 
@@ -18,9 +18,8 @@ The owner’s log (root or auth log) commits to a leaf that includes the payer
 `msg.sender` against `paymentGrant.payer`. Payer is for attribution only (who
 paid for the grant); submission is permissionless. In `CheckpointPublished`,
 both **sender** and **payer** are attributed and are **indexed** parameters
-(filterable by indexers). See
-[plan-0015](../plans/plan-0015-publishCheckpoint-payment-receipt-as-roi.md)
-and [plan-0001](../plans/plan-0001-r5-authority.md).
+(filterable by indexers). See [plan-0013](../plans/plan-0013-adr-0032-delegated-checkpoint-verification.md)
+and historical plans (payment receipt, R5) in [history/plans](../history/plans/).
 
 ## Context
 

@@ -8,6 +8,8 @@ interface IUnivocityErrors {
     error AlreadyInitialized();
     error NotInitialized();
     error OnlyBootstrapAuthority();
+    error BootstrapLogMustUseSelf();
+    error BootstrapLogMustBeAuthLog();
     /// @notice Bootstrap algorithm not supported (use COSE ALG_ES256 or
     ///    ALG_KS256).
     error InvalidBootstrapAlgorithm(int64 alg);
@@ -16,9 +18,15 @@ interface IUnivocityErrors {
     error InvalidBootstrapKeyLength(int64 alg, uint256 length);
     error FirstCheckpointSizeTooSmall();
     error BootstrapReceiptMustBeFirstEntry();
-    /// @notice Root's first checkpoint: recovered signer must match bootstrap
-    ///    key to prevent front-running (no grant-based protection for root).
+    /// @notice Root's first checkpoint: grantData (signer key) must match
+    ///    bootstrap key to prevent front-running.
     error RootSignerMustMatchBootstrap();
+    /// @notice First checkpoint: grantData must be the signer key; length must
+    ///    be 20 (KS256) or 64 (ES256).
+    error GrantDataInvalidKeyLength(uint256 length);
+    /// @notice Root's first checkpoint: grantData bytes must equal bootstrap
+    ///    key (wrong key supplied).
+    error GrantDataMustMatchBootstrap();
 
     // Log state
     error LogNotFound(bytes32 logId);
@@ -26,7 +34,7 @@ interface IUnivocityErrors {
     error InvalidAccumulatorLength(uint256 expected, uint256 actual);
     error InvalidRootKeyLength(uint256 length);
     /// @notice Log has no root key set; only allowed on first checkpoint for
-    ///    that log (root key is then established from receipt/delegation).
+    ///    that log (root key is then taken from grantData and verified).
     error LogRootKeyNotSet();
 
     // Proofs
@@ -66,6 +74,9 @@ interface IUnivocityErrors {
 
     // Plan 0015: Payment receipt as Receipt of Inclusion
     error InvalidPaymentReceipt();
+    /// @notice Grant or request does not match the required values for this
+    ///    operation. requiredGrant = GF_* flags; requiredRequest = GC_* (or 0).
+    error GrantRequirement(uint256 requiredGrant, uint256 requiredRequest);
     error MinGrowthNotMet(
         uint64 currentSize, uint64 newSize, uint64 minGrowth
     );

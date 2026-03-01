@@ -48,16 +48,11 @@ This report covers: (1) divergences from original intent, (2) functional gaps, (
 
 ### 1.4 ARC-0016 implementation reflection §4 and §5 outdated
 
-- **§4 Bounds:** Still describes “Checkpoint range: checkpointStart <= log.checkpointCount < checkpointEnd” and revert `CheckpointCountExceeded`.
-- **Implementation:** Phase E (plan-0021) is done: no checkpointCount in state; no checkpoint-range check; bounds are size-only (minGrowth, maxHeight).
+- **§4 Bounds:** Described “Checkpoint range: checkpointStart <= log.checkpointCount < checkpointEnd” and revert `CheckpointCountExceeded`.
+- **Implementation:** Phase E (plan-0021) is done: no checkpointCount in state; bounds are size-only (minGrowth, maxHeight). checkpointStart/checkpointEnd removed.
 - **§5 Events:** Says CheckpointPublished includes `checkpointCount` in the payload.
 - **Implementation:** Event has no checkpointCount; it has `size`, accumulator, paymentIndex, paymentPath.
-- **Recommendation:** Update ARC-0016 implementation reflection §4 and §5 to match: bounds = size-only; event = size (no checkpointCount).
-
-> Updates:
-    - remove the checkpointStart based model everywhere. explain the (max_size
-- current_size) / min_growth model in a clear section then reference that
-instead.
+- **Recommendation:** Update ARC-0016 implementation reflection §4 and §5 to match: bounds = size-only (maxHeight, minGrowth); event = size (no checkpointCount).
 ---
 
 ## 2. Functional gaps
@@ -270,9 +265,9 @@ After actioning the “> Updates” blocks above, the following was checked for
 - [ARC-0017 Log hierarchy and authority](../arc/arc-0017-log-hierarchy-and-authority.md)
 - [ARC-0016 Checkpoint incentivisation (implementation)](../arc/arc-0016-checkpoint-incentivisation-implementation.md)
 - [Plan-0021 Phase 0 — Log hierarchy data structures](../plans/plan-0021-phase-zero-log-hierarchy-data-structures.md)
-- [Plan-0012 ARC-0016 implementation review](../plans/plan-0012-arc-0016-implementation-review.md)
+- [Plan-0012 ARC-0016 implementation review](../history/plans/plan-0012-arc-0016-implementation-review.md) (historical)
 - [Plan-0016 Minimal COSE/CBOR API and pre-decode](../plans/plan-0016-minimal-cose-cbor-api-predecode.md)
-- [Plan-0015 publishCheckpoint — payment as RoI](../plans/plan-0015-publishCheckpoint-payment-receipt-as-roi.md)
+- [Plan-0015 publishCheckpoint — payment as RoI](../history/plans/plan-0015-publishCheckpoint-payment-receipt-as-roi.md) (historical)
 - [Plan-0013 ADR-0032 delegated checkpoint verification](../plans/plan-0013-adr-0032-delegated-checkpoint-verification.md)
 - [Plan-0020 Algorithm test coverage parity](../plans/plan-0020-algorithms-test-coverage-parity.md)
-- [Plan-0001 R5 authority](../plans/plan-0001-r5-authority.md)
+- [Plan-0001 R5 authority](../history/plans/plan-0001-r5-authority.md) (historical)

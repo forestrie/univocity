@@ -10,13 +10,11 @@ import {
     extractAlgorithm,
     verifyES256DetachedPayload,
     verifyKS256DetachedPayload,
-    recoverES256FromDetachedPayload,
     UnsupportedAlgorithm
 } from "@univocity/cosecbor/cosecbor.sol";
 import {
     decodeDelegationKeyES256,
-    verifyDelegationProofES256,
-    recoverDelegationSignerES256
+    verifyDelegationProofES256
 } from "@univocity/checkpoints/lib/delegationVerifier.sol";
 import {
     verifyConsistencyProofChain,
@@ -46,7 +44,7 @@ import {peaks} from "@univocity/algorithms/peaks.sol";
 /// 3. **Log creation requires ownerLogId:** The first checkpoint to a new log
 ///    (data or child authority) requires paymentGrant.ownerLogId and an
 ///    inclusion proof against that owner; kind (Authority/Data) is set from
-///    createAsAuthority.
+///    grant (GF_CREATE, GF_EXTEND; log kind: GC_AUTH_LOG or GC_DATA_LOG).
 /// 4. **Grant bounds:** Growth is bounded only by minGrowth and maxHeight
 ///    (no checkpoint counter); size must satisfy currentSize + minGrowth <=
 ///    size <= maxHeight (when maxHeight != 0).
@@ -78,6 +76,27 @@ contract Univocity is IUnivocity, IUnivocityErrors {
 
     mapping(bytes32 => LogState) private _logs;
     mapping(bytes32 => IUnivocity.LogConfig) private _logConfigs;
+
+    /// @notice Grant flag: create a new log (first checkpoint to that logId).
+    uint256 public constant GF_CREATE = uint256(1) << 32;
+    /// @notice Grant flag: extend an existing log.
+    uint256 public constant GF_EXTEND = uint256(1) << 33;
+    /// @notice Grant flag: new log is an authority log (child authority).
+    uint256 public constant GF_AUTH_LOG = uint256(1);
+    /// @notice Grant flag: new log is a data log.
+    uint256 public constant GF_DATA_LOG = uint256(2);
+
+    /// @notice Grant code (high 32 bits): mutually exclusive log kind for new logs.
+    uint256 public constant GC_AUTH_LOG = uint256(1) << 224;
+    /// @notice Grant code: new log is a data log (mutually exclusive with GC_AUTH_LOG).
+    uint256 public constant GC_DATA_LOG = uint256(2) << 224;
+    /// @notice Mask for request code bits (high 32 bits); (request & GF_GC_MASK)
+    ///    must be GC_AUTH_LOG or GC_DATA_LOG for new logs; not in leaf hash.
+    uint256 public constant GF_GC_MASK = uint256(3) << 224;
+
+    /// @dev P-256 field prime; used to treat (x, y) and (x, P-y) as same key.
+    uint256 private constant P256_P =
+        0xFFFFFFFF00000001000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFF;
 
     // === Constructor ===
 
@@ -162,17 +181,6 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         return (ALG_ES256, abi.encodePacked(es256X, es256Y));
     }
 
-    // === Modifiers ===
-
-    modifier onlyBootstrap() {
-        _onlyBootstrap();
-        _;
-    }
-
-    function _onlyBootstrap() internal view {
-        if (msg.sender != bootstrapAuthority) revert OnlyBootstrapAuthority();
-    }
-
     // === View Functions ===
 
     /// @notice Returns the mutable state of a log (accumulator, size).
@@ -230,7 +238,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
     ///   first checkpoint ever; grant = self-inclusion (index 0, path length
     ///   up to MAX_HEIGHT); receipt signer must match bootstrap key (rule 1).
     ///   First checkpoint to a new log: ownerLogId required; inclusion
-    ///   verified against owner; kind from createAsAuthority (rule 2, 3).
+    ///   verified against owner; kind from grant (rule 2, 3).
     ///   Extend existing log: inclusion verified against config.authLogId
     ///   (rule 2). Grant bounds minGrowth, maxHeight checked (rule 4).
     function publishCheckpoint(
@@ -268,7 +276,6 @@ contract Univocity is IUnivocity, IUnivocityErrors {
                 currentSize, claimedSize, paymentGrant.minGrowth
             );
         }
-
         bytes32[] memory initialAcc = _accumulatorToMemory(log);
         bytes32[] memory accMem = verifyConsistencyProofChain(
             initialAcc, consistencyParts.consistencyProofs
@@ -285,7 +292,9 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             consistencyParts,
             detachedPayload,
             config,
-            consistencyParts.delegationProof
+            consistencyParts.delegationProof,
+            paymentGrant.grant,
+            paymentGrant.grantData
         );
 
         // --- Grant / inclusion enforcement (rules 1, 2, 3) ---
@@ -306,14 +315,14 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             paymentInclusionProof.index,
             paymentInclusionProof.path,
             authForInclusion,
-            paymentGrant.createAsAuthority,
+            paymentGrant.request,
             rootKeyToSet
         );
     }
 
     /// @notice Enforce grant/inclusion rules (1, 2, 3). Reverts on failure.
-    /// @return authLogId Log against which inclusion was verified (bytes32(0)
-    ///    when creating the root; rootLogId for root extension; owner for others).
+    /// @return authLogId Log against which inclusion was verified (logId when
+    ///    creating the root; rootLogId for root extension; owner for others).
     function _verifyInclusionGrant(
         bytes32 logId,
         uint64 claimedSize,
@@ -327,8 +336,19 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             _leafCommitment(paymentIDTimestampBe, paymentGrant);
 
         if (rootLogId == bytes32(0)) {
-            // Rule 1: First checkpoint ever = root authority log. Grant is
-            // inclusion proof against the first leaf (index 0) in the new tree.
+            // Rule 1: First checkpoint ever = root authority log. Grant must
+            // have GF_CREATE and GF_AUTH_LOG; request must be GC_AUTH_LOG.
+            uint256 g = paymentGrant.grant;
+            uint256 req = paymentGrant.request & GF_GC_MASK;
+            if (
+                (g & GF_CREATE) == 0 || (g & GF_AUTH_LOG) == 0
+                    || req != GC_AUTH_LOG
+            ) {
+                revert GrantRequirement(GF_CREATE | GF_AUTH_LOG, GC_AUTH_LOG);
+            }
+
+            // Grant is inclusion proof against the first leaf (index 0) in the
+            // new tree.
             if (claimedSize < 1) revert FirstCheckpointSizeTooSmall();
 
             // Root's first checkpoint: grant is self-inclusion at index 0;
@@ -354,7 +374,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             // CheckpointPublished carries the actual sender.
             emit Initialized(bootstrapAuthority, logId);
 
-            return bytes32(0);
+            return logId;
         }
         // Root extension (after creation) and extend existing data/child log:
         // grant = inclusion proof against this log's authLogId (root = self).
@@ -362,16 +382,47 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         // cannot be reached for the root authority log). Resolve the log
         // against which we verify the grant (owner), then use the same
         // proof checks as for extending an existing log.
-        bytes32 resolvedAuthLogId = config.initializedAt == 0
-            ? paymentGrant.ownerLogId
-            : config.authLogId;
 
-        if (paymentGrant.ownerLogId == bytes32(0) && config.initializedAt == 0)
-        {
-            revert InvalidPaymentReceipt();
+        if (config.initializedAt == 0) {
+            authLogId = paymentGrant.ownerLogId;
+
+            uint256 g = paymentGrant.grant;
+            uint256 req = paymentGrant.request & GF_GC_MASK;
+            if ((g & GF_CREATE) == 0) {
+                revert GrantRequirement(
+                    GF_CREATE | GF_AUTH_LOG | GF_DATA_LOG, 0
+                );
+            }
+            if (req == GC_AUTH_LOG) {
+                if ((g & GF_AUTH_LOG) == 0) {
+                    revert GrantRequirement(
+                        GF_CREATE | GF_AUTH_LOG | GF_DATA_LOG, GC_AUTH_LOG
+                    );
+                }
+            } else if (req == GC_DATA_LOG) {
+                if ((g & GF_DATA_LOG) == 0) {
+                    revert GrantRequirement(
+                        GF_CREATE | GF_AUTH_LOG | GF_DATA_LOG, GC_DATA_LOG
+                    );
+                }
+            } else {
+                revert GrantRequirement(
+                    GF_CREATE | GF_AUTH_LOG | GF_DATA_LOG, 0
+                );
+            }
+
+            if (paymentGrant.ownerLogId == bytes32(0)) {
+                revert InvalidPaymentReceipt();
+            }
+        } else {
+            authLogId = config.authLogId;
+
+            if ((paymentGrant.grant & GF_EXTEND) == 0) {
+                revert GrantRequirement(GF_EXTEND, 0);
+            }
         }
 
-        LogState storage ownerLog = _logs[resolvedAuthLogId];
+        LogState storage ownerLog = _logs[authLogId];
         // Empty path is valid only when owner has size 1 and index 0 (peak =
         // leaf); e.g. when creating a child log and the owner has one leaf.
         if (paymentInclusionProof.path.length == 0) {
@@ -391,7 +442,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             )) {
             revert InvalidPaymentReceipt();
         }
-        return resolvedAuthLogId;
+        return authLogId;
     }
 
     function _verifyCheckpointSignature(
@@ -400,7 +451,9 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         IUnivocity.ConsistencyReceipt calldata consistencyParts,
         bytes memory detachedPayload,
         IUnivocity.LogConfig storage config,
-        IUnivocity.DelegationProof calldata delegationProof
+        IUnivocity.DelegationProof calldata delegationProof,
+        uint256 grant,
+        bytes calldata grantData
     ) internal view returns (bytes memory initialRoot) {
         // Rule 5: consistency receipt signature verification.
         // We distinguish (1) the log root key — authority for this log, recovered or from storage —
@@ -417,7 +470,9 @@ contract Univocity is IUnivocity, IUnivocityErrors {
                 consistencyParts,
                 detachedPayload,
                 config,
-                delegationProof
+                delegationProof,
+                grant,
+                grantData
             );
         }
         if (alg == ALG_KS256) {
@@ -427,7 +482,9 @@ contract Univocity is IUnivocity, IUnivocityErrors {
                 consistencyParts,
                 detachedPayload,
                 config,
-                delegationProof
+                delegationProof,
+                grant,
+                grantData
             );
         }
 
@@ -440,7 +497,10 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         IUnivocity.ConsistencyReceipt calldata consistencyParts,
         bytes memory detachedPayload,
         IUnivocity.LogConfig storage config,
-        IUnivocity.DelegationProof calldata delegationProof
+        IUnivocity.DelegationProof calldata delegationProof,
+        uint256,
+        /* grant */
+        bytes calldata grantData
     ) internal view returns (bytes memory initialRoot) {
         // --- Verifier key: the key that must have signed the consistency receipt. ---
         // With delegation: delegate signed the receipt. Without: root signed the receipt.
@@ -450,7 +510,8 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             consistencyParts,
             detachedPayload,
             config,
-            delegationProof
+            delegationProof,
+            grantData
         );
 
         if (!verifyES256DetachedPayload(
@@ -462,15 +523,26 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             )) {
             revert ConsistencyReceiptSignatureInvalid();
         }
-        // Persist the log root key for new logs so future checkpoints can verify against it.
+        // Persist the log root key for new logs so future checkpoints can
+        // verify against it. First checkpoint always uses grantData as signer key (verify-only).
         if (config.initializedAt == 0) {
-            // Root's first checkpoint has no grant-based protection; require
-            // recovered signer to match bootstrap key to prevent front-running.
-            if (
-                rootLogId == bytes32(0) && (rootX != es256X || rootY != es256Y)
-            ) {
-                revert RootSignerMustMatchBootstrap();
+            if (rootLogId == bytes32(0)) {
+                // Root's first checkpoint: signer must match bootstrap key
+                // (allows curve inverse (x, P-y)); grantData must be exact
+                // bootstrap bytes (same representation as deployment).
+                if (!_es256KeyMatchesBootstrap(rootX, rootY)) {
+                    revert RootSignerMustMatchBootstrap();
+                }
+                // slither-disable-next-line unused-return
+                (, bytes memory bootstrapKey) = this.getBootstrapKeyConfig();
+                if (grantData.length != bootstrapKey.length) {
+                    revert GrantDataInvalidKeyLength(grantData.length);
+                }
+                if (keccak256(grantData) != keccak256(bootstrapKey)) {
+                    revert GrantDataMustMatchBootstrap();
+                }
             }
+            // Non-root: rootX, rootY already from grantData and verified.
             return abi.encodePacked(rootX, rootY);
         }
         return new bytes(0);
@@ -483,24 +555,32 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         IUnivocity.ConsistencyReceipt calldata consistencyParts,
         bytes memory detachedPayload,
         IUnivocity.LogConfig storage config,
-        IUnivocity.DelegationProof calldata delegationProof
+        IUnivocity.DelegationProof calldata delegationProof,
+        uint256,
+        /* grant */
+        bytes calldata grantData
     ) internal view returns (bytes memory initialRoot) {
-        // KS256: no delegation support. Verifier key is root (bootstrap for root log) or stored log key.
+        // KS256: no delegation support. Verifier key is root (bootstrap for
+        // root log) or stored log key; first checkpoint uses key from grantData.
         if (delegationProof.signature.length > 0) {
             revert DelegationUnsupportedForAlg(ALG_KS256);
         }
-        bool isFirstCheckpointKs = config.initializedAt == 0;
         address keyAddr = (rootLogId == bytes32(0) || logId == rootLogId)
             ? ks256Signer
             : _decodeLogRootKeyKS256(logId);
         if (keyAddr == address(0)) {
-            // Distinguish missing key from algorithm mismatch (log created
-            // under ES256 has rootKey.length == 64): receipt is KS256, log is ES256.
             if (config.rootKey.length == 64) {
                 revert InconsistentReceiptSignature(ALG_KS256, ALG_ES256);
             }
-            if (!isFirstCheckpointKs) revert LogRootKeyNotSet();
-            keyAddr = ks256Signer;
+            if (config.initializedAt != 0) revert LogRootKeyNotSet();
+            // First checkpoint: key from grantData; verify-only.
+            if (grantData.length != 20) {
+                revert GrantDataInvalidKeyLength(grantData.length);
+            }
+            bytes memory gd = grantData;
+            assembly {
+                keyAddr := shr(96, mload(add(gd, 32)))
+            }
         }
         if (!verifyKS256DetachedPayload(
                 consistencyParts.protectedHeader,
@@ -510,8 +590,17 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             )) {
             revert ConsistencyReceiptSignatureInvalid();
         }
-        // Persist the log root key for new logs so future checkpoints can verify against it.
         if (config.initializedAt == 0) {
+            if (rootLogId == bytes32(0)) {
+                // slither-disable-next-line unused-return
+                (, bytes memory bootstrapKey) = this.getBootstrapKeyConfig();
+                if (grantData.length != bootstrapKey.length) {
+                    revert GrantDataInvalidKeyLength(grantData.length);
+                }
+                if (keccak256(grantData) != keccak256(bootstrapKey)) {
+                    revert GrantDataMustMatchBootstrap();
+                }
+            }
             return abi.encodePacked(keyAddr);
         }
         return new bytes(0);
@@ -528,7 +617,8 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         IUnivocity.ConsistencyReceipt calldata consistencyParts,
         bytes memory detachedPayload,
         IUnivocity.LogConfig storage config,
-        IUnivocity.DelegationProof calldata delegationProof
+        IUnivocity.DelegationProof calldata delegationProof,
+        bytes calldata grantData
     )
         internal
         view
@@ -552,35 +642,44 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             }
             if (config.initializedAt != 0) revert LogRootKeyNotSet();
 
+            // First checkpoint: root key from grantData; verify-only (no recovery).
+            if (grantData.length != 64) {
+                revert GrantDataInvalidKeyLength(grantData.length);
+            }
+            bytes memory gd = grantData;
+            assembly {
+                rootX := mload(add(gd, 32))
+                rootY := mload(add(gd, 64))
+            }
+
             if (delegationProof.signature.length == 0) {
-                // No delegation. Root signed the receipt; recover root from receipt signature.
-                (rootX, rootY) = recoverES256FromDetachedPayload(
-                    consistencyParts.protectedHeader,
-                    detachedPayload,
-                    consistencyParts.signature
-                );
-                if (rootX == bytes32(0) && rootY == bytes32(0)) {
+                if (!verifyES256DetachedPayload(
+                        consistencyParts.protectedHeader,
+                        consistencyParts.signature,
+                        detachedPayload,
+                        rootX,
+                        rootY
+                    )) {
                     revert ConsistencyReceiptSignatureInvalid();
                 }
                 return (rootX, rootY, rootX, rootY);
             }
 
-            // Delegation present. Decode delegate (needed for recovery message
-            // hash); recover root from delegation signature; fall through to
-            // shared verify + return below.
+            // Delegation present: verify delegation with root from grantData.
             (verifierX, verifierY) =
                 decodeDelegationKeyES256(delegationProof.delegationKey);
-            (rootX, rootY) = recoverDelegationSignerES256(
-                logId,
+            verifyDelegationProofES256(
                 delegationProof.mmrStart,
                 delegationProof.mmrEnd,
+                delegationProof.signature,
+                logId,
+                claimedSize > 0 ? claimedSize - 1 : 0,
+                rootX,
+                rootY,
                 verifierX,
-                verifierY,
-                delegationProof.signature
+                verifierY
             );
-            if (rootX == bytes32(0) && rootY == bytes32(0)) {
-                revert DelegationSignatureInvalid();
-            }
+            return (rootX, rootY, verifierX, verifierY);
         }
 
         // Root key present (from storage or just recovered). Verifier is
@@ -628,6 +727,18 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         }
     }
 
+    /// @dev True if (qx, qy) is the bootstrap ES256 key or its curve inverse.
+    function _es256KeyMatchesBootstrap(bytes32 qx, bytes32 qy)
+        private
+        view
+        returns (bool)
+    {
+        if (qx != es256X) return false;
+        uint256 qyU = uint256(qy);
+        uint256 eyU = uint256(es256Y);
+        return qyU == eyU || qyU == P256_P - eyU;
+    }
+
     /// @notice Decode stored root key for ES256 (64 bytes = P-256 x || y).
     function _decodeLogRootKeyES256(bytes32 logId)
         private
@@ -664,12 +775,11 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             abi.encodePacked(
                 g.logId,
                 g.payer,
-                g.checkpointStart,
-                g.checkpointEnd,
+                g.grant,
                 g.maxHeight,
                 g.minGrowth,
                 g.ownerLogId,
-                g.createAsAuthority
+                g.grantData
             )
         );
         return sha256(abi.encodePacked(paymentIDTimestampBe, inner));
@@ -734,28 +844,32 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         uint64 paymentIndex,
         bytes32[] calldata paymentPath,
         bytes32 authorityLogIdUsed,
-        bool createAsAuthority,
+        uint256 request,
         bytes memory rootKeyToSet
     ) private {
         LogState storage log = _logs[logId];
         IUnivocity.LogConfig storage config = _logConfigs[logId];
-        bool isNewLog = config.initializedAt == 0;
 
-        if (isNewLog) {
+        if (config.initializedAt == 0) {
             config.initializedAt = block.number;
-            if (logId == rootLogId) {
-                config.kind = IUnivocity.LogKind.Authority;
-                config.authLogId = logId; // root's parent is self (ADR-0004)
-            }
+
             if (rootKeyToSet.length == 64 || rootKeyToSet.length == 20) {
                 config.rootKey = rootKeyToSet;
             }
-            if (logId != rootLogId) {
-                config.kind = createAsAuthority
-                    ? IUnivocity.LogKind.Authority
-                    : IUnivocity.LogKind.Data;
-                config.authLogId = authorityLogIdUsed;
+
+            if (logId == rootLogId) {
+                if (logId != authorityLogIdUsed) {
+                    revert BootstrapLogMustUseSelf();
+                }
+                if ((request & GF_GC_MASK) != GC_AUTH_LOG) {
+                    revert BootstrapLogMustBeAuthLog();
+                }
             }
+            config.kind = (request & GF_GC_MASK) == GC_AUTH_LOG
+                ? IUnivocity.LogKind.Authority
+                : IUnivocity.LogKind.Data;
+            config.authLogId = authorityLogIdUsed;
+
             emit LogRegistered(logId, _msgSender(), size);
         }
 
