@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 /// @notice Bootstrap and first-checkpoint tests for Univocity. Plan 0022 Phase 0:
-///   split from Univocity.t.sol; uses UnivocityTestHelper. Add GF_REQUIRE_SIGNER
+///   split from Univocity.t.sol; uses UnivocityTestHelper. Add first-checkpoint
 ///   bootstrap tests here (Plan 0022 Phase 4).
 
 import "./UnivocityTestHelper.sol";

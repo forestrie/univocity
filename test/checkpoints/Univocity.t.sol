@@ -261,7 +261,7 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
     // UnivocityBootstrap.t.sol (test_bootstrap_firstCheckpoint_correctGrant_succeeds)
 
     /// @notice First checkpoint without GF_CREATE (only GF_EXTEND) reverts
-    ///    GrantRequirement(GF_REQUIRE_SIGNER, 0) (root must set GF_REQUIRE_SIGNER).
+    ///    GrantDataMustMatchBootstrap (root grantData must match bootstrap key).
     function test_firstCheckpoint_revertsIfReceiptTargetsDifferentLog()
         public
     {
@@ -401,7 +401,7 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
             0,
             0,
             AUTHORITY_LOG_ID,
-            ""
+            abi.encodePacked(KS256_SIGNER)
         );
         univocity.publishCheckpoint(
             consistency1to3,
@@ -518,7 +518,7 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
             0,
             0,
             AUTHORITY_LOG_ID,
-            ""
+            abi.encodePacked(KS256_SIGNER)
         );
         vm.expectRevert(IUnivocityErrors.InvalidConsistencyProof.selector);
         univocity.publishCheckpoint(
@@ -612,7 +612,7 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
             0,
             0,
             AUTHORITY_LOG_ID,
-            ""
+            abi.encodePacked(KS256_SIGNER)
         );
         vm.prank(address(0xDEAD));
         vm.expectRevert(IUnivocityErrors.InvalidPaymentReceipt.selector);
@@ -635,7 +635,7 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
             0,
             0,
             AUTHORITY_LOG_ID,
-            ""
+            abi.encodePacked(KS256_SIGNER)
         );
         IUnivocity.ConsistencyReceipt memory consistency =
             _buildConsistencyReceipt(_toAcc(keccak256("peak1")));
@@ -1304,10 +1304,8 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
 
     /// @notice First checkpoint with ES256-signed receipt;
     ///    Univocity deployed with es256X/Y; grantData = bootstrap key (ADR-0005).
-    ///    Skipped: still hits RootSignerMustMatchBootstrap even when using
-    ///    4-arg verifier for (kx, ky) and leaf; exact cause under investigation.
+    ///    Verify-only: receipt signed by bootstrap key, grantData matches.
     function test_firstCheckpoint_es256Receipt_succeeds() public {
-        vm.skip(true);
         uint256 es256Pk = 1;
         (uint256 pubX, uint256 pubY) = vm.publicKeyP256(es256Pk);
         bytes8 idtimestampBe = bytes8(0);
@@ -1335,7 +1333,8 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
     }
 
     /// @notice Root's first checkpoint with ES256 receipt signed by a key
-    ///    other than the bootstrap key reverts (prevents front-running root).
+    ///    other than the bootstrap key: verify fails first (wrong key in
+    ///    grantData) so reverts ConsistencyReceiptSignatureInvalid.
     function test_firstCheckpoint_es256Receipt_nonBootstrapKey_revertsRootSignerMustMatchBootstrap()
         public
     {
@@ -1361,7 +1360,9 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
         IUnivocity.ConsistencyReceipt memory consistency =
             _buildConsistencyReceiptES256(_toAcc(leaf0), otherPk);
 
-        vm.expectRevert(IUnivocityErrors.RootSignerMustMatchBootstrap.selector);
+        vm.expectRevert(
+            IUnivocityErrors.ConsistencyReceiptSignatureInvalid.selector
+        );
         es256Univocity.publishCheckpoint(
             consistency, _emptyInclusionProof(), idtimestampBe, g
         );
@@ -1419,11 +1420,9 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
 
     /// @notice Submitting a KS256 receipt for a log with ES256 root key
     ///    reverts with InconsistentReceiptSignature(ALG_KS256, ALG_ES256).
-    ///    Skipped: depends on first ES256 checkpoint (test_firstCheckpoint_es256Receipt_succeeds).
     function test_verifyCheckpoint_ks256ReceiptOnEs256Log_revertsAlgorithmMismatch()
         public
     {
-        vm.skip(true);
         uint256 es256Pk = 1;
         (uint256 pubX, uint256 pubY) = vm.publicKeyP256(es256Pk);
         bytes8 idtimestampBe = bytes8(0);
@@ -1489,7 +1488,7 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
             0,
             0,
             AUTHORITY_LOG_ID,
-            ""
+            abi.encodePacked(KS256_SIGNER)
         );
         IUnivocity.ConsistencyProof[] memory proofs =
             new IUnivocity.ConsistencyProof[](1);

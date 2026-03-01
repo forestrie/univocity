@@ -46,7 +46,7 @@ contract UnivocityExtendTest is UnivocityTestHelper {
             0,
             0,
             AUTHORITY_LOG_ID,
-            ""
+            abi.encodePacked(KS256_SIGNER)
         );
         bytes32 leaf1 = _leafCommitment(IDTIMESTAMP_TEST, g1);
         IUnivocity.ConsistencyReceipt memory consistency1 =
@@ -203,7 +203,7 @@ contract UnivocityExtendTest is UnivocityTestHelper {
             0,
             0,
             AUTHORITY_LOG_ID,
-            ""
+            abi.encodePacked(KS256_SIGNER)
         );
         bytes32 leaf1 = _leafCommitment(idt1, g1);
         IUnivocity.ConsistencyReceipt memory consistency1 =
@@ -218,7 +218,7 @@ contract UnivocityExtendTest is UnivocityTestHelper {
             0,
             0,
             AUTHORITY_LOG_ID,
-            ""
+            abi.encodePacked(KS256_SIGNER)
         );
         bytes32[] memory pathMulti = _path1(leaf0);
         fresh.publishCheckpoint(

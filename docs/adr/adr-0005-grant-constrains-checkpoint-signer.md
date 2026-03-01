@@ -202,3 +202,14 @@ setting it as the log's root key.
 - **Docs and plans:** ARC-0017 and plan-0021 would describe the optional
   grant binding; implementation plan would define the grant encoding and the
   signer-match check for the create path.
+
+## Update (plan-0026)
+
+**Verify-only, no recovery.** [Plan 0026](../plans/plan-0026-verify-only-no-recovery.md)
+implements verify-only: the contract no longer recovers the signer from the
+receipt or delegation signature. For the **first checkpoint** to a log,
+**grantData** must be the signer (root) public key (20 bytes KS256, 64 bytes
+ES256); the contract verifies the receipt (or delegation) with that key and
+reverts on failure. **GF_REQUIRE_SIGNER** is retained for leaf-hash
+compatibility but is **no longer branched on** in logic; all first checkpoints
+effectively require the key in grantData.

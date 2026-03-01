@@ -71,5 +71,12 @@ contract UnivocityMiscTest is UnivocityTestHelper {
             uint32(bytes4(IUnivocityErrors.GrantDataInvalidKeyLength.selector))
                 != 0
         );
+        assertTrue(
+            uint32(
+                    bytes4(
+                        IUnivocityErrors.GrantDataMustMatchBootstrap.selector
+                    )
+                ) != 0
+        );
     }
 }

@@ -8,10 +8,8 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 import {P256} from "@openzeppelin/contracts/utils/cryptography/P256.sol";
-import {
-    buildSigStructure,
-    recoverES256
-} from "@univocity/cosecbor/cosecbor.sol";
+import {buildSigStructure} from "@univocity/cosecbor/cosecbor.sol";
+import {recoverES256} from "./ES256RecoveryTest.sol";
 
 contract P256RecoveryTest is Test {
     uint256 internal constant PK = 1;

@@ -14,7 +14,7 @@ functionally grouped contracts:
   grant decode, ES256 recovery, delegation, and rule3 tests.
 
 - **UnivocityBootstrap.t.sol** — Bootstrap and first-checkpoint tests
-  (UnivocityBootstrapTest). Add GF_REQUIRE_SIGNER bootstrap tests here
+  (UnivocityBootstrapTest). Add bootstrap first-checkpoint tests here
   (Plan 0022 Phase 4).
 
 - **UnivocityGrantRequirements.t.sol** — Grant flag and code requirement tests

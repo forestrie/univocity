@@ -2,6 +2,9 @@
 
 **Status:** DRAFT  
 **Date:** 2026-02-23  
+**Note:** Implementation evolved via [plan-0026](plan-0026-verify-only-no-recovery.md):
+verify-only (no key recovery); first checkpoint always requires grantData =
+signer key; GF_REQUIRE_SIGNER is no longer branched on.  
 **Related:** [ADR-0005](../adr/adr-0005-grant-constrains-checkpoint-signer.md),
 [ADR-0004](../adr/adr-0004-root-log-self-grant-extension.md),
 [plan-0021](plan-0021-phase-zero-log-hierarchy-data-structures.md)

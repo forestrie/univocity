@@ -18,6 +18,8 @@ contract UnivocityGrantRequirementsTest is UnivocityTestHelper {
         _publishBootstrapAndSecondCheckpoint();
     }
 
+    /// @notice First checkpoint (root) with GF_EXTEND instead of GF_CREATE
+    ///    reverts GrantRequirement(GF_CREATE | GF_AUTH_LOG, GC_AUTH_LOG).
     function test_firstCheckpoint_grantRequirement_wrongCode_reverts() public {
         Univocity fresh = new Univocity(
             BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
@@ -38,8 +40,8 @@ contract UnivocityGrantRequirementsTest is UnivocityTestHelper {
         vm.expectRevert(
             abi.encodeWithSelector(
                 IUnivocityErrors.GrantRequirement.selector,
-                univocity.GF_REQUIRE_SIGNER(),
-                uint256(0)
+                univocity.GF_CREATE() | univocity.GF_AUTH_LOG(),
+                univocity.GC_AUTH_LOG()
             )
         );
         fresh.publishCheckpoint(
@@ -47,8 +49,8 @@ contract UnivocityGrantRequirementsTest is UnivocityTestHelper {
         );
     }
 
-    /// @notice First checkpoint with GF_AUTH but not GF_REQUIRE_SIGNER
-    ///    reverts GrantRequirement(GF_REQUIRE_SIGNER, 0).
+    /// @notice First checkpoint with empty grantData reverts
+    ///    GrantDataInvalidKeyLength(0) (signer key required in grantData).
     function test_firstCheckpoint_grantRequirement_authFlagNotSet_reverts()
         public
     {
@@ -58,21 +60,19 @@ contract UnivocityGrantRequirementsTest is UnivocityTestHelper {
         IUnivocity.PaymentGrant memory g = _paymentGrant(
             AUTHORITY_LOG_ID,
             KS256_SIGNER,
-            GF_CREATE,
+            GF_CREATE | GF_AUTH,
             0,
             0,
             0,
             bytes32(0),
-            abi.encodePacked(KS256_SIGNER)
+            ""
         );
         bytes32 leaf0 = _leafCommitment(IDTIMESTAMP_AUTH, g);
         IUnivocity.ConsistencyReceipt memory consistency =
             _buildConsistencyReceipt(_toAcc(leaf0));
         vm.expectRevert(
             abi.encodeWithSelector(
-                IUnivocityErrors.GrantRequirement.selector,
-                univocity.GF_REQUIRE_SIGNER(),
-                uint256(0)
+                IUnivocityErrors.GrantDataInvalidKeyLength.selector, uint256(0)
             )
         );
         fresh.publishCheckpoint(
@@ -91,7 +91,7 @@ contract UnivocityGrantRequirementsTest is UnivocityTestHelper {
         IUnivocity.PaymentGrant memory g = _paymentGrant(
             AUTHORITY_LOG_ID,
             KS256_SIGNER,
-            GF_CREATE | GF_DATA | GF_REQUIRE_SIGNER,
+            GF_CREATE | GF_DATA,
             GC_DATA_LOG,
             0,
             0,
@@ -181,7 +181,8 @@ contract UnivocityGrantRequirementsTest is UnivocityTestHelper {
     }
 
     /// @notice First checkpoint to new log without GF_CREATE reverts
-    ///    GrantRequirement(GF_CREATE | GC_AUTH_LOG | GC_DATA_LOG).
+    ///    GrantRequirement(GF_CREATE | GC_AUTH_LOG | GC_DATA_LOG). GrantData
+    ///    must be signer key so signature verification runs before grant check.
     function test_newLogGrant_GF_CREATE_required_reverts() public {
         bytes32 newLogId = keccak256("new-data-log");
         IUnivocity.PaymentGrant memory gNoCreate = _paymentGrant(
@@ -192,7 +193,7 @@ contract UnivocityGrantRequirementsTest is UnivocityTestHelper {
             0,
             0,
             AUTHORITY_LOG_ID,
-            ""
+            abi.encodePacked(KS256_SIGNER)
         );
         IUnivocity.ConsistencyReceipt memory consistency =
             _buildConsistencyReceipt(_toAcc(keccak256("peak")));

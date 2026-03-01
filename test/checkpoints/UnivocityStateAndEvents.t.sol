@@ -54,7 +54,7 @@ contract UnivocityStateAndEventsTest is UnivocityTestHelper, IUnivocityEvents {
             TEST_LOG_ID,
             address(this),
             KS256_SIGNER,
-            uint8(IUnivocity.LogKind.Authority),
+            uint8(IUnivocity.LogKind.Data),
             1,
             acc,
             uint64(1),
@@ -85,7 +85,7 @@ contract UnivocityStateAndEventsTest is UnivocityTestHelper, IUnivocityEvents {
             0,
             0,
             AUTHORITY_LOG_ID,
-            ""
+            abi.encodePacked(KS256_SIGNER)
         );
         univocity.publishCheckpoint(
             consistency1to2,

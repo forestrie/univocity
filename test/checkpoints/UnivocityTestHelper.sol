@@ -5,8 +5,8 @@ pragma solidity ^0.8.24;
 /// @notice Shared setup, constants, and helpers for Univocity checkpoint tests.
 ///   Plan 0022 Phase 0: use this helper so tests can be split into smaller
 ///   contracts (UnivocityBootstrap, UnivocityGrantRequirements,
-///   UnivocityExtend, UnivocityConsistencyProof, etc.). Add new tests (e.g.
-///   GF_REQUIRE_SIGNER) in the appropriate contract or in a dedicated one.
+///   UnivocityExtend, UnivocityConsistencyProof, etc.). Add new tests in the
+///   appropriate contract or in a dedicated one.
 ///
 ///   Layout:
 ///   - UnivocityTestHelper: this file (harnesses, constants, receipt/grant
@@ -28,10 +28,7 @@ import {Univocity} from "@univocity/contracts/Univocity.sol";
 import {hashPosPair64} from "@univocity/algorithms/binUtils.sol";
 import {includedRoot} from "@univocity/algorithms/includedRoot.sol";
 import {ALG_ES256, ALG_KS256} from "@univocity/cosecbor/constants.sol";
-import {
-    buildSigStructure,
-    recoverES256FromDetachedPayload
-} from "@univocity/cosecbor/cosecbor.sol";
+import {buildSigStructure} from "@univocity/cosecbor/cosecbor.sol";
 import {
     buildDetachedPayloadCommitment,
     verifyConsistencyProofChain
@@ -42,6 +39,7 @@ import {
 } from "@univocity/checkpoints/interfaces/IUnivocityErrors.sol";
 import {P256} from "@openzeppelin/contracts/utils/cryptography/P256.sol";
 import {consistentRoots} from "@univocity/algorithms/consistentRoots.sol";
+import {recoverES256FromDetachedPayload} from "../ES256RecoveryTest.sol";
 
 /// @notice Recovers ES256 public key from (protectedHeader, payload, sig).
 ///    Same recovery path as Univocity; use so deploy key matches contract.
@@ -288,13 +286,11 @@ abstract contract UnivocityTestHelper is Test {
     uint256 internal constant GF_AUTH = uint256(1);
     uint256 internal constant GF_DATA = uint256(2);
     /// @notice ADR-0005: when set with GF_CREATE, grantData is allowed signer.
-    uint256 internal constant GF_REQUIRE_SIGNER = uint256(1) << 2;
     uint256 internal constant GC_AUTH_LOG = uint256(1) << 224;
     uint256 internal constant GC_DATA_LOG = uint256(2) << 224;
-    /// @notice Root grant: create + extend + auth + require signer (grantData =
-    ///    bootstrap key for first checkpoint).
-    uint256 internal constant GRANT_ROOT =
-        GF_CREATE | GF_EXTEND | GF_AUTH | GF_REQUIRE_SIGNER;
+    /// @notice Root grant: create + extend + auth (grantData = bootstrap key
+    ///    for first checkpoint; required by verify-only design).
+    uint256 internal constant GRANT_ROOT = GF_CREATE | GF_EXTEND | GF_AUTH;
     uint256 internal constant GRANT_DATA = GF_CREATE | GF_EXTEND | GF_DATA;
 
     function setUp() public virtual {
@@ -339,7 +335,7 @@ abstract contract UnivocityTestHelper is Test {
             0,
             0,
             AUTHORITY_LOG_ID,
-            ""
+            abi.encodePacked(KS256_SIGNER)
         );
         authorityLeaf1 = _leafCommitment(IDTIMESTAMP_TEST, grantTestLog);
         IUnivocity.ConsistencyReceipt memory consistency1 =

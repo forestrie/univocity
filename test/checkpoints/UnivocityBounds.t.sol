@@ -67,7 +67,7 @@ contract UnivocityBoundsTest is UnivocityTestHelper {
                         1,
                         0,
                         AUTHORITY_LOG_ID,
-                        ""
+                        abi.encodePacked(KS256_SIGNER)
                     )
                 )
             );
@@ -83,7 +83,7 @@ contract UnivocityBoundsTest is UnivocityTestHelper {
             1,
             0,
             AUTHORITY_LOG_ID,
-            ""
+            abi.encodePacked(KS256_SIGNER)
         );
         bytes32 leaf1 = _leafCommitment(IDTIMESTAMP_TEST, grantEnd1);
         bytes32 firstAuthorityLeaf = _leafCommitment(IDTIMESTAMP_AUTH, g0);
@@ -226,7 +226,7 @@ contract UnivocityBoundsTest is UnivocityTestHelper {
             2,
             0,
             AUTHORITY_LOG_ID,
-            ""
+            abi.encodePacked(KS256_SIGNER)
         );
         bytes32 leaf1 = _leafCommitment(IDTIMESTAMP_TEST, g);
         IUnivocity.ConsistencyReceipt memory consistency1to2 =
