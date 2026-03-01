@@ -49,9 +49,9 @@ contract UnivocityGrantRequirementsTest is UnivocityTestHelper {
         );
     }
 
-    /// @notice First checkpoint with empty grantData reverts
-    ///    GrantDataInvalidKeyLength(0) (signer key required in grantData).
-    function test_firstCheckpoint_grantRequirement_authFlagNotSet_reverts()
+    /// @notice First checkpoint with empty grantData reverts with
+    ///    GrantDataInvalidKeyLength(0) because no signer key is present in grantData.
+    function test_firstCheckpoint_emptyGrantData_missingSignerKey_reverts()
         public
     {
         Univocity fresh = new Univocity(
