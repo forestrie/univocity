@@ -65,7 +65,7 @@ contract UnivocityStateAndEventsTest is UnivocityTestHelper, IUnivocityEvents {
         );
     }
 
-    function test_publishCheckpoint_incrementsCheckpointCount() public {
+    function test_publishCheckpoint_incrementsSize() public {
         bytes32 peak1 =
             0xaf5570f5a1810b7af78caf4bc70a660f0df51e42baf91d4de5b2328de0e83dfc;
         _publishFirstToTestLog(univocity, peak1, authorityLeaf0, grantTestLog);
