@@ -788,56 +788,6 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         }
     }
 
-    /// @notice Same 4-arg layout as publishCheckpoint; returns leaf commitment
-    ///    (for tests to compare contract decode vs test helper).
-    function viewLeafCommitment(
-        IUnivocity.ConsistencyReceipt calldata,
-        IUnivocity.InclusionProof calldata,
-        bytes8 paymentIDTimestampBe,
-        IUnivocity.PaymentGrant calldata g
-    ) external pure returns (bytes32) {
-        return _leafCommitment(paymentIDTimestampBe, g);
-    }
-
-    /// @notice Decode receipt only (no grant); return first peak and recovered
-    ///    ES256 key (for tests to compare contract vs verifier).
-    function viewDecodeReceiptAndRecover(
-        IUnivocity.ConsistencyReceipt calldata consistencyParts
-    ) external view returns (bytes32 firstPeak, bytes32 keyX, bytes32 keyY) {
-        bytes32[] memory initialAcc = new bytes32[](0);
-        bytes32[] memory accMem = verifyConsistencyProofChain(
-            initialAcc, consistencyParts.consistencyProofs
-        );
-        firstPeak = accMem[0];
-        bytes memory detached = buildDetachedPayloadCommitment(accMem);
-        (keyX, keyY) = recoverES256FromDetachedPayload(
-            consistencyParts.protectedHeader,
-            detached,
-            consistencyParts.signature
-        );
-    }
-
-    /// @notice Same 4-arg layout as publishCheckpoint; decode receipt only and
-    ///    return first peak and recovered key (for tests to compare 4-arg decode).
-    function viewDecodeReceiptAndRecover4(
-        IUnivocity.ConsistencyReceipt calldata consistencyParts,
-        IUnivocity.InclusionProof calldata,
-        bytes8,
-        IUnivocity.PaymentGrant calldata
-    ) external view returns (bytes32 firstPeak, bytes32 keyX, bytes32 keyY) {
-        bytes32[] memory initialAcc = new bytes32[](0);
-        bytes32[] memory accMem = verifyConsistencyProofChain(
-            initialAcc, consistencyParts.consistencyProofs
-        );
-        firstPeak = accMem[0];
-        bytes memory detached = buildDetachedPayloadCommitment(accMem);
-        (keyX, keyY) = recoverES256FromDetachedPayload(
-            consistencyParts.protectedHeader,
-            detached,
-            consistencyParts.signature
-        );
-    }
-
     function _leafCommitment(
         bytes8 paymentIDTimestampBe,
         IUnivocity.PaymentGrant calldata g

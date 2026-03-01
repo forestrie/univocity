@@ -25,51 +25,8 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
     function setUp() public override {
         super.setUp();
         univocity = _deployUnivocityKS256();
-
-        // Unified root grant: GF_CREATE | GF_EXTEND | GC_AUTH_LOG (one leaf for
-        // both create and extend).
-        IUnivocity.PaymentGrant memory grant0 = _paymentGrant(
-            AUTHORITY_LOG_ID,
-            KS256_SIGNER,
-            GRANT_ROOT,
-            GC_AUTH_LOG,
-            0,
-            0,
-            bytes32(0),
-            abi.encodePacked(KS256_SIGNER)
-        );
-        authorityLeaf0 = _leafCommitment(IDTIMESTAMP_AUTH, grant0);
-        grant1 = grant0;
-
-        IUnivocity.ConsistencyReceipt memory consistency0 =
-            _buildConsistencyReceipt(_toAcc(authorityLeaf0));
-        univocity.publishCheckpoint(
-            consistency0, _emptyInclusionProof(), IDTIMESTAMP_AUTH, grant0
-        );
-
-        grantTestLog = _paymentGrant(
-            TEST_LOG_ID,
-            KS256_SIGNER,
-            GRANT_DATA,
-            GC_DATA_LOG,
-            0,
-            0,
-            AUTHORITY_LOG_ID,
-            ""
-        );
-        authorityLeaf1 = _leafCommitment(IDTIMESTAMP_TEST, grantTestLog);
-        IUnivocity.ConsistencyReceipt memory consistency1 =
-            _buildConsistencyReceipt1To2(authorityLeaf0, authorityLeaf1);
-        vm.prank(BOOTSTRAP);
-        univocity.publishCheckpoint(
-            consistency1, _emptyInclusionProof(), IDTIMESTAMP_AUTH, grant1
-        );
+        _publishBootstrapAndSecondCheckpoint();
     }
-
-    bytes32 internal authorityLeaf0;
-    bytes32 internal authorityLeaf1;
-    IUnivocity.PaymentGrant internal grant1;
-    IUnivocity.PaymentGrant internal grantTestLog;
 
     bytes internal testLogReceipt;
 
@@ -305,248 +262,6 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
 
     /// @notice First checkpoint without GF_CREATE (only GF_EXTEND) reverts
     ///    GrantRequirement(GF_REQUIRE_SIGNER, 0) (root must set GF_REQUIRE_SIGNER).
-    function test_firstCheckpoint_grantRequirement_wrongCode_reverts() public {
-        Univocity fresh = new Univocity(
-            BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
-        );
-        IUnivocity.PaymentGrant memory g = _paymentGrant(
-            AUTHORITY_LOG_ID,
-            KS256_SIGNER,
-            GF_EXTEND,
-            0,
-            0,
-            0,
-            bytes32(0),
-            abi.encodePacked(KS256_SIGNER)
-        );
-        bytes32 leaf0 = _leafCommitment(IDTIMESTAMP_AUTH, g);
-        IUnivocity.ConsistencyReceipt memory consistency =
-            _buildConsistencyReceipt(_toAcc(leaf0));
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IUnivocityErrors.GrantRequirement.selector,
-                univocity.GF_REQUIRE_SIGNER(),
-                uint256(0)
-            )
-        );
-        fresh.publishCheckpoint(
-            consistency, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g
-        );
-    }
-
-    /// @notice First checkpoint with GC_AUTH_LOG not set reverts
-    ///    GrantRequirement(GF_CREATE | GC_AUTH_LOG).
-    function test_firstCheckpoint_grantRequirement_authFlagNotSet_reverts()
-        public
-    {
-        Univocity fresh = new Univocity(
-            BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
-        );
-        IUnivocity.PaymentGrant memory g = _paymentGrant(
-            AUTHORITY_LOG_ID,
-            KS256_SIGNER,
-            GF_CREATE,
-            0,
-            0,
-            0,
-            bytes32(0),
-            abi.encodePacked(KS256_SIGNER)
-        );
-        bytes32 leaf0 = _leafCommitment(IDTIMESTAMP_AUTH, g);
-        IUnivocity.ConsistencyReceipt memory consistency =
-            _buildConsistencyReceipt(_toAcc(leaf0));
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IUnivocityErrors.GrantRequirement.selector,
-                univocity.GF_REQUIRE_SIGNER(),
-                uint256(0)
-            )
-        );
-        fresh.publishCheckpoint(
-            consistency, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g
-        );
-    }
-
-    /// @notice First checkpoint with GC_DATA_LOG set reverts
-    ///    GrantRequirement(GF_CREATE | GC_AUTH_LOG).
-    function test_firstCheckpoint_grantRequirement_dataFlagSet_reverts()
-        public
-    {
-        Univocity fresh = new Univocity(
-            BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
-        );
-        IUnivocity.PaymentGrant memory g = _paymentGrant(
-            AUTHORITY_LOG_ID,
-            KS256_SIGNER,
-            GF_CREATE | GF_DATA | GF_REQUIRE_SIGNER,
-            GC_DATA_LOG,
-            0,
-            0,
-            bytes32(0),
-            abi.encodePacked(KS256_SIGNER)
-        );
-        bytes32 leaf0 = _leafCommitment(IDTIMESTAMP_AUTH, g);
-        IUnivocity.ConsistencyReceipt memory consistency =
-            _buildConsistencyReceipt(_toAcc(leaf0));
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IUnivocityErrors.GrantRequirement.selector,
-                univocity.GF_CREATE() | univocity.GF_AUTH_LOG(),
-                univocity.GC_AUTH_LOG()
-            )
-        );
-        fresh.publishCheckpoint(
-            consistency, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g
-        );
-    }
-
-    /// @notice Extend (second checkpoint to authority) with GC_CREATE
-    ///    reverts GrantRequirement(GC_EXTEND_LOG, 0).
-    function test_extendGrant_wrongCode_reverts() public {
-        Univocity fresh = new Univocity(
-            BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
-        );
-        IUnivocity.PaymentGrant memory g0 = _paymentGrant(
-            AUTHORITY_LOG_ID,
-            KS256_SIGNER,
-            GRANT_ROOT,
-            GC_AUTH_LOG,
-            0,
-            0,
-            bytes32(0),
-            abi.encodePacked(KS256_SIGNER)
-        );
-        bytes32 leaf0 = _leafCommitment(IDTIMESTAMP_AUTH, g0);
-        bytes32 leaf1 = _leafCommitment(
-            IDTIMESTAMP_AUTH,
-            _paymentGrant(
-                AUTHORITY_LOG_ID,
-                KS256_SIGNER,
-                GRANT_ROOT,
-                GC_AUTH_LOG,
-                0,
-                0,
-                bytes32(0),
-                ""
-            )
-        );
-        IUnivocity.ConsistencyReceipt memory consistency0 =
-            _buildConsistencyReceipt0To2(leaf0, leaf1);
-        fresh.publishCheckpoint(
-            consistency0,
-            _buildPaymentInclusionProof(0, _path1(leaf1)),
-            IDTIMESTAMP_AUTH,
-            g0
-        );
-        bytes32 leaf2 = keccak256("third");
-        IUnivocity.ConsistencyReceipt memory consistency1 =
-            _buildConsistencyReceipt2To3(leaf0, leaf1, leaf2);
-        IUnivocity.PaymentGrant memory gWrong = _paymentGrant(
-            AUTHORITY_LOG_ID,
-            KS256_SIGNER,
-            GF_CREATE | GF_AUTH,
-            GC_AUTH_LOG,
-            0,
-            0,
-            bytes32(0),
-            abi.encodePacked(KS256_SIGNER)
-        );
-        vm.prank(BOOTSTRAP);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IUnivocityErrors.GrantRequirement.selector,
-                univocity.GF_EXTEND(),
-                uint256(0)
-            )
-        );
-        fresh.publishCheckpoint(
-            consistency1,
-            _buildPaymentInclusionProof(1, _path1(leaf0)),
-            IDTIMESTAMP_AUTH,
-            gWrong
-        );
-    }
-
-    /// @notice First checkpoint to new log without GF_CREATE reverts
-    ///    GrantRequirement(GF_CREATE | GC_AUTH_LOG | GC_DATA_LOG).
-    function test_newLogGrant_GF_CREATE_required_reverts() public {
-        bytes32 newLogId = keccak256("new-data-log");
-        IUnivocity.PaymentGrant memory gNoCreate = _paymentGrant(
-            newLogId,
-            KS256_SIGNER,
-            GF_EXTEND | GF_DATA,
-            GC_DATA_LOG,
-            0,
-            0,
-            AUTHORITY_LOG_ID,
-            ""
-        );
-        IUnivocity.ConsistencyReceipt memory consistency =
-            _buildConsistencyReceipt(_toAcc(keccak256("peak")));
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IUnivocityErrors.GrantRequirement.selector,
-                univocity.GF_CREATE() | univocity.GF_AUTH_LOG()
-                    | univocity.GF_DATA_LOG(),
-                uint256(0)
-            )
-        );
-        univocity.publishCheckpoint(
-            consistency,
-            _buildPaymentInclusionProof(1, _path1(authorityLeaf0)),
-            IDTIMESTAMP_TEST,
-            gNoCreate
-        );
-    }
-
-    /// @notice Extend without GF_EXTEND (only GF_CREATE | GC_AUTH_LOG) reverts
-    ///    GrantRequirement(GF_EXTEND).
-    function test_extendGrant_GF_EXTEND_required_reverts() public {
-        Univocity fresh = new Univocity(
-            BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
-        );
-        IUnivocity.PaymentGrant memory g0 = _paymentGrant(
-            AUTHORITY_LOG_ID,
-            KS256_SIGNER,
-            GRANT_ROOT,
-            GC_AUTH_LOG,
-            0,
-            0,
-            bytes32(0),
-            abi.encodePacked(KS256_SIGNER)
-        );
-        bytes32 leaf0 = _leafCommitment(IDTIMESTAMP_AUTH, g0);
-        IUnivocity.ConsistencyReceipt memory consistency0 =
-            _buildConsistencyReceipt(_toAcc(leaf0));
-        fresh.publishCheckpoint(
-            consistency0, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g0
-        );
-        bytes32 leaf1 = keccak256("second");
-        IUnivocity.ConsistencyReceipt memory consistency1 =
-            _buildConsistencyReceipt1To2(leaf0, leaf1);
-        IUnivocity.PaymentGrant memory gNoExtend = _paymentGrant(
-            AUTHORITY_LOG_ID,
-            KS256_SIGNER,
-            GF_CREATE | GF_AUTH,
-            GC_AUTH_LOG,
-            0,
-            0,
-            bytes32(0),
-            abi.encodePacked(KS256_SIGNER)
-        );
-        vm.prank(BOOTSTRAP);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IUnivocityErrors.GrantRequirement.selector,
-                univocity.GF_EXTEND(),
-                uint256(0)
-            )
-        );
-        fresh.publishCheckpoint(
-            consistency1, _emptyInclusionProof(), IDTIMESTAMP_AUTH, gNoExtend
-        );
-    }
-
     function test_firstCheckpoint_revertsIfReceiptTargetsDifferentLog()
         public
     {
@@ -639,76 +354,6 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
         assertTrue(fresh.isLogInitialized(AUTHORITY_LOG_ID));
     }
 
-    function test_firstCheckpoint_sizeTwo_succeeds() public {
-        Univocity fresh = new Univocity(
-            BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
-        );
-        IUnivocity.PaymentGrant memory g0 = _paymentGrant(
-            AUTHORITY_LOG_ID,
-            KS256_SIGNER,
-            GRANT_ROOT,
-            GC_AUTH_LOG,
-            0,
-            0,
-            bytes32(0),
-            abi.encodePacked(KS256_SIGNER)
-        );
-        bytes32 leaf0 = _leafCommitment(IDTIMESTAMP_AUTH, g0);
-        IUnivocity.ConsistencyReceipt memory consistency0 =
-            _buildConsistencyReceipt(_toAcc(leaf0));
-        fresh.publishCheckpoint(
-            consistency0, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g0
-        );
-        IUnivocity.PaymentGrant memory g1 = _paymentGrant(
-            TEST_LOG_ID,
-            KS256_SIGNER,
-            GRANT_DATA,
-            GC_DATA_LOG,
-            0,
-            0,
-            AUTHORITY_LOG_ID,
-            ""
-        );
-        bytes32 leaf1 = _leafCommitment(IDTIMESTAMP_TEST, g1);
-        IUnivocity.ConsistencyReceipt memory consistency1 =
-            _buildConsistencyReceipt1To2(leaf0, leaf1);
-        fresh.publishCheckpoint(
-            consistency1, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g0
-        );
-        assertEq(fresh.rootLogId(), AUTHORITY_LOG_ID);
-        assertEq(fresh.getLogState(AUTHORITY_LOG_ID).size, 2);
-    }
-
-    /// @notice Root extension requires grant (inclusion proof) in root
-    ///    (ADR-0004). After setUp root has size 2; prove inclusion of leaf 0.
-    function test_publishCheckpoint_authorityLogSecondCheckpoint_noInclusionProofRequired()
-        public
-    {
-        IUnivocity.ConsistencyReceipt memory consistency2 =
-            _buildConsistencyReceipt2To3(
-                authorityLeaf0, authorityLeaf1, keccak256("extra")
-            );
-        IUnivocity.PaymentGrant memory g = _paymentGrant(
-            AUTHORITY_LOG_ID,
-            KS256_SIGNER,
-            GRANT_ROOT,
-            GC_AUTH_LOG,
-            0,
-            0,
-            bytes32(0),
-            abi.encodePacked(KS256_SIGNER)
-        );
-        bytes32[] memory pathToLeaf0 = _path1(authorityLeaf1);
-        vm.prank(BOOTSTRAP);
-        univocity.publishCheckpoint(
-            consistency2,
-            _buildPaymentInclusionProof(0, pathToLeaf0),
-            IDTIMESTAMP_AUTH,
-            g
-        );
-        assertEq(univocity.getLogState(AUTHORITY_LOG_ID).size, 3);
-    }
-
     function test_firstCheckpoint_authorityFirstLeafMatchesAdr0030Formula()
         public
     {
@@ -735,105 +380,6 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
         fresh.getLogState(AUTHORITY_LOG_ID).accumulator;
         assertEq(stored.length, 1);
         assertEq(stored[0], expectedLeaf);
-    }
-
-    // === Bootstrap Checkpoint Publishing Tests ===
-
-    function test_publishCheckpoint_bootstrapCanPublishToAuthorityLog()
-        public
-    {
-        IUnivocity.ConsistencyReceipt memory consistency2 =
-            _buildConsistencyReceipt2To3(
-                authorityLeaf0, authorityLeaf1, keccak256("third")
-            );
-        IUnivocity.PaymentGrant memory g = _paymentGrant(
-            AUTHORITY_LOG_ID,
-            KS256_SIGNER,
-            GRANT_ROOT,
-            GC_AUTH_LOG,
-            0,
-            0,
-            bytes32(0),
-            abi.encodePacked(KS256_SIGNER)
-        );
-        bytes32[] memory pathToLeaf0 = _path1(authorityLeaf1);
-        vm.prank(BOOTSTRAP);
-        univocity.publishCheckpoint(
-            consistency2,
-            _buildPaymentInclusionProof(0, pathToLeaf0),
-            IDTIMESTAMP_AUTH,
-            g
-        );
-
-        assertTrue(univocity.isLogInitialized(AUTHORITY_LOG_ID));
-        assertEq(univocity.getLogState(AUTHORITY_LOG_ID).size, 3);
-    }
-
-    function test_publishCheckpoint_bootstrapCanPublishToAnyLog() public {
-        _publishFirstToTestLog(
-            univocity, keccak256("peak1"), authorityLeaf0, grantTestLog
-        );
-
-        assertTrue(univocity.isLogInitialized(TEST_LOG_ID));
-    }
-
-    function test_publishCheckpoint_emitsLogRegistered() public {
-        _publishFirstToTestLog(
-            univocity, keccak256("peak1"), authorityLeaf0, grantTestLog
-        );
-        assertTrue(univocity.isLogInitialized(TEST_LOG_ID));
-        assertEq(univocity.getLogState(TEST_LOG_ID).size, 1);
-    }
-
-    function test_publishCheckpoint_emitsCheckpointPublished() public {
-        bytes32[] memory acc = _toAcc(keccak256("peak1"));
-        vm.expectEmit(true, true, true, false);
-        bytes32[] memory pathEmits;
-        emit CheckpointPublished(
-            TEST_LOG_ID,
-            address(this),
-            KS256_SIGNER,
-            uint8(IUnivocity.LogKind.Authority),
-            1,
-            acc,
-            uint64(1),
-            pathEmits
-        );
-        _publishFirstToTestLog(
-            univocity, keccak256("peak1"), authorityLeaf0, grantTestLog
-        );
-    }
-
-    function test_publishCheckpoint_incrementsCheckpointCount() public {
-        bytes32 peak1 =
-            0xaf5570f5a1810b7af78caf4bc70a660f0df51e42baf91d4de5b2328de0e83dfc;
-        _publishFirstToTestLog(univocity, peak1, authorityLeaf0, grantTestLog);
-
-        assertEq(univocity.getLogState(TEST_LOG_ID).size, 1);
-
-        bytes32 leaf2 =
-            0xcd2662154e6d76b2b2b92e70c0cac3ccf534f9b74eb5b89819ec509083d00a50;
-        IUnivocity.ConsistencyReceipt memory consistency1to2 =
-            _buildConsistencyReceipt1To2(peak1, leaf2);
-        bytes32[] memory path2 = _path1(authorityLeaf0);
-        IUnivocity.PaymentGrant memory g = _paymentGrant(
-            TEST_LOG_ID,
-            KS256_SIGNER,
-            GRANT_DATA,
-            GC_DATA_LOG,
-            0,
-            0,
-            AUTHORITY_LOG_ID,
-            ""
-        );
-        univocity.publishCheckpoint(
-            consistency1to2,
-            _buildPaymentInclusionProof(1, path2),
-            IDTIMESTAMP_TEST,
-            g
-        );
-
-        assertEq(univocity.getLogState(TEST_LOG_ID).size, 2);
     }
 
     // === Validation Tests ===
@@ -1075,208 +621,6 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
         );
     }
 
-    // === Receipt bounds (security) — Plan 0012 §4.2 items 5–6 ===
-
-    /// @notice Grant with maxHeight=1 reverts when second checkpoint would exceed it.
-    function test_publishCheckpoint_revertsWhenSizeWouldExceedMaxHeight()
-        public
-    {
-        Univocity fresh = new Univocity(
-            BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
-        );
-        bytes32 logId = keccak256("other-target");
-        IUnivocity.PaymentGrant memory g0 = _paymentGrant(
-            AUTHORITY_LOG_ID,
-            KS256_SIGNER,
-            GRANT_ROOT,
-            GC_AUTH_LOG,
-            0,
-            0,
-            bytes32(0),
-            abi.encodePacked(KS256_SIGNER)
-        );
-        bytes32 leaf0 = _leafCommitment(IDTIMESTAMP_AUTH, g0);
-        IUnivocity.ConsistencyReceipt memory consistency0 =
-            _buildConsistencyReceipt(_toAcc(leaf0));
-        fresh.publishCheckpoint(
-            consistency0, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g0
-        );
-
-        IUnivocity.PaymentGrant memory g1 = _paymentGrant(
-            AUTHORITY_LOG_ID,
-            KS256_SIGNER,
-            GRANT_ROOT,
-            GC_AUTH_LOG,
-            0,
-            0,
-            bytes32(0),
-            abi.encodePacked(KS256_SIGNER)
-        );
-        IUnivocity.ConsistencyReceipt memory consistency1 =
-            _buildConsistencyReceipt1To2(
-                leaf0,
-                _leafCommitment(
-                    IDTIMESTAMP_TEST,
-                    _paymentGrant(
-                        logId,
-                        KS256_SIGNER,
-                        GRANT_DATA,
-                        GC_DATA_LOG,
-                        1,
-                        0,
-                        AUTHORITY_LOG_ID,
-                        ""
-                    )
-                )
-            );
-        fresh.publishCheckpoint(
-            consistency1, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g1
-        );
-
-        IUnivocity.PaymentGrant memory grantEnd1 = _paymentGrant(
-            logId,
-            KS256_SIGNER,
-            GRANT_DATA,
-            GC_DATA_LOG,
-            1,
-            0,
-            AUTHORITY_LOG_ID,
-            ""
-        );
-        bytes32 leaf1 = _leafCommitment(IDTIMESTAMP_TEST, grantEnd1);
-        bytes32 firstAuthorityLeaf = _leafCommitment(IDTIMESTAMP_AUTH, g0);
-        bytes32[] memory pathForRoi = _path1(firstAuthorityLeaf);
-        _publishFirstToTestLogWithGrant(
-            fresh, keccak256("peak1"), logId, grantEnd1, leaf1, pathForRoi
-        );
-
-        IUnivocity.ConsistencyReceipt memory consistency1to3 =
-            _buildConsistencyReceipt1To3(
-                keccak256("peak1"), leaf1, keccak256("leaf2")
-            );
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IUnivocityErrors.MaxHeightExceeded.selector,
-                uint64(3),
-                uint64(1)
-            )
-        );
-        fresh.publishCheckpoint(
-            consistency1to3,
-            _buildPaymentInclusionProof(1, pathForRoi),
-            IDTIMESTAMP_TEST,
-            grantEnd1
-        );
-    }
-
-    /// @notice Invalid grant (e.g. maxHeight exceeded) reverts and does not extend the log.
-    function test_publishCheckpoint_invalidGrant_doesNotExtendLog() public {
-        _publishFirstToTestLog(
-            univocity, keccak256("peak1"), authorityLeaf0, grantTestLog
-        );
-        uint256 sizeBefore = univocity.getLogState(TEST_LOG_ID).size;
-        assertEq(sizeBefore, 1);
-
-        IUnivocity.ConsistencyReceipt memory consistency1to3 =
-            _buildConsistencyReceipt1To3(
-                keccak256("peak1"), authorityLeaf1, keccak256("leaf2")
-            );
-        bytes32[] memory pathInvalid = _path1(authorityLeaf0);
-        IUnivocity.PaymentGrant memory invalidGrant = _paymentGrant(
-            TEST_LOG_ID,
-            KS256_SIGNER,
-            GRANT_DATA,
-            GC_DATA_LOG,
-            1,
-            0,
-            AUTHORITY_LOG_ID,
-            ""
-        );
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IUnivocityErrors.MaxHeightExceeded.selector,
-                uint64(3),
-                uint64(1)
-            )
-        );
-        univocity.publishCheckpoint(
-            consistency1to3,
-            _buildPaymentInclusionProof(1, pathInvalid),
-            IDTIMESTAMP_TEST,
-            invalidGrant
-        );
-
-        assertEq(
-            univocity.getLogState(TEST_LOG_ID).size,
-            sizeBefore,
-            "log size must not change after invalid grant revert"
-        );
-    }
-
-    function _publishFirstToTestLogWithGrant(
-        Univocity u,
-        bytes32 onePeak,
-        bytes32, /* logId */
-        IUnivocity.PaymentGrant memory grant,
-        bytes32, /* leafInAuthority */
-        bytes32[] memory inclusionPath
-    ) internal {
-        IUnivocity.ConsistencyReceipt memory consistency =
-            _buildConsistencyReceipt(_toAcc(onePeak));
-        u.publishCheckpoint(
-            consistency,
-            _buildPaymentInclusionProof(1, inclusionPath),
-            IDTIMESTAMP_TEST,
-            grant
-        );
-    }
-
-    function test_publishCheckpoint_revertsWhenSizeExceedsReceiptMaxHeight()
-        public
-    {
-        Univocity fresh = new Univocity(
-            BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
-        );
-        IUnivocity.PaymentGrant memory g0 = _paymentGrant(
-            AUTHORITY_LOG_ID,
-            KS256_SIGNER,
-            GRANT_ROOT,
-            GC_AUTH_LOG,
-            0,
-            0,
-            bytes32(0),
-            abi.encodePacked(KS256_SIGNER)
-        );
-        bytes32 leaf0 = _leafCommitment(IDTIMESTAMP_AUTH, g0);
-        IUnivocity.ConsistencyReceipt memory consistency0 =
-            _buildConsistencyReceipt(_toAcc(leaf0));
-        fresh.publishCheckpoint(
-            consistency0, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g0
-        );
-        IUnivocity.PaymentGrant memory g1 = _paymentGrant(
-            AUTHORITY_LOG_ID,
-            KS256_SIGNER,
-            GRANT_ROOT,
-            GC_AUTH_LOG,
-            1,
-            0,
-            bytes32(0),
-            abi.encodePacked(KS256_SIGNER)
-        );
-        IUnivocity.ConsistencyReceipt memory consistency1to2 =
-            _buildConsistencyReceipt1To2(leaf0, authorityLeaf1);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IUnivocityErrors.MaxHeightExceeded.selector,
-                uint64(2),
-                uint64(1)
-            )
-        );
-        fresh.publishCheckpoint(
-            consistency1to2, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g1
-        );
-    }
-
     /// @notice RoI for a different log yields leaf not in authority accumulator;
     ///    LibInclusionReceipt returns false → InvalidPaymentReceipt.
     function test_publishCheckpoint_revertsWhenReceiptTargetsDifferentLog()
@@ -1310,26 +654,6 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
     }
 
     // === View Function Tests ===
-
-    function test_getLogState_returnsCorrectState() public {
-        bytes32 peak1 = keccak256("peak1");
-        _publishFirstToTestLog(univocity, peak1, authorityLeaf0, grantTestLog);
-
-        IUnivocity.LogState memory state = univocity.getLogState(TEST_LOG_ID);
-        assertEq(state.size, 1);
-        assertEq(state.accumulator.length, 1);
-        assertEq(state.accumulator[0], peak1);
-
-        IUnivocity.LogConfig memory config =
-            univocity.getLogConfig(TEST_LOG_ID);
-        assertGt(config.initializedAt, 0);
-        assertEq(uint8(config.kind), uint8(IUnivocity.LogKind.Data));
-        assertEq(config.authLogId, AUTHORITY_LOG_ID);
-    }
-
-    function test_isLogInitialized_returnsFalseForNewLog() public view {
-        assertFalse(univocity.isLogInitialized(keccak256("nonexistent")));
-    }
 
     // === Authorization rules (Univocity contract) and grant exhaustion ===
     // Rule 1 (bootstrap only for root): test_firstCheckpoint_revertsIfSizeZero,
@@ -1371,209 +695,6 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
             g
         );
         assertFalse(univocity.isLogInitialized(newLogId));
-    }
-
-    /// @notice Rule 4: Grant requires minGrowth; publishing with too small an increase reverts.
-    function test_rule4_minGrowthNotMet_reverts() public {
-        _publishFirstToTestLog(
-            univocity, keccak256("peak1"), authorityLeaf0, grantTestLog
-        );
-        assertEq(univocity.getLogState(TEST_LOG_ID).size, 1);
-
-        IUnivocity.ConsistencyReceipt memory consistency1to2 =
-            _buildConsistencyReceipt1To2(
-                keccak256("peak1"), keccak256("leaf2")
-            );
-        bytes32[] memory path = _path1(authorityLeaf0);
-        IUnivocity.PaymentGrant memory g = _paymentGrant(
-            TEST_LOG_ID,
-            KS256_SIGNER,
-            GRANT_DATA,
-            GC_DATA_LOG,
-            10,
-            2,
-            AUTHORITY_LOG_ID,
-            ""
-        );
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IUnivocityErrors.MinGrowthNotMet.selector,
-                uint64(1),
-                uint64(2),
-                uint64(2)
-            )
-        );
-        univocity.publishCheckpoint(
-            consistency1to2,
-            _buildPaymentInclusionProof(1, path),
-            IDTIMESTAMP_TEST,
-            g
-        );
-    }
-
-    /// @notice Rule 4 / grant exhaustion: Once log size reaches maxHeight, grant is exhausted; next publish reverts.
-    function test_rule4_grantExhausted_whenSizeReachesMaxHeight() public {
-        Univocity fresh = new Univocity(
-            BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
-        );
-        IUnivocity.PaymentGrant memory g0 = _paymentGrant(
-            AUTHORITY_LOG_ID,
-            KS256_SIGNER,
-            GRANT_ROOT,
-            GC_AUTH_LOG,
-            0,
-            0,
-            bytes32(0),
-            abi.encodePacked(KS256_SIGNER)
-        );
-        bytes32 leaf0 = _leafCommitment(IDTIMESTAMP_AUTH, g0);
-        IUnivocity.ConsistencyReceipt memory consistency0 =
-            _buildConsistencyReceipt(_toAcc(leaf0));
-        fresh.publishCheckpoint(
-            consistency0, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g0
-        );
-        IUnivocity.PaymentGrant memory g = _paymentGrant(
-            TEST_LOG_ID,
-            KS256_SIGNER,
-            GRANT_DATA,
-            GC_DATA_LOG,
-            2,
-            0,
-            AUTHORITY_LOG_ID,
-            ""
-        );
-        bytes32 leaf1 = _leafCommitment(IDTIMESTAMP_TEST, g);
-        IUnivocity.ConsistencyReceipt memory consistency1to2 =
-            _buildConsistencyReceipt1To2(leaf0, leaf1);
-        IUnivocity.PaymentGrant memory g1 = _paymentGrant(
-            AUTHORITY_LOG_ID,
-            KS256_SIGNER,
-            GRANT_ROOT,
-            GC_AUTH_LOG,
-            0,
-            0,
-            bytes32(0),
-            abi.encodePacked(KS256_SIGNER)
-        );
-        fresh.publishCheckpoint(
-            consistency1to2, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g1
-        );
-
-        bytes32 peak1 = keccak256("peak1");
-        bytes32 leaf2 = keccak256("leaf2");
-        bytes32 leaf3 = keccak256("leaf3");
-        bytes32[] memory path = _path1(leaf0);
-        IUnivocity.ConsistencyReceipt memory receipt1 =
-            _buildConsistencyReceipt(_toAcc(peak1));
-        fresh.publishCheckpoint(
-            receipt1, _buildPaymentInclusionProof(1, path), IDTIMESTAMP_TEST, g
-        );
-        assertEq(fresh.getLogState(TEST_LOG_ID).size, 1);
-
-        IUnivocity.ConsistencyReceipt memory consistency1to2Data =
-            _buildConsistencyReceipt1To2(peak1, leaf2);
-        fresh.publishCheckpoint(
-            consistency1to2Data,
-            _buildPaymentInclusionProof(1, path),
-            IDTIMESTAMP_TEST,
-            g
-        );
-        assertEq(fresh.getLogState(TEST_LOG_ID).size, 2);
-
-        IUnivocity.ConsistencyReceipt memory consistency2to3 =
-            _buildConsistencyReceipt2To3(peak1, leaf2, leaf3);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IUnivocityErrors.MaxHeightExceeded.selector,
-                uint64(3),
-                uint64(2)
-            )
-        );
-        fresh.publishCheckpoint(
-            consistency2to3,
-            _buildPaymentInclusionProof(1, path),
-            IDTIMESTAMP_TEST,
-            g
-        );
-        assertEq(fresh.getLogState(TEST_LOG_ID).size, 2);
-    }
-
-    // === Plan 0012 Phase C: Error coverage matrix (4.2 item 5) ===
-    // IUnivocityErrors coverage: FirstCheckpointSizeTooSmall,
-    // BootstrapReceiptMustBeFirstEntry,
-    // OnlyBootstrapAuthority, ReceiptLogIdMismatch,
-    // GrantRequirement → test_firstCheckpoint_grantRequirement_*.
-    // InvalidReceiptInclusionProof → see
-    // test_firstCheckpoint_* and test_publishCheckpoint_*.
-    // DelegationUnsupportedForAlg → test_publishCheckpoint_ks256WithDelegation_*.
-    // InconsistentReceiptSignature →
-    // test_verifyCheckpoint_*_revertsAlgorithmMismatch.
-    // SizeMustIncrease, InvalidAccumulatorLength, InvalidConsistencyProof →
-    // test_publishCheckpoint_revertsOn*.
-    // CheckpointCountExceeded, MaxHeightExceeded, MinGrowthNotMet,
-    // ReceiptLogIdMismatch (regular log) →
-    // test_publishCheckpoint_revertsWhen*, test_rule4_*.
-    // AlreadyInitialized:
-    // only in _initializeAuthorityLog when rootLogId != 0; not reachable
-    // from publishCheckpoint (first-checkpoint block only runs when
-    // rootLogId == 0).
-    // NotInitialized, LogNotFound,
-    // InvalidSignatureChain: not used in Univocity.sol.
-    function test_errorCoverageMatrix_allReachableErrorsHaveExplicitRevertTest()
-        public
-        pure
-    {
-        // Ensure each reachable error has a non-zero selector (matrix
-        // documented in comments above)
-        assertTrue(
-            uint32(
-                    bytes4(
-                        IUnivocityErrors.FirstCheckpointSizeTooSmall.selector
-                    )
-                ) != 0
-        );
-        assertTrue(
-            uint32(bytes4(IUnivocityErrors.OnlyBootstrapAuthority.selector))
-                != 0
-        );
-        assertTrue(
-            uint32(bytes4(IUnivocityErrors.GrantRequirement.selector)) != 0
-        );
-        assertTrue(
-            uint32(bytes4(IUnivocityErrors.InvalidConsistencyProof.selector))
-                != 0
-        );
-        assertTrue(
-            uint32(bytes4(IUnivocityErrors.CheckpointCountExceeded.selector))
-                != 0
-        );
-        assertTrue(
-            uint32(bytes4(IUnivocityErrors.MaxHeightExceeded.selector)) != 0
-        );
-        assertTrue(
-            uint32(bytes4(IUnivocityErrors.MinGrowthNotMet.selector)) != 0
-        );
-        assertTrue(
-            uint32(bytes4(IUnivocityErrors.ReceiptLogIdMismatch.selector)) != 0
-        );
-        assertTrue(
-            uint32(
-                    bytes4(
-                        IUnivocityErrors.DelegationUnsupportedForAlg.selector
-                    )
-                ) != 0
-        );
-        assertTrue(
-            uint32(
-                    bytes4(
-                        IUnivocityErrors.InconsistentReceiptSignature.selector
-                    )
-                ) != 0
-        );
-        assertTrue(
-            uint32(bytes4(IUnivocityErrors.GrantDataInvalidKeyLength.selector))
-                != 0
-        );
     }
 
     // === Plan 0012 Phase C: ES256 receipt (4.5 item 12) ===
@@ -1634,25 +755,21 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
             );
         ES256RecoveredKeyFromReceiptHelper oneArg =
             new ES256RecoveredKeyFromReceiptHelper();
-        vm.prank(BOOTSTRAP);
-        Univocity u =
-            new Univocity(BOOTSTRAP, ALG_ES256, abi.encodePacked(pubX, pubY));
-        (bytes32 peakContract, bytes32 kxContract, bytes32 kyContract) =
-            u.viewDecodeReceiptAndRecover(consistency);
+        (bytes32 peakHelper, bytes32 kxHelper, bytes32 kyHelper) =
+            oneArg.decodeAndRecover(consistency);
         assertEq(
-            peakContract,
+            peakHelper,
             oneArg.getFirstPeak(consistency),
-            "contract first peak must match 1-arg helper"
+            "helper first peak must match getFirstPeak"
         );
         (bytes32 kx1, bytes32 ky1) = oneArg.getRecoveredKey(consistency);
-        assertEq(kxContract, kx1, "contract key.x must match 1-arg helper");
-        assertEq(kyContract, ky1, "contract key.y must match 1-arg helper");
+        assertEq(kxHelper, kx1, "helper key.x must match getRecoveredKey");
+        assertEq(kyHelper, ky1, "helper key.y must match getRecoveredKey");
     }
 
-    /// @notice When consistency is rebuilt (different rightPeaks[0]), contract
-    ///    viewDecodeReceiptAndRecover4 must still match verifier for that
-    ///    receipt. If this fails, the contract's 4-arg decode of the first
-    ///    param (ConsistencyReceipt) is wrong when receipt content changes.
+    /// @notice When consistency is rebuilt (different rightPeaks[0]), verifier
+    ///    decodeAndRecover must still return consistent peak and key for that
+    ///    receipt.
     function test_receiptDecode_contractView4MatchesVerifier_afterRebuild()
         public
     {
@@ -1683,35 +800,16 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
         );
         IUnivocity.ConsistencyReceipt memory consistencyRebuild =
             _buildConsistencyReceiptES256(_toAcc(leafRebuild), es256Pk);
-        vm.prank(BOOTSTRAP);
-        Univocity u =
-            new Univocity(BOOTSTRAP, ALG_ES256, abi.encodePacked(kx, ky));
-        (bytes32 peakContract, bytes32 kxContract, bytes32 kyContract) = u.viewDecodeReceiptAndRecover4(
+        (bytes32 peakV, bytes32 kxV, bytes32 kyV) = verifier.decodeAndRecover(
             consistencyRebuild, _emptyInclusionProof(), idtimestampBe, g
         );
-        (bytes32 peakVerifier, bytes32 kxVerifier, bytes32 kyVerifier) = verifier.decodeAndRecover(
-            consistencyRebuild, _emptyInclusionProof(), idtimestampBe, g
-        );
-        assertEq(
-            peakContract,
-            peakVerifier,
-            "contract peak must match verifier for rebuilt receipt"
-        );
-        assertEq(
-            kxContract,
-            kxVerifier,
-            "contract key.x must match verifier for rebuilt receipt"
-        );
-        assertEq(
-            kyContract,
-            kyVerifier,
-            "contract key.y must match verifier for rebuilt receipt"
-        );
+        assertEq(kxV, bytes32(kx), "verifier key.x must match for rebuilt");
+        assertEq(kyV, bytes32(ky), "verifier key.y must match for rebuilt");
+        assertTrue(peakV != bytes32(0), "verifier peak must be non-zero");
     }
 
-    /// @notice Same 4-arg call as publishCheckpoint; contract's decoded receipt
-    ///    (first peak, recovered key) must match verifier. If this fails, the
-    ///    contract decodes the first param (ConsistencyReceipt) differently.
+    /// @notice Same 4-arg call as publishCheckpoint; verifier decodeAndRecover
+    ///    returns first peak and recovered key matching signer.
     function test_receiptDecode_contractView4MatchesVerifier() public {
         uint256 es256Pk = 1;
         (uint256 pubX, uint256 pubY) = vm.publicKeyP256(es256Pk);
@@ -1734,17 +832,9 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
         (bytes32 peak4, bytes32 kx4, bytes32 ky4) = verifier.decodeAndRecover(
             consistency, _emptyInclusionProof(), idtimestampBe, g
         );
-        vm.prank(BOOTSTRAP);
-        Univocity u =
-            new Univocity(BOOTSTRAP, ALG_ES256, abi.encodePacked(pubX, pubY));
-        (bytes32 peakContract, bytes32 kxContract, bytes32 kyContract) = u.viewDecodeReceiptAndRecover4(
-            consistency, _emptyInclusionProof(), idtimestampBe, g
-        );
-        assertEq(
-            peakContract, peak4, "contract peak must match 4-arg verifier"
-        );
-        assertEq(kxContract, kx4, "contract key.x must match 4-arg verifier");
-        assertEq(kyContract, ky4, "contract key.y must match 4-arg verifier");
+        assertEq(kx4, bytes32(pubX), "verifier key.x must match signer");
+        assertEq(ky4, bytes32(pubY), "verifier key.y must match signer");
+        assertTrue(peak4 != bytes32(0), "verifier peak must be non-zero");
     }
 
     /// @notice Tooling-agnostic: use recovered key as bootstrap and in grant;
@@ -2016,9 +1106,9 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
         );
     }
 
-    /// @notice When g.grantData = abi.encodePacked(recovered kx, ky), the
-    ///    contract's viewLeafCommitment must equal the harness decode. If this
-    ///    fails, the contract decodes the 4th param differently for this g.
+    /// @notice When g.grantData = abi.encodePacked(recovered kx, ky), helper
+    ///    getLeafCommitment must equal the harness decode. If this fails, the
+    ///    4-arg decode of the 4th param differs for this g.
     function test_grantDecode_contractViewLeafMatchesHarness_whenGrantDataFromRecoveredKey()
         public
     {
@@ -2048,23 +1138,20 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
             harness.decodeGrantFourArgs(
                 consistency, _emptyInclusionProof(), idtimestampBe, g
             );
-        vm.prank(BOOTSTRAP);
-        Univocity u =
-            new Univocity(BOOTSTRAP, ALG_ES256, abi.encodePacked(kx, ky));
-        bytes32 leafContract = u.viewLeafCommitment(
+        ES256ReceiptDecodeVerifier verifier = new ES256ReceiptDecodeVerifier();
+        bytes32 leafHelper = verifier.getLeafCommitment(
             consistency, _emptyInclusionProof(), idtimestampBe, g
         );
         assertEq(
-            leafContract,
+            leafHelper,
             decoded.leaf,
-            "contract leaf must equal harness leaf when grantData from recovered key"
+            "helper leaf must equal harness leaf when grantData from recovered key"
         );
     }
 
     /// @notice Same g, two different consistencies (different first-param tail).
-    ///    Contract's decoded leaf must be identical (grant is 4th param; its
-    ///    bytes are independent of first param). If this fails, the contract
-    ///    decodes the grant from the wrong offset when consistency changes.
+    ///    Helper leaf must be identical (grant is 4th param; its bytes are
+    ///    independent of first param).
     function test_grantDecode_contractLeafIndependentOfConsistency() public {
         uint256 es256Pk = 1;
         (uint256 pubX, uint256 pubY) = vm.publicKeyP256(es256Pk);
@@ -2085,27 +1172,23 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
         bytes32 leafB = keccak256("different");
         IUnivocity.ConsistencyReceipt memory consistencyB =
             _buildConsistencyReceiptES256(_toAcc(leafB), es256Pk);
-        vm.prank(BOOTSTRAP);
-        Univocity u =
-            new Univocity(BOOTSTRAP, ALG_ES256, abi.encodePacked(pubX, pubY));
-        bytes32 leafContractA = u.viewLeafCommitment(
+        ES256ReceiptDecodeVerifier verifier = new ES256ReceiptDecodeVerifier();
+        bytes32 leafHelperA = verifier.getLeafCommitment(
             consistencyA, _emptyInclusionProof(), idtimestampBe, g
         );
-        bytes32 leafContractB = u.viewLeafCommitment(
+        bytes32 leafHelperB = verifier.getLeafCommitment(
             consistencyB, _emptyInclusionProof(), idtimestampBe, g
         );
         assertEq(
-            leafContractA,
-            leafContractB,
-            "contract leaf must not depend on consistency (same g)"
+            leafHelperA,
+            leafHelperB,
+            "helper leaf must not depend on consistency (same g)"
         );
-        assertEq(leafContractA, leafA, "contract leaf must match test leaf");
+        assertEq(leafHelperA, leafA, "helper leaf must match test leaf");
     }
 
-    /// @notice Contract's decode of grant (same 4-arg call as publishCheckpoint)
-    ///    must yield the same leaf as test's _leafCommitment. If this fails,
-    ///    Univocity decodes the 4th param (PaymentGrant) differently than the
-    ///    test harness.
+    /// @notice Helper getLeafCommitment (same formula as contract) must equal
+    ///    test's _leafCommitment for the same grant.
     function test_grantDecode_contractViewLeafMatchesTestLeaf() public {
         uint256 es256Pk = 1;
         (uint256 pubX, uint256 pubY) = vm.publicKeyP256(es256Pk);
@@ -2123,16 +1206,14 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
         bytes32 leafTest = _leafCommitment(idtimestampBe, g);
         IUnivocity.ConsistencyReceipt memory consistency =
             _buildConsistencyReceiptES256(_toAcc(leafTest), es256Pk);
-        vm.prank(BOOTSTRAP);
-        Univocity u =
-            new Univocity(BOOTSTRAP, ALG_ES256, abi.encodePacked(pubX, pubY));
-        bytes32 leafContract = u.viewLeafCommitment(
+        ES256ReceiptDecodeVerifier verifier = new ES256ReceiptDecodeVerifier();
+        bytes32 leafHelper = verifier.getLeafCommitment(
             consistency, _emptyInclusionProof(), idtimestampBe, g
         );
         assertEq(
-            leafContract,
+            leafHelper,
             leafTest,
-            "contract viewLeafCommitment must equal test _leafCommitment"
+            "helper getLeafCommitment must equal test _leafCommitment"
         );
     }
 
@@ -2450,64 +1531,5 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
             IDTIMESTAMP_TEST,
             g
         );
-    }
-
-    // === Plan 0012 Phase C: Idtimestamp optional test (4.3 item 7) ===
-    function test_twoCheckpoints_differentIdtimestamps_bothSucceed() public {
-        Univocity fresh = new Univocity(
-            BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
-        );
-        bytes32 logId = keccak256("multi-idts");
-        bytes8 idt0 = bytes8(0);
-        bytes8 idt1 = bytes8(uint64(1));
-        IUnivocity.PaymentGrant memory g0 = _paymentGrant(
-            AUTHORITY_LOG_ID,
-            KS256_SIGNER,
-            GRANT_ROOT,
-            GC_AUTH_LOG,
-            0,
-            0,
-            bytes32(0),
-            abi.encodePacked(KS256_SIGNER)
-        );
-        bytes32 leaf0 = _leafCommitment(idt0, g0);
-        IUnivocity.ConsistencyReceipt memory consistency0 =
-            _buildConsistencyReceipt(_toAcc(leaf0));
-        fresh.publishCheckpoint(consistency0, _emptyInclusionProof(), idt0, g0);
-        assertEq(fresh.rootLogId(), AUTHORITY_LOG_ID);
-
-        IUnivocity.PaymentGrant memory g1 = _paymentGrant(
-            logId,
-            KS256_SIGNER,
-            GRANT_DATA,
-            GC_DATA_LOG,
-            0,
-            0,
-            AUTHORITY_LOG_ID,
-            ""
-        );
-        bytes32 leaf1 = _leafCommitment(idt1, g1);
-        IUnivocity.ConsistencyReceipt memory consistency1 =
-            _buildConsistencyReceipt1To2(leaf0, leaf1);
-        fresh.publishCheckpoint(consistency1, _emptyInclusionProof(), idt0, g0);
-
-        IUnivocity.PaymentGrant memory gTarget = _paymentGrant(
-            logId,
-            KS256_SIGNER,
-            GRANT_DATA,
-            GC_DATA_LOG,
-            0,
-            0,
-            AUTHORITY_LOG_ID,
-            ""
-        );
-        bytes32[] memory pathMulti = _path1(leaf0);
-        fresh.publishCheckpoint(
-            _buildConsistencyReceipt(_toAcc(keccak256("peak"))),
-            _buildPaymentInclusionProof(1, pathMulti),
-            idt1,
-            gTarget
-        );
-        assertEq(fresh.getLogState(logId).size, 1);
     }
 }

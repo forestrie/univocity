@@ -83,6 +83,23 @@ contract ES256RecoveredKeyFromReceiptHelper {
     {
         return receipt.consistencyProofs[0].rightPeaks[0];
     }
+
+    /// @notice Same as contract viewDecodeReceiptAndRecover: run proof chain,
+    ///    return first accumulator peak and recovered ES256 key (test-only).
+    function decodeAndRecover(IUnivocity.ConsistencyReceipt calldata receipt)
+        external
+        view
+        returns (bytes32 firstPeak, bytes32 keyX, bytes32 keyY)
+    {
+        bytes32[] memory initialAcc = new bytes32[](0);
+        bytes32[] memory accMem =
+            verifyConsistencyProofChain(initialAcc, receipt.consistencyProofs);
+        firstPeak = accMem[0];
+        bytes memory detached = buildDetachedPayloadCommitment(accMem);
+        (keyX, keyY) = recoverES256FromDetachedPayload(
+            receipt.protectedHeader, detached, receipt.signature
+        );
+    }
 }
 
 /// @notice Same 4-arg calldata layout as publishCheckpoint; returns first peak
@@ -96,11 +113,11 @@ contract ES256ReceiptDecodeVerifier {
         bytes8,
         IUnivocity.PaymentGrant calldata
     ) external view returns (bytes32 firstPeak, bytes32 keyX, bytes32 keyY) {
-        firstPeak = consistencyParts.consistencyProofs[0].rightPeaks[0];
         bytes32[] memory initialAcc = new bytes32[](0);
         bytes32[] memory accMem = verifyConsistencyProofChain(
             initialAcc, consistencyParts.consistencyProofs
         );
+        firstPeak = accMem[0];
         bytes memory detached = buildDetachedPayloadCommitment(accMem);
         (keyX, keyY) = recoverES256FromDetachedPayload(
             consistencyParts.protectedHeader,
@@ -251,6 +268,13 @@ abstract contract UnivocityTestHelper is Test {
     ConsistencyCommitmentHarness internal commitmentHarness;
     IncludedRootHarness internal includedRootHarness;
 
+    /// @notice Set by _publishBootstrapAndSecondCheckpoint for suites that need
+    ///    authority + second checkpoint (UnivocityTest, Extend, Bounds, etc.).
+    bytes32 internal authorityLeaf0;
+    bytes32 internal authorityLeaf1;
+    IUnivocity.PaymentGrant internal grant1;
+    IUnivocity.PaymentGrant internal grantTestLog;
+
     address internal constant BOOTSTRAP = address(0xB007);
     uint256 internal constant SIGNER_PK = 1;
     address internal KS256_SIGNER;
@@ -284,6 +308,46 @@ abstract contract UnivocityTestHelper is Test {
         vm.prank(BOOTSTRAP);
         return
             new Univocity(BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER));
+    }
+
+    /// @notice Publish bootstrap (first) checkpoint and second checkpoint on
+    ///    authority log. Sets authorityLeaf0, authorityLeaf1, grant1,
+    ///    grantTestLog. Call after univocity = _deployUnivocityKS256().
+    function _publishBootstrapAndSecondCheckpoint() internal {
+        IUnivocity.PaymentGrant memory grant0 = _paymentGrant(
+            AUTHORITY_LOG_ID,
+            KS256_SIGNER,
+            GRANT_ROOT,
+            GC_AUTH_LOG,
+            0,
+            0,
+            bytes32(0),
+            abi.encodePacked(KS256_SIGNER)
+        );
+        authorityLeaf0 = _leafCommitment(IDTIMESTAMP_AUTH, grant0);
+        grant1 = grant0;
+        IUnivocity.ConsistencyReceipt memory consistency0 =
+            _buildConsistencyReceipt(_toAcc(authorityLeaf0));
+        univocity.publishCheckpoint(
+            consistency0, _emptyInclusionProof(), IDTIMESTAMP_AUTH, grant0
+        );
+        grantTestLog = _paymentGrant(
+            TEST_LOG_ID,
+            KS256_SIGNER,
+            GRANT_DATA,
+            GC_DATA_LOG,
+            0,
+            0,
+            AUTHORITY_LOG_ID,
+            ""
+        );
+        authorityLeaf1 = _leafCommitment(IDTIMESTAMP_TEST, grantTestLog);
+        IUnivocity.ConsistencyReceipt memory consistency1 =
+            _buildConsistencyReceipt1To2(authorityLeaf0, authorityLeaf1);
+        vm.prank(BOOTSTRAP);
+        univocity.publishCheckpoint(
+            consistency1, _emptyInclusionProof(), IDTIMESTAMP_AUTH, grant1
+        );
     }
 
     function _leafCommitment(
@@ -767,6 +831,26 @@ abstract contract UnivocityTestHelper is Test {
             _buildPaymentInclusionProof(1, path),
             IDTIMESTAMP_TEST,
             grantTestLogVal
+        );
+    }
+
+    /// @notice Publish first checkpoint to a target log with a specific grant
+    ///    (used by bounds tests). Caller supplies onePeak, grant, inclusionPath.
+    function _publishFirstToTestLogWithGrant(
+        Univocity u,
+        bytes32 onePeak,
+        bytes32, /* logId */
+        IUnivocity.PaymentGrant memory grant,
+        bytes32, /* leafInAuthority */
+        bytes32[] memory inclusionPath
+    ) internal {
+        IUnivocity.ConsistencyReceipt memory consistency =
+            _buildConsistencyReceipt(_toAcc(onePeak));
+        u.publishCheckpoint(
+            consistency,
+            _buildPaymentInclusionProof(1, inclusionPath),
+            IDTIMESTAMP_TEST,
+            grant
         );
     }
 
