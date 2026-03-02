@@ -871,7 +871,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
                 : IUnivocity.LogKind.Data;
             config.authLogId = grantLogId;
 
-            emit LogRegistered(logId, _msgSender(), size);
+            emit LogRegistered(logId, grantLogId, config.rootKey);
         }
 
         delete log.accumulator;
