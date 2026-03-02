@@ -5,7 +5,7 @@
 **Always use explicit named imports.** Do not use wild/namespace imports.
 
 - **Do:** `import {LibCose, TypeName} from "@univocity/cose/lib/LibCose.sol";`
-- **Do:** `import {IUnivocity} from "@univocity/checkpoints/interfaces/IUnivocity.sol";`
+- **Do:** `import {IUnivocity} from "@univocity/interfaces/IUnivocity.sol";`
 - **Do not:** `import "@univocity/cose/lib/LibCose.sol";`
 - **Do not:** `import "forge-std/Script.sol";` (without naming what you use)
 

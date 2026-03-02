@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.24;
 
-import {IUnivocity} from "@univocity/checkpoints/interfaces/IUnivocity.sol";
+import {IUnivocity} from "@univocity/interfaces/IUnivocity.sol";
 import {
     consistentRootsMemory
 } from "@univocity/algorithms/consistentRoots.sol";

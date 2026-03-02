@@ -3,7 +3,7 @@
 **Status:** ACCEPTED  
 **Date:** 2026-02-23  
 **Related:** [plan-0016](../plans/plan-0016-minimal-cose-cbor-api-predecode.md),
-[IUnivocity.sol](../../src/checkpoints/interfaces/IUnivocity.sol)
+[IUnivocity.sol](../../src/interfaces/IUnivocity.sol)
 
 ## Decision
 

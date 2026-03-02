@@ -76,7 +76,7 @@ function publishCheckpoint(
     ConsistencyReceipt calldata consistencyParts,
     bytes calldata paymentInclusionProof,  // empty when not required
     bytes8 paymentIDTimestampBe,
-    IUnivocity.PaymentGrant calldata paymentGrant
+    IUnivocity.PublishGrant calldata publishGrant
 ) external;
 ```
 
@@ -169,7 +169,7 @@ decoder. The following steps 5–8 are superseded and left for reference only.
 
 14. **Replace publishCheckpoint** with the single pre-decoded signature:
     `ConsistencyReceipt calldata consistencyParts`, `bytes calldata
-    paymentInclusionProof`, paymentIDTimestampBe, paymentGrant. Remove the
+    paymentInclusionProof`, paymentIDTimestampBe, publishGrant. Remove the
     old overload that accepted raw receipt bytes.
 15. **Consistency path:** Call
     `verifyConsistencyProofChain(log.accumulator, consistencyParts.consistencyProofs)`.
@@ -223,7 +223,7 @@ calldata and first proof uses storage; tests pass; format and lint clean.
   LibCose/LibCbor/delegationVerifier still contain the receipt/cert/decode
   code listed in §4.
 - **Phase 4:** Done. Single publishCheckpoint(ConsistencyReceipt calldata,
-  paymentInclusionProof, paymentIDTimestampBe, paymentGrant); consistency
+  paymentInclusionProof, paymentIDTimestampBe, publishGrant); consistency
   path copies proofs and uses verifyConsistencyProofChain; payment path uses
   decodeInclusionProofPayload + verifyInclusion; delegation uses
   verifyDelegationProof. Univocity does not import LibCoseReceipt,

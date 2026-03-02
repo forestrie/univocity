@@ -249,10 +249,10 @@ sequenceDiagram
     participant C as Univocity contract
 
     User->>Op: Request grant, payment or agreement off-chain
-    Op->>Op: Build leaf commitment PaymentGrant and idtimestamp for target log and bounds
+    Op->>Op: Build leaf commitment PublishGrant and idtimestamp for target log and bounds
     Op->>Op: Build checkpoint extending root MMR with this leaf
     Op->>Op: Sign consistency receipt with root key
-    Op->>C: publishCheckpoint with inclusionProof for new leaf and paymentGrant
+    Op->>C: publishCheckpoint with inclusionProof for new leaf and publishGrant
     C->>C: Verify inclusion in root and receipt with root key, apply bounds
     C-->>Op: Checkpoint accepted, grant now in root usable via inclusion proof
     Op-->>User: Grant available index and path for inclusion proof
@@ -368,7 +368,7 @@ sequenceDiagram
     Note over Op: Log root key, grant in owner from owner section 7.2
     Op->>Op: Build consistency receipt log tree N to N+1
     Op->>Op: Sign receipt with log root key
-    Op->>C: publishCheckpoint with inclusionProof in owner grant GF_EXTEND paymentGrant logId this log
+    Op->>C: publishCheckpoint with inclusionProof in owner grant GF_EXTEND publishGrant logId this log
     C->>C: Verify inclusion in owner and receipt with log root key
     C-->>Op: Log extended
 ```

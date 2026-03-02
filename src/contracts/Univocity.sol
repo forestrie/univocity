@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.24;
 
-import {IUnivocity} from "@univocity/checkpoints/interfaces/IUnivocity.sol";
-import {
-    IUnivocityErrors
-} from "@univocity/checkpoints/interfaces/IUnivocityErrors.sol";
+import {IUnivocity} from "@univocity/interfaces/IUnivocity.sol";
+import {IUnivocityErrors} from "@univocity/interfaces/IUnivocityErrors.sol";
 import {ALG_ES256, ALG_KS256} from "@univocity/cosecbor/constants.sol";
 import {
     extractAlgorithm,
@@ -43,7 +41,7 @@ import {peaks} from "@univocity/algorithms/peaks.sol";
 ///    must supply a grant evidenced by an inclusion proof in that log's
 ///    *owner* (data log → owning authority log; child authority → parent log).
 /// 3. **Log creation requires ownerLogId:** The first checkpoint to a new log
-///    (data or child authority) requires paymentGrant.ownerLogId and an
+///    (data or child authority) requires publishGrant.ownerLogId and an
 ///    inclusion proof against that owner. Log kind (Authority/Data) is set
 ///    from request (GC_AUTH_LOG or GC_DATA_LOG); request must be allowed by
 ///    grant flags (GF_AUTH_LOG, GF_DATA_LOG).
@@ -236,7 +234,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
 
     /// @notice Publish a checkpoint from a pre-decoded consistency receipt
     ///    and optional inclusion proof (grant).
-    /// @dev Authorization: target = paymentGrant.logId. Root not yet set:
+    /// @dev Authorization: target = publishGrant.logId. Root not yet set:
     ///   first checkpoint ever; grant = self-inclusion (index 0, path length
     ///   up to MAX_HEIGHT); signer key (from grantData) must match bootstrap
     ///   key; grantData must equal bootstrap key bytes (rule 1).
@@ -248,9 +246,9 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         IUnivocity.ConsistencyReceipt calldata consistencyParts,
         IUnivocity.InclusionProof calldata paymentInclusionProof,
         bytes8 paymentIDTimestampBe,
-        IUnivocity.PaymentGrant calldata paymentGrant
+        IUnivocity.PublishGrant calldata publishGrant
     ) external {
-        bytes32 logId = paymentGrant.logId;
+        bytes32 logId = publishGrant.logId;
         LogState storage log = _logs[logId];
         IUnivocity.LogConfig storage config = _logConfigs[logId];
 
@@ -272,11 +270,11 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         }
         _validateCheckpointSizeIncrease(logId, claimedSize);
         // Rule 4: grant bounds — size must be within maxHeight and meet minGrowth.
-        _checkPaymentGrantBoundsMaxHeight(claimedSize, paymentGrant);
+        _checkPublishGrantBoundsMaxHeight(claimedSize, publishGrant);
         uint64 currentSize = log.size;
-        if (claimedSize < currentSize + paymentGrant.minGrowth) {
+        if (claimedSize < currentSize + publishGrant.minGrowth) {
             revert MinGrowthNotMet(
-                currentSize, claimedSize, paymentGrant.minGrowth
+                currentSize, claimedSize, publishGrant.minGrowth
             );
         }
         bytes32[] memory initialAcc = _accumulatorToMemory(log);
@@ -296,8 +294,8 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             detachedPayload,
             config,
             consistencyParts.delegationProof,
-            paymentGrant.grant,
-            paymentGrant.grantData
+            publishGrant.grant,
+            publishGrant.grantData
         );
 
         // --- Grant / inclusion enforcement (rules 1, 2, 3) ---
@@ -306,7 +304,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             claimedSize,
             paymentInclusionProof,
             paymentIDTimestampBe,
-            paymentGrant,
+            publishGrant,
             accMem
         );
 
@@ -314,11 +312,10 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             logId,
             claimedSize,
             accMem,
-            paymentGrant.payer,
             paymentInclusionProof.index,
             paymentInclusionProof.path,
             authForInclusion,
-            paymentGrant.request,
+            publishGrant.request,
             rootKeyToSet
         );
     }
@@ -331,18 +328,18 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         uint64 claimedSize,
         IUnivocity.InclusionProof calldata paymentInclusionProof,
         bytes8 paymentIDTimestampBe,
-        IUnivocity.PaymentGrant calldata paymentGrant,
+        IUnivocity.PublishGrant calldata publishGrant,
         bytes32[] memory accMem
     ) internal returns (bytes32 authLogId) {
         IUnivocity.LogConfig storage config = _logConfigs[logId];
         bytes32 leafCommitment =
-            _leafCommitment(paymentIDTimestampBe, paymentGrant);
+            _leafCommitment(paymentIDTimestampBe, publishGrant);
 
         if (rootLogId == bytes32(0)) {
             // Rule 1: First checkpoint ever = root authority log. Grant must
             // have GF_CREATE and GF_AUTH_LOG; request must be GC_AUTH_LOG.
-            uint256 g = paymentGrant.grant;
-            uint256 req = paymentGrant.request & GF_GC_MASK;
+            uint256 g = publishGrant.grant;
+            uint256 req = publishGrant.request & GF_GC_MASK;
             if (
                 (g & GF_CREATE) == 0 || (g & GF_AUTH_LOG) == 0
                     || req != GC_AUTH_LOG
@@ -387,10 +384,10 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         // proof checks as for extending an existing log.
 
         if (config.initializedAt == 0) {
-            authLogId = paymentGrant.ownerLogId;
+            authLogId = publishGrant.ownerLogId;
 
-            uint256 g = paymentGrant.grant;
-            uint256 req = paymentGrant.request & GF_GC_MASK;
+            uint256 g = publishGrant.grant;
+            uint256 req = publishGrant.request & GF_GC_MASK;
             if ((g & GF_CREATE) == 0) {
                 revert GrantRequirement(
                     GF_CREATE | GF_AUTH_LOG | GF_DATA_LOG, 0
@@ -414,13 +411,13 @@ contract Univocity is IUnivocity, IUnivocityErrors {
                 );
             }
 
-            if (paymentGrant.ownerLogId == bytes32(0)) {
+            if (publishGrant.ownerLogId == bytes32(0)) {
                 revert InvalidPaymentReceipt();
             }
         } else {
             authLogId = config.authLogId;
 
-            if ((paymentGrant.grant & GF_EXTEND) == 0) {
+            if ((publishGrant.grant & GF_EXTEND) == 0) {
                 revert GrantRequirement(GF_EXTEND, 0);
             }
         }
@@ -773,12 +770,11 @@ contract Univocity is IUnivocity, IUnivocityErrors {
 
     function _leafCommitment(
         bytes8 paymentIDTimestampBe,
-        IUnivocity.PaymentGrant calldata g
+        IUnivocity.PublishGrant calldata g
     ) private pure returns (bytes32) {
         bytes32 inner = sha256(
             abi.encodePacked(
                 g.logId,
-                g.payer,
                 g.grant,
                 g.maxHeight,
                 g.minGrowth,
@@ -791,9 +787,9 @@ contract Univocity is IUnivocity, IUnivocityErrors {
 
     /// @notice Max height bound only; requires derived size (call after proof
     ///    chain).
-    function _checkPaymentGrantBoundsMaxHeight(
+    function _checkPublishGrantBoundsMaxHeight(
         uint64 size,
-        IUnivocity.PaymentGrant calldata g
+        IUnivocity.PublishGrant calldata g
     ) private pure {
         if (g.maxHeight != 0 && size > g.maxHeight) {
             revert MaxHeightExceeded(size, g.maxHeight);
@@ -844,10 +840,9 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         bytes32 logId,
         uint64 size,
         bytes32[] memory accumulator,
-        address payer,
-        uint64 paymentIndex,
-        bytes32[] calldata paymentPath,
-        bytes32 authorityLogIdUsed,
+        uint64 grantIndex,
+        bytes32[] calldata grantPath,
+        bytes32 grantLogId,
         uint256 request,
         bytes memory rootKeyToSet
     ) private {
@@ -862,7 +857,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             }
 
             if (logId == rootLogId) {
-                if (logId != authorityLogIdUsed) {
+                if (logId != grantLogId) {
                     revert BootstrapLogMustUseSelf();
                 }
                 if ((request & GF_GC_MASK) != GC_AUTH_LOG) {
@@ -872,7 +867,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             config.kind = (request & GF_GC_MASK) == GC_AUTH_LOG
                 ? IUnivocity.LogKind.Authority
                 : IUnivocity.LogKind.Data;
-            config.authLogId = authorityLogIdUsed;
+            config.authLogId = grantLogId;
 
             emit LogRegistered(logId, _msgSender(), size);
         }
@@ -886,13 +881,14 @@ contract Univocity is IUnivocity, IUnivocityErrors {
 
         emit CheckpointPublished(
             logId,
+            grantLogId,
+            config.rootKey,
             _msgSender(),
-            payer,
             uint8(config.kind),
             size,
             accumulator,
-            paymentIndex,
-            paymentPath
+            grantIndex,
+            grantPath
         );
     }
 

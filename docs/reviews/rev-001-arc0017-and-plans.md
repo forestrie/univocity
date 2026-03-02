@@ -40,8 +40,8 @@ This report covers: (1) divergences from original intent, (2) functional gaps, (
 - **Impact:** Key rotation as described in the ARC is not available from outside. Root key is still established at first checkpoint via `_updateLogState`; rotation would require a new external entry point that calls `setLogRoot` (e.g. bootstrap-only). Recommendation: either document that rotation is not yet exposed and add a bootstrap-only “rotateLogRoot(logId, rootKey)” when needed, or accept that rotation is internal-only for future use.
 
 > Updates:
-    - If we do key rollover we will do so based on PaymentGrant structure updates, there will never be a need for setLogRoot to be externaly callable.
-    - PaymentGrant rollover would work by requiring that checkpoint to be published is signed by the old key and if all other aspects of the publish were successful it would automatically call setLogRoot with the new public key - which would be part of the PaymentGrant
+    - If we do key rollover we will do so based on PublishGrant structure updates, there will never be a need for setLogRoot to be externaly callable.
+    - PublishGrant rollover would work by requiring that checkpoint to be published is signed by the old key and if all other aspects of the publish were successful it would automatically call setLogRoot with the new public key - which would be part of the PublishGrant
     - update all docs such that they do not imply key rollover requires public
       setLogRoot. have one short description of this proposed future method. if appropriate reference that section in
       other contexts that need to talk about root key rollover
@@ -111,7 +111,7 @@ logs, is a must have
 
 ### 3.2 Plan-0021 Phase F (optional) — already largely implemented
 
-- **F.1:** PaymentGrant has `ownerLogId` and `createAsAuthority`; leaf commitment includes both. Done.
+- **F.1:** PublishGrant has `ownerLogId` and `createAsAuthority`; leaf commitment includes both. Done.
 - **F.2–F.4:** First checkpoint to new log with createAsAuthority, extend child authority (inclusion against parent), _updateLogState setting kind and authLogId from grant. Implemented: _verifyInclusionGrant uses ownerLogId for new logs and config.authLogId for existing; _updateLogState sets kind = Authority vs Data from createAsAuthority.
 - **F.5:** Add or extend tests for root → child authority → data under child (D.5–D.8).
 
@@ -208,7 +208,7 @@ After actioning the “> Updates” blocks above, the following was checked for
   checkpoint range. Events (§5) updated: CheckpointPublished includes logKind;
   CheckpointAuthorized/PaymentReceiptRegistered removed; auth failures
   documented as revert with registry. Leaf commitment (§3.2) simplified to
-  reference PaymentGrant and owner’s log; rootLogId/owner terminology used.
+  reference PublishGrant and owner’s log; rootLogId/owner terminology used.
 - **ARC-0017:** Terminology (root log / rootLogId, auth log, data log) added;
   setLogRoot internal and root key rollover described in one place; A.7
   enumerating logs by owner stated as off-chain by design.

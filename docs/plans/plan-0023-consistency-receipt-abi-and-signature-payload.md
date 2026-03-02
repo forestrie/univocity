@@ -50,7 +50,7 @@ fields of `ConsistencyProof` except `treeSize1` and `treeSize2` are dynamic.
   points to the start of that field’s encoding.
 - For four arguments
   `(ConsistencyReceipt consistencyParts, InclusionProof paymentInclusionProof,
-  bytes8 paymentIDTimestampBe, PaymentGrant paymentGrant)` the argument block
+  bytes8 paymentIDTimestampBe, PublishGrant paymentGrant)` the argument block
   is: `[offset_consistencyParts, offset_inclusion, paymentIDTimestampBe (padded
   to 32), offset_grant]` (4 × 32 bytes). The first word is the offset to the
   receipt. At that offset, the receipt is encoded exactly as above: four
@@ -212,7 +212,7 @@ Narrow tests show that when the same 4 args are passed:
   with 4th param `abi.encode(g)` yields the same leaf as in-memory
   (`test_grantDecodeEncoded_abiEncodeRoundTrip_sameLeaf`). So passing the grant
   as `bytes calldata encodedGrant` and decoding with `abi.decode(encodedGrant,
-  (PaymentGrant))` would give stable, canonical encoding if the contract
+  (PublishGrant))` would give stable, canonical encoding if the contract
   accepted it.
 
 ### 7.3 Receipt decode: contract and verifier agree

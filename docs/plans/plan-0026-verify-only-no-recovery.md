@@ -148,7 +148,7 @@ recovery still compile and run.
 
 ### Phase 2.7 — Errors and interfaces
 
-**Files:** `src/checkpoints/interfaces/IUnivocityErrors.sol`, `IUnivocity.sol` if
+**Files:** `src/interfaces/IUnivocityErrors.sol`, `IUnivocity.sol` if
 needed
 
 - Where we still revert on "wrong key for first checkpoint", keep using

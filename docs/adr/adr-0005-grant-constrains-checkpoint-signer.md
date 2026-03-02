@@ -11,7 +11,7 @@
 ## Question
 
 What is the simplest way, given the current implementation, to update
-PaymentGrant so that it **constrains the allowed checkpoint signer** to a
+PublishGrant so that it **constrains the allowed checkpoint signer** to a
 particular key? It must support delegation, account for the bootstrap case,
 and avoid undoing the refactoring that achieved maximum commonality in
 processing grants and proofs. The expected outcome is that **a single grant**

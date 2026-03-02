@@ -28,7 +28,7 @@ and may be undesirable for the authority or the system.
 The grant issued by the authority log includes a **min_growth** (and optionally
 max_height and checkpoint range). The contract enforces:
 
-- `(new MMR size) - (current log size) >= paymentGrant.minGrowth`
+- `(new MMR size) - (current log size) >= publishGrant.minGrowth`
 
 So the **authority**, not the submitter, controls the **minimum** amount by
 which the log must grow for any checkpoint published under that grant. The
@@ -51,4 +51,4 @@ grant in the authority log.
 Plans that define the API or bounds checks should reference this concept. See
 [plan-0021](../plans/plan-0021-phase-zero-log-hierarchy-data-structures.md) and
 [ARC-0016](../arc/arc-0016-checkpoint-incentivisation-implementation.md) for
-`PaymentGrant.minGrowth` and bounds checks.
+`PublishGrant.minGrowth` and bounds checks.

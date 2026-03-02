@@ -18,7 +18,7 @@ signer key; GF_REQUIRE_SIGNER is no longer branched on.
 | Document | Role |
 |----------|------|
 | **ADR-0005** | Decision: GF_REQUIRE_SIGNER; grantData = key bytes when set; bootstrap must commit to bootstrap key; scope = first checkpoint only. |
-| **IUnivocity.sol** | PaymentGrant (grant, grantData); getBootstrapKeyConfig(). |
+| **IUnivocity.sol** | PublishGrant (grant, grantData); getBootstrapKeyConfig(). |
 | **Univocity.sol** | publishCheckpoint flow; _verifyInclusionGrant; _verifyCheckpointSignature; _updateLogState; GF_* constants. |
 
 ---
@@ -28,7 +28,7 @@ signer key; GF_REQUIRE_SIGNER is no longer branched on.
 **Goal.** Decompose `test/checkpoints/Univocity.t.sol` into smaller, functionally grouped test contracts so that ADR-0005 tests (and future feature tests) can be added without a single monolithic file. Introduce a **common helper contract** (or base contract) shared by all Univocity test contracts to centralise:
 
 - Univocity deployment (bootstrap key, KS256/ES256)
-- PaymentGrant construction (_paymentGrant, grant constants, leaf commitment)
+- PublishGrant construction (_publishGrant, grant constants, leaf commitment)
 - Consistency receipt building (_buildConsistencyReceipt, _toAcc, etc.)
 - Inclusion proof helpers (_emptyInclusionProof, etc.)
 - Shared constants (BOOTSTRAP, AUTHORITY_LOG_ID, IDTIMESTAMP_*, GRANT_ROOT, etc.)
@@ -131,8 +131,8 @@ bytes memory rootKeyToSet = _verifyCheckpointSignature(
     detachedPayload,
     config,
     consistencyParts.delegationProof,
-    paymentGrant.grant,
-    paymentGrant.grantData
+    publishGrant.grant,
+    publishGrant.grantData
 );
 ```
 
@@ -173,8 +173,8 @@ this behaviour.
              config,
 -            consistencyParts.delegationProof
 +            consistencyParts.delegationProof,
-+            paymentGrant.grant,
-+            paymentGrant.grantData
++            publishGrant.grant,
++            publishGrant.grantData
          );
          // --- Grant / inclusion enforcement (rules 1, 2, 3) ---
 ```
@@ -346,7 +346,7 @@ Execute Phase 1 → 2 → 3 → 4. Phase 0 can run in parallel or before Phase 1
 |------|--------|
 | `Univocity.sol` | Add `GF_REQUIRE_SIGNER`; pass grant/grantData into `_verifyCheckpointSignature` and ES256/KS256 helpers; inline GF_REQUIRE_SIGNER checks in first-checkpoint branches. |
 | `IUnivocityErrors.sol` | Add `GrantDataInvalidKeyLength` only; use `GrantRequirement(GF_REQUIRE_SIGNER, 0)` for signer mismatch. |
-| `IUnivocity.sol` | NatSpec for PaymentGrant / grant flags (optional). |
+| `IUnivocity.sol` | NatSpec for PublishGrant / grant flags (optional). |
 | `test/checkpoints/*.t.sol` | New tests per §4; optionally refactor per Phase 0. |
 
 No change to leaf commitment hash construction: `grantData` is already part of the leaf; GF_REQUIRE_SIGNER is a new bit in `grant`, which is already hashed.

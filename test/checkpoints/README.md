@@ -4,7 +4,7 @@ Plan 0022 Phase 0 refactored the test layout. The suite is split into
 functionally grouped contracts:
 
 - **UnivocityTestHelper.sol** — Shared setup, constants, and helpers (deployment,
-  PaymentGrant, leaf commitment, consistency receipts, inclusion proofs, paths,
+  PublishGrant, leaf commitment, consistency receipts, inclusion proofs, paths,
   ES256 helpers, `_publishBootstrapAndSecondCheckpoint`). All test contracts
   that need these inherit `UnivocityTestHelper`.
 

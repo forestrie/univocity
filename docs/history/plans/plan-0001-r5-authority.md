@@ -334,7 +334,7 @@ Phase 6 (Docs/Deploy) ◄── depends on Phase 5
 
 #### Task 1.1: Create Event Interface
 
-**File**: `src/checkpoints/interfaces/IUnivocityEvents.sol` (NEW)
+**File**: `src/interfaces/IUnivocityEvents.sol` (NEW)
 
 **Action**: Create file with the following content:
 
@@ -402,7 +402,7 @@ interface IUnivocityEvents {
 
 #### Task 1.2: Create Main Interface
 
-**File**: `src/checkpoints/interfaces/IUnivocity.sol` (NEW)
+**File**: `src/interfaces/IUnivocity.sol` (NEW)
 
 **Action**: Create file with the following content:
 
@@ -462,7 +462,7 @@ interface IUnivocity is IUnivocityEvents {
 
 #### Task 1.3: Create Custom Errors
 
-**File**: `src/checkpoints/interfaces/IUnivocityErrors.sol` (NEW)
+**File**: `src/interfaces/IUnivocityErrors.sol` (NEW)
 
 **Action**: Create file:
 
@@ -696,8 +696,8 @@ function verifySignatureChain(
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.27;
 
-import "../checkpoints/interfaces/IUnivocity.sol";
-import "../checkpoints/interfaces/IUnivocityErrors.sol";
+import "../interfaces/IUnivocity.sol";
+import "../interfaces/IUnivocityErrors.sol";
 import "../checkpoints/lib/LibCheckpointVerifier.sol";
 import "../checkpoints/lib/LibAuthorityVerifier.sol";
 

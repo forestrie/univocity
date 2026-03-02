@@ -33,10 +33,8 @@ import {
     buildDetachedPayloadCommitment,
     verifyConsistencyProofChain
 } from "@univocity/checkpoints/lib/consistencyReceipt.sol";
-import {IUnivocity} from "@univocity/checkpoints/interfaces/IUnivocity.sol";
-import {
-    IUnivocityErrors
-} from "@univocity/checkpoints/interfaces/IUnivocityErrors.sol";
+import {IUnivocity} from "@univocity/interfaces/IUnivocity.sol";
+import {IUnivocityErrors} from "@univocity/interfaces/IUnivocityErrors.sol";
 import {P256} from "@openzeppelin/contracts/utils/cryptography/P256.sol";
 import {consistentRoots} from "@univocity/algorithms/consistentRoots.sol";
 import {recoverES256FromDetachedPayload} from "../ES256RecoveryTest.sol";
@@ -109,7 +107,7 @@ contract ES256ReceiptDecodeVerifier {
         IUnivocity.ConsistencyReceipt calldata consistencyParts,
         IUnivocity.InclusionProof calldata,
         bytes8,
-        IUnivocity.PaymentGrant calldata
+        IUnivocity.PublishGrant calldata
     ) external view returns (bytes32 firstPeak, bytes32 keyX, bytes32 keyY) {
         bytes32[] memory initialAcc = new bytes32[](0);
         bytes32[] memory accMem = verifyConsistencyProofChain(
@@ -130,12 +128,11 @@ contract ES256ReceiptDecodeVerifier {
         IUnivocity.ConsistencyReceipt calldata,
         IUnivocity.InclusionProof calldata,
         bytes8 paymentIDTimestampBe,
-        IUnivocity.PaymentGrant calldata g
+        IUnivocity.PublishGrant calldata g
     ) external pure returns (bytes32) {
         bytes32 inner = sha256(
             abi.encodePacked(
                 g.logId,
-                g.payer,
                 g.grant,
                 g.maxHeight,
                 g.minGrowth,
@@ -154,7 +151,6 @@ contract GrantDecodeHarness {
     struct DecodedGrant {
         bytes32 leaf;
         bytes32 logId;
-        address payer;
         uint256 grant;
         uint256 request;
         uint64 maxHeight;
@@ -167,10 +163,9 @@ contract GrantDecodeHarness {
         IUnivocity.ConsistencyReceipt calldata,
         IUnivocity.InclusionProof calldata,
         bytes8 paymentIDTimestampBe,
-        IUnivocity.PaymentGrant calldata g
+        IUnivocity.PublishGrant calldata g
     ) external pure returns (DecodedGrant memory out) {
         out.logId = g.logId;
-        out.payer = g.payer;
         out.grant = g.grant;
         out.request = g.request;
         out.maxHeight = g.maxHeight;
@@ -180,7 +175,6 @@ contract GrantDecodeHarness {
         bytes32 inner = sha256(
             abi.encodePacked(
                 g.logId,
-                g.payer,
                 g.grant,
                 g.maxHeight,
                 g.minGrowth,
@@ -192,7 +186,7 @@ contract GrantDecodeHarness {
     }
 }
 
-/// @notice Decodes grant from abi.encode(PaymentGrant) and returns leaf.
+/// @notice Decodes grant from abi.encode(PublishGrant) and returns leaf.
 ///    Same leaf formula as contract. Used to test whether abi.encode
 ///    round-trip yields stable leaf vs 4-arg struct pass.
 contract GrantDecodeHarnessEncoded {
@@ -202,13 +196,12 @@ contract GrantDecodeHarnessEncoded {
         bytes8 paymentIDTimestampBe,
         bytes calldata encodedGrant
     ) external pure returns (bytes32 leaf) {
-        IUnivocity.PaymentGrant memory g = abi.decode(
-            encodedGrant, (IUnivocity.PaymentGrant)
+        IUnivocity.PublishGrant memory g = abi.decode(
+            encodedGrant, (IUnivocity.PublishGrant)
         );
         bytes32 inner = sha256(
             abi.encodePacked(
                 g.logId,
-                g.payer,
                 g.grant,
                 g.maxHeight,
                 g.minGrowth,
@@ -270,8 +263,8 @@ abstract contract UnivocityTestHelper is Test {
     ///    authority + second checkpoint (UnivocityTest, Extend, Bounds, etc.).
     bytes32 internal authorityLeaf0;
     bytes32 internal authorityLeaf1;
-    IUnivocity.PaymentGrant internal grant1;
-    IUnivocity.PaymentGrant internal grantTestLog;
+    IUnivocity.PublishGrant internal grant1;
+    IUnivocity.PublishGrant internal grantTestLog;
 
     address internal constant BOOTSTRAP = address(0xB007);
     uint256 internal constant SIGNER_PK = 1;
@@ -310,9 +303,8 @@ abstract contract UnivocityTestHelper is Test {
     ///    authority log. Sets authorityLeaf0, authorityLeaf1, grant1,
     ///    grantTestLog. Call after univocity = _deployUnivocityKS256().
     function _publishBootstrapAndSecondCheckpoint() internal {
-        IUnivocity.PaymentGrant memory grant0 = _paymentGrant(
+        IUnivocity.PublishGrant memory grant0 = _publishGrant(
             AUTHORITY_LOG_ID,
-            KS256_SIGNER,
             GRANT_ROOT,
             GC_AUTH_LOG,
             0,
@@ -327,9 +319,8 @@ abstract contract UnivocityTestHelper is Test {
         univocity.publishCheckpoint(
             consistency0, _emptyInclusionProof(), IDTIMESTAMP_AUTH, grant0
         );
-        grantTestLog = _paymentGrant(
+        grantTestLog = _publishGrant(
             TEST_LOG_ID,
-            KS256_SIGNER,
             GRANT_DATA,
             GC_DATA_LOG,
             0,
@@ -348,12 +339,11 @@ abstract contract UnivocityTestHelper is Test {
 
     function _leafCommitment(
         bytes8 paymentIDTimestampBe,
-        IUnivocity.PaymentGrant memory g
+        IUnivocity.PublishGrant memory g
     ) internal pure returns (bytes32) {
         bytes32 inner = sha256(
             abi.encodePacked(
                 g.logId,
-                g.payer,
                 g.grant,
                 g.maxHeight,
                 g.minGrowth,
@@ -364,19 +354,17 @@ abstract contract UnivocityTestHelper is Test {
         return sha256(abi.encodePacked(paymentIDTimestampBe, inner));
     }
 
-    function _paymentGrant(
+    function _publishGrant(
         bytes32 logId,
-        address payer,
         uint256 grant,
         uint256 request,
         uint64 maxHeight,
         uint64 minGrowth,
         bytes32 ownerLogId,
         bytes memory grantData
-    ) internal pure returns (IUnivocity.PaymentGrant memory) {
-        return IUnivocity.PaymentGrant({
+    ) internal pure returns (IUnivocity.PublishGrant memory) {
+        return IUnivocity.PublishGrant({
             logId: logId,
-            payer: payer,
             grant: grant,
             request: request,
             maxHeight: maxHeight,
@@ -817,7 +805,7 @@ abstract contract UnivocityTestHelper is Test {
         Univocity u,
         bytes32 onePeak,
         bytes32 authorityLeaf0Val,
-        IUnivocity.PaymentGrant memory grantTestLogVal
+        IUnivocity.PublishGrant memory grantTestLogVal
     ) internal {
         IUnivocity.ConsistencyReceipt memory consistency =
             _buildConsistencyReceipt(_toAcc(onePeak));
@@ -836,7 +824,7 @@ abstract contract UnivocityTestHelper is Test {
         Univocity u,
         bytes32 onePeak,
         bytes32, /* logId */
-        IUnivocity.PaymentGrant memory grant,
+        IUnivocity.PublishGrant memory grant,
         bytes32, /* leafInAuthority */
         bytes32[] memory inclusionPath
     ) internal {

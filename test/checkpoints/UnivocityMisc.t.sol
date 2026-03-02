@@ -5,9 +5,7 @@ pragma solidity ^0.8.24;
 ///   per test/checkpoints/README.md.
 
 import "./UnivocityTestHelper.sol";
-import {
-    IUnivocityErrors
-} from "@univocity/checkpoints/interfaces/IUnivocityErrors.sol";
+import {IUnivocityErrors} from "@univocity/interfaces/IUnivocityErrors.sol";
 
 contract UnivocityMiscTest is UnivocityTestHelper {
     function setUp() public override {

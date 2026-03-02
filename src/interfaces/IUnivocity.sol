@@ -64,18 +64,17 @@ interface IUnivocity is IUnivocityEvents {
         bytes signature;
     }
 
-    /// @notice Caller-supplied payment grant for leaf commitment and bounds.
+    /// @notice Caller-supplied publish grant for leaf commitment and bounds.
     ///    grant (in commitment): GF_CREATE (1<<32), GF_EXTEND (1<<33),
     ///    GF_AUTH_LOG (1), GF_DATA_LOG (2). request is NOT in the commitment;
     ///    high 32 bits = GC_AUTH_LOG or GC_DATA_LOG (mutually exclusive), must
     ///    be allowed by grant. Log kind for new logs is set from request.
-    ///    Leaf inner hash: logId, payer, grant, maxHeight, minGrowth,
-    ///    ownerLogId, grantData (no request). First checkpoint: grantData
-    ///    supplies the signer (root) key; receipt verified against it
-    ///    (verify-only; no on-chain recovery).
-    struct PaymentGrant {
+    ///    Leaf inner hash: logId, grant, maxHeight, minGrowth, ownerLogId,
+    ///    grantData (no request). First checkpoint: grantData supplies the
+    ///    signer (root) key; receipt verified against it (verify-only; no
+    ///    on-chain recovery).
+    struct PublishGrant {
         bytes32 logId;
-        address payer;
         uint256 grant;
         uint256 request;
         uint64 maxHeight;
@@ -116,13 +115,12 @@ interface IUnivocity is IUnivocityEvents {
     ///    checkpoint: index 0, path length up to MAX_HEIGHT. Other checkpoints:
     ///    inclusion in grant's owner (path length up to MAX_HEIGHT).
     /// @param paymentIDTimestampBe Big-endian idtimestamp of included content.
-    /// @param paymentGrant LogId, payer (who paid; any sender may submit),
-    ///    checkpoint range, max_height, min_growth for leaf commitment and
-    ///    bounds.
+    /// @param publishGrant LogId, grant flags, max_height, min_growth for leaf
+    ///    commitment and bounds; any sender may submit.
     function publishCheckpoint(
         ConsistencyReceipt calldata consistencyParts,
         InclusionProof calldata paymentInclusionProof,
         bytes8 paymentIDTimestampBe,
-        PaymentGrant calldata paymentGrant
+        PublishGrant calldata publishGrant
     ) external;
 }

@@ -33,7 +33,7 @@ as implemented in `Univocity.sol` and related interfaces.
 |------|-------------|----------------|
 | **Bootstrap authority** | Address that may publish the **first checkpoint ever** (creating the root log). Root extension thereafter requires a grant in the root (inclusion proof); no identity check. | `bootstrapAuthority` immutable; `msg.sender == bootstrapAuthority` only when creating the root (no log exists yet). Root extension uses grant from root (ownerLogId == rootLogId). `setLogRoot` is internal (see [ARC-0017 root key rollover](../arc/arc-0017-log-hierarchy-and-authority.md#root-key-rollover)). See [ADR-0004](../adr/adr-0004-root-log-self-grant-extension.md). |
 | **Signer** | Produces the consistency receipt (COSE Sign1 over the derived accumulator). | Off-chain; verified on-chain with bootstrap keys or delegated P-256 key. |
-| **Payer** | Address that paid for the grant (attribution). Part of leaf commitment. | `PaymentGrant.payer`; not checked against `msg.sender`. |
+| *(removed)* | Payer was removed from the grant; not used in authorization. | N/A; any sender may submit. |
 | **Submitter** | Caller of `publishCheckpoint`. | `msg.sender`; emitted as `sender` in `CheckpointPublished`. |
 
 Signer, payer, and submitter are independent. The contract does **not** verify
@@ -48,7 +48,7 @@ Signer, payer, and submitter are independent. The contract does **not** verify
   authority; self-inclusion (index 0; path length up to MAX_HEIGHT);
   receipt signer must match bootstrap key. **Root extension (after
   creation):** requires a **grant** (inclusion proof) in the root;
-  `paymentGrant.ownerLogId == rootLogId`; any sender with a valid grant may
+  `publishGrant.ownerLogId == rootLogId`; any sender with a valid grant may
   publish (permissionless).
 - **Other logs (data logs; child auth logs):** Any sender may publish
   checkpoints to non-root logs provided they supply a valid consistency
@@ -61,7 +61,7 @@ Signer, payer, and submitter are independent. The contract does **not** verify
   receipt signer or recovered from delegation). Stored via internal
   `setLogRoot`; not exposed externally. Root is **never** derived from a
   delegation cert on-chain (plan 0016). Key rollover (if added) is
-  PaymentGrant-based; see [ARC-0017 root key rollover](../arc/arc-0017-log-hierarchy-and-authority.md#root-key-rollover).
+  PublishGrant-based; see [ARC-0017 root key rollover](../arc/arc-0017-log-hierarchy-and-authority.md#root-key-rollover).
 - **Delegation:** Optional. Caller supplies a minimal `DelegationProof`
   (opaque `delegationKey`, `mmrStart`, `mmrEnd`, `alg`, `signature`). Contract
   verifies that the stored root signed a message binding (logId, mmrStart,
@@ -84,7 +84,7 @@ logs; parent for child auth logs):
   key (prevents front-running; see RootSignerMustMatchBootstrap). Leaf
   commitment verified as the first leaf in the new root log.
 - **Root extension (after creation):** Caller must supply `InclusionProof`
-  (index, path) against the **root’s** accumulator; `paymentGrant.ownerLogId
+  (index, path) against the **root’s** accumulator; `publishGrant.ownerLogId
   == rootLogId`. Same as other logs (grant-based, permissionless).
 - **Other logs:** Caller must supply `InclusionProof` (index, path) such
   that `verifyInclusion` against the **owner’s** accumulator and size
@@ -94,7 +94,7 @@ logs; parent for child auth logs):
 ### 3.2 Leaf commitment
 
 The leaf commitment includes logId, payer, bounds fields, ownerLogId, and
-createAsAuthority (see `PaymentGrant` and `Univocity._leafCommitment`).
+createAsAuthority (see `PublishGrant` and `Univocity._leafCommitment`).
 Encoding uses `abi.encodePacked` for inner and outer hash.
 
 The root log (or off-chain authority) is responsible for adding the
@@ -106,7 +106,7 @@ grant.
 Once a grant is committed in the owner’s log (a leaf with that commitment),
 **any** sender may call `publishCheckpoint` with a valid consistency receipt
 and inclusion proof for that leaf. The contract does **not** check
-`msg.sender` against `PaymentGrant.payer`. Payer is for attribution only
+any sender may submit; no payer field in grant
 ([ADR-0001](../adr/adr-0001-payer-attribution-permissionless-submission.md)).
 
 ---
@@ -118,11 +118,11 @@ There is **no checkpoint counter** or checkpoint-range check. Bounds are
 
 1. **Consistency proof chain** yields new `size` and accumulator; size must
    increase (or be initial): `size > log.size` if log already initialized.
-2. **Min growth:** `(new size) - (current log size) >= paymentGrant.minGrowth`.
+2. **Min growth:** `(new size) - (current log size) >= publishGrant.minGrowth`.
    Revert `MinGrowthNotMet` otherwise. So the grant controls the **minimum**
    growth per checkpoint. See [ARC-0001](arc-0001-grant-minimum-range.md).
-3. **Max height:** If `paymentGrant.maxHeight != 0`, then `size <=
-   paymentGrant.maxHeight`. Revert `MaxHeightExceeded` otherwise.
+3. **Max height:** If `publishGrant.maxHeight != 0`, then `size <=
+   publishGrant.maxHeight`. Revert `MaxHeightExceeded` otherwise.
 
 So the model is: **grant authorizes a range of growth** (minGrowth and
 optionally maxHeight); the contract enforces that each checkpoint’s new size
@@ -171,7 +171,7 @@ registry to present a stable reasonCode to users or indexers.
 
 **Single entry point:** `publishCheckpoint(ConsistencyReceipt calldata
 consistencyParts, InclusionProof calldata paymentInclusionProof, bytes8
-paymentIDTimestampBe, PaymentGrant calldata paymentGrant)`.
+paymentIDTimestampBe, PublishGrant calldata publishGrant)`.
 
 - **ConsistencyReceipt:** Pre-decoded (protectedHeader, signature,
   consistencyProofs[], delegationProof). No COSE/CBOR parse on-chain for the
@@ -191,7 +191,7 @@ paymentIDTimestampBe, PaymentGrant calldata paymentGrant)`.
 | Component | Location |
 |-----------|----------|
 | Main contract | `src/contracts/Univocity.sol` |
-| Interfaces | `src/checkpoints/interfaces/IUnivocity.sol`, `IUnivocityEvents.sol` |
+| Interfaces | `src/interfaces/IUnivocity.sol`, `IUnivocityEvents.sol` |
 | Consistency proof chain | `src/checkpoints/lib/consistencyReceipt.sol` |
 | Delegation verification | `src/checkpoints/lib/delegationVerifier.sol` |
 | COSE/cosecbor | `src/cosecbor/cosecbor.sol`, `constants.sol` |
@@ -253,7 +253,7 @@ from or leaves gaps relative to the original ARC-0016 and related plans
    published” is possible; replay of “authorization verified” or “payment
    receipt registered” is not, because those events are not emitted.
 
-8. **PaymentGrant and leaf formula**  
+8. **PublishGrant and leaf formula**  
    Implemented as designed: payer in leaf, bounds (size-only: min_growth,
    max_height) enforced; ownerLogId and createAsAuthority in leaf for
    hierarchy. No divergence.

@@ -52,7 +52,7 @@ Phase D (tests and views)
 Phase E (remove checkpointCount from current implementation)
   E.1  Remove checkpointCount from LogState (interface and contract);
        enforce grant bounds using size only (maxHeight, minGrowth).
-  E.2  Remove _checkPaymentGrantBoundsCheckpointRange; drop checkpoint
+  E.2  Remove _checkPublishGrantBoundsCheckpointRange; drop checkpoint
        range check from publishCheckpoint (done; checkpointStart/End removed).
   E.3  Update CheckpointPublished event (drop checkpointCount); emit size
        only (observers use size as progression index).
@@ -60,7 +60,7 @@ Phase E (remove checkpointCount from current implementation)
 ```
 
 Phase F (authority log creation) — optional extension so hierarchy is testable:
-  F.1  Add ownerLogId and createAsAuthority to PaymentGrant; extend leaf
+  F.1  Add ownerLogId and createAsAuthority to PublishGrant; extend leaf
        commitment (inner hash) to include both when used for log creation.
   F.2  First checkpoint to new log: if createAsAuthority, verify inclusion
        against ownerLogId (parent), set kind=Authority, authLogId=parent.
@@ -89,7 +89,7 @@ will supply. Phase F depends on C (authForInclusion and ownerLogId already used 
 
 | Area | Change | Impact |
 |------|--------|--------|
-| **PaymentGrant** | Add `ownerLogId` (already planned for data log creation), add `createAsAuthority bool`. | One extra field; both needed so first checkpoint sets kind correctly (Authority vs Data). |
+| **PublishGrant** | Add `ownerLogId` (already planned for data log creation), add `createAsAuthority bool`. | One extra field; both needed so first checkpoint sets kind correctly (Authority vs Data). |
 | **Leaf commitment** | Extend inner hash to include `ownerLogId` and `createAsAuthority` when present. | Breaks existing receipt format; new deployments use extended format. Document or version. |
 | **publishCheckpoint** | New branch: existing log with kind==Authority and authLogId!=rootLogId (child) → verify inclusion against parent, consistency against child’s rootKey; no bootstrap. First checkpoint to new log with createAsAuthority → verify inclusion against ownerLogId, set kind=Authority, authLogId=ownerLogId. | Reuse existing authForInclusion logic; Only first checkpoint ever uses OnlyBootstrapAuthority; root extension requires grant in root (ADR-0004). |
 | **_updateLogState** | When isNewLog and not root: set kind from grant (Authority if createAsAuthority else Data), authLogId=ownerLogId. | Single extra parameter or derive from grant. |
@@ -203,9 +203,9 @@ authLogId = owner logId when applying the first checkpoint.
 - **Data log:** Inclusion proof against owning authority (`_logConfigs[logId].authLogId`). First checkpoint: **owner logId from grant** = associated auth log; set authLogId from that.
 - **Child authority:** Inclusion proof against **parent** log. First checkpoint: **owner logId from grant** = parent logId; set kind = Authority, authLogId = parentLogId.
 
-`authorityLogIdForInclusion = (paymentGrant.logId == authorityLogId) ?
-bytes32(0) : (initializedAt == 0 ? paymentGrant.ownerLogId :
-_logConfigs[paymentGrant.logId].authLogId)`. For log creation the grant
+`authorityLogIdForInclusion = (publishGrant.logId == authorityLogId) ?
+bytes32(0) : (initializedAt == 0 ? publishGrant.ownerLogId :
+_logConfigs[publishGrant.logId].authLogId)`. For log creation the grant
 supplies `ownerLogId` (associated auth log for data, parent for authority).
 When non-zero, use `_logs[authorityLogIdForInclusion]` for `verifyInclusion`.
 
@@ -230,7 +230,7 @@ When non-zero, use `_logs[authorityLogIdForInclusion]` for `verifyInclusion`.
 
 | Step | Location | Action | Acceptance |
 |------|----------|--------|------------|
-| A.1 | `src/checkpoints/interfaces/IUnivocity.sol` | Add `enum LogKind { Authority = 1, Data = 2 }`. Add `struct LogConfig` (initializedAt, rootKey, kind, authLogId). Replace flat LogState with `struct LogState { bytes32[] accumulator; uint64 size }` (no nested config, no checkpointCount). Add or extend interface for `getLogConfig(logId)`. | Interface compiles; `getLogState(logId)` returns LogState; config via `getLogConfig(logId)`. |
+| A.1 | `src/interfaces/IUnivocity.sol` | Add `enum LogKind { Authority = 1, Data = 2 }`. Add `struct LogConfig` (initializedAt, rootKey, kind, authLogId). Replace flat LogState with `struct LogState { bytes32[] accumulator; uint64 size }` (no nested config, no checkpointCount). Add or extend interface for `getLogConfig(logId)`. | Interface compiles; `getLogState(logId)` returns LogState; config via `getLogConfig(logId)`. |
 | A.2 | (Optional) `IUnivocityErrors.sol` | Skip unless a revert for “invalid kind” is required later. Phase 0 does not need it. | — |
 
 ### Phase B: Storage and initialization
@@ -245,7 +245,7 @@ When non-zero, use `_logs[authorityLogIdForInclusion]` for `verifyInclusion`.
 
 | Step | Location | Action | Acceptance |
 |------|----------|--------|------------|
-| C.1 | `Univocity.sol` — `publishCheckpoint`, `IUnivocity.sol` | When grant allows log creation (first checkpoint to target log), grant must include **ownerLogId** (auth log for data log, parent for authority log). For **root extension**, ownerLogId == rootLogId and verify inclusion against root. Compute `authForInclusion` from config.authLogId (root = self, so rootLogId) or ownerLogId for first checkpoint. Add `ownerLogId` to PaymentGrant (or equivalent) for log-creation use. | ownerLogId in grant; authForInclusion uses it for first checkpoint; root extension uses rootLogId. |
+| C.1 | `Univocity.sol` — `publishCheckpoint`, `IUnivocity.sol` | When grant allows log creation (first checkpoint to target log), grant must include **ownerLogId** (auth log for data log, parent for authority log). For **root extension**, ownerLogId == rootLogId and verify inclusion against root. Compute `authForInclusion` from config.authLogId (root = self, so rootLogId) or ownerLogId for first checkpoint. Add `ownerLogId` to PublishGrant (or equivalent) for log-creation use. | ownerLogId in grant; authForInclusion uses it for first checkpoint; root extension uses rootLogId. |
 | C.2 | `Univocity.sol` — `publishCheckpoint` | Verify inclusion against `_logs[authForInclusion]` where authForInclusion is the log’s authLogId (for root extension = rootLogId; for data = owning; for child = parent). No separate “root = bytes32(0)” branch for extension. | Inclusion proof verified against the log’s owner (root = self). |
 | C.3 | `Univocity.sol` — `publishCheckpoint` and `_updateLogState` | When calling `_updateLogState`, pass authForInclusion (root: rootLogId; first checkpoint ever: bytes32(0) for “root created”; data/child: owner or authLogId). In _updateLogState when isNewLog: if logId == rootLogId set kind=Authority, authLogId=logId (self); else set kind from grant (Phase F: createAsAuthority → Authority, else Data), authLogId=ownerLogId/authorityLogIdUsed. Set initializedAt, rootKey per rule 1. | Root gets authLogId=self; data logs and (Phase F) child authority get correct config. |
 | C.4 | `Univocity.sol` — `publishCheckpoint` (consistency receipt) | Key for consistency receipt per §3.3: **first checkpoint** — bootstrap log → bootstrap keys; other log → verify key from receipt (direct or owner delegation) and store as rootKey. **Later checkpoint** — verify against _decodeLogRootKey(target log). | First: bootstrap keys or verify+store; later: target's rootKey. |
@@ -270,7 +270,7 @@ _logConfigs[logId].kind=Data, _logConfigs[logId].authLogId=authorityLogIdUsed.
 
 | Step | Location | Action | Acceptance |
 |------|----------|--------|------------|
-| F.1 | `IUnivocity.sol`, `Univocity.sol` | Add `ownerLogId` and `createAsAuthority` to PaymentGrant. Extend _leafCommitment inner hash to include both (document as new receipt format). | Grant struct and leaf binding support log-creation semantics. |
+| F.1 | `IUnivocity.sol`, `Univocity.sol` | Add `ownerLogId` and `createAsAuthority` to PublishGrant. Extend _leafCommitment inner hash to include both (document as new receipt format). | Grant struct and leaf binding support log-creation semantics. |
 | F.2 | `Univocity.sol` — `publishCheckpoint` | First checkpoint to new log: when createAsAuthority, verify inclusion against ownerLogId (parent); set kind=Authority, authLogId=ownerLogId via _updateLogState. | New authority log created with parent link. |
 | F.3 | `Univocity.sol` — `publishCheckpoint` | When target log exists and _logConfigs[logId].kind==Authority and _logConfigs[logId].authLogId!=0: verify inclusion against _logs[_logConfigs[logId].authLogId]; consistency against child's rootKey; no OnlyBootstrapAuthority. | Child authority extend path works. |
 | F.4 | `Univocity.sol` — `_updateLogState` | When isNewLog and logId != authorityLogId: set kind = Authority if createAsAuthority else Data; set authLogId = ownerLogId. | Config set correctly for new data and new authority. |
@@ -280,12 +280,12 @@ _logConfigs[logId].kind=Data, _logConfigs[logId].authLogId=authorityLogIdUsed.
 
 | Step | Location | Action | Acceptance |
 |------|----------|--------|------------|
-| E.1 | `IUnivocity.sol`, `Univocity.sol` | Remove `checkpointCount` from `LogState` struct and from `_logs` storage. Grant bounds are enforced only via size: `_checkPaymentGrantBoundsMaxHeight(size, paymentGrant)` and `size >= currentSize + paymentGrant.minGrowth`. | LogState has accumulator and size only; no counter in state. |
-| E.2 | `Univocity.sol` — `publishCheckpoint` | Remove call to `_checkPaymentGrantBoundsCheckpointRange`; remove checkpointStart/checkpointEnd from PaymentGrant and leaf commitment (done). Bounds are size and maxHeight/minGrowth only. | No checkpoint-range check; size and maxHeight/minGrowth define allowed publishes. |
+| E.1 | `IUnivocity.sol`, `Univocity.sol` | Remove `checkpointCount` from `LogState` struct and from `_logs` storage. Grant bounds are enforced only via size: `_checkPublishGrantBoundsMaxHeight(size, publishGrant)` and `size >= currentSize + publishGrant.minGrowth`. | LogState has accumulator and size only; no counter in state. |
+| E.2 | `Univocity.sol` — `publishCheckpoint` | Remove call to `_checkPublishGrantBoundsCheckpointRange`; remove checkpointStart/checkpointEnd from PublishGrant and leaf commitment (done). Bounds are size and maxHeight/minGrowth only. | No checkpoint-range check; size and maxHeight/minGrowth define allowed publishes. |
 | E.3 | `IUnivocityEvents.sol`, `Univocity.sol` | Remove `checkpointCount` parameter from `CheckpointPublished` event. Emit `size` only (observers use size as progression index). | Event signature and emit updated; no checkpointCount in events. |
 | E.4 | `test/`, invariants | Update tests that assert on `getLogState(...).checkpointCount` to use `size` (or remove assertion). Update `invariant_checkpointCountMonotonic` to a size-monotonic invariant or remove. | All tests and invariants pass. |
 
-**Note (Phase E):** checkpointStart and checkpointEnd have been removed from PaymentGrant and from the leaf commitment; bounds are size-based only (maxHeight, minGrowth).
+**Note (Phase E):** checkpointStart and checkpointEnd have been removed from PublishGrant and from the leaf commitment; bounds are size-based only (maxHeight, minGrowth).
 
 ---
 
@@ -293,12 +293,12 @@ _logConfigs[logId].kind=Data, _logConfigs[logId].authLogId=authorityLogIdUsed.
 
 | File | Symbols / lines to touch |
 |------|---------------------------|
-| `src/checkpoints/interfaces/IUnivocity.sol` | Add `enum LogKind`, `struct LogConfig` (initializedAt, rootKey, kind, authLogId), and `struct LogState` (accumulator, size only; no checkpointCount). Add `getLogConfig(logId)`. Add **ownerLogId** to PaymentGrant for log-creation; (Phase F) add **createAsAuthority** and extend leaf commitment. |
+| `src/interfaces/IUnivocity.sol` | Add `enum LogKind`, `struct LogConfig` (initializedAt, rootKey, kind, authLogId), and `struct LogState` (accumulator, size only; no checkpointCount). Add `getLogConfig(logId)`. Add **ownerLogId** to PublishGrant for log-creation; (Phase F) add **createAsAuthority** and extend leaf commitment. |
 | `src/contracts/Univocity.sol` | Add mapping `_logConfigs(bytes32 => LogConfig)`. Use `_logs[logId]` for state, `_logConfigs[logId]` for config. `publishCheckpoint`: authForInclusion from _logConfigs; key for consistency receipt per §3.3 A (C.4); pass to _updateLogState. `_updateLogState`: when isNewLog set _logConfigs[logId] (initializedAt, kind, authLogId; rootKey set by setLogRoot). |
 | `test/checkpoints/Univocity.t.sol` or equivalent | Add or extend tests for first bootstrap (getLogConfig: kind==Authority, authLogId==0), first data log (getLogConfig: kind==Data, authLogId==authorityLogId), and optionally second data checkpoint. |
 | `test/integration/CheckpointFlow.t.sol` | If it asserts on LogState or getLogState/getLogConfig, update assertions to use getLogConfig(logId) for config and getLogState(logId) for state. |
 | `test/invariants/Univocity.invariants.sol` | If invariants read log state or config, extend to use both mappings / getLogState and getLogConfig where appropriate. |
-| (Phase E) `IUnivocity.sol`, `IUnivocityEvents.sol`, `Univocity.sol`, tests | Remove checkpointCount from LogState and from CheckpointPublished; remove _checkPaymentGrantBoundsCheckpointRange; grant bounds via size (maxHeight, minGrowth) only. |
+| (Phase E) `IUnivocity.sol`, `IUnivocityEvents.sol`, `Univocity.sol`, tests | Remove checkpointCount from LogState and from CheckpointPublished; remove _checkPublishGrantBoundsCheckpointRange; grant bounds via size (maxHeight, minGrowth) only. |
 
 ---
 
