@@ -51,7 +51,7 @@ contract UnivocityExtendTest is UnivocityTestHelper {
             consistency1, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g0
         );
         assertEq(fresh.rootLogId(), AUTHORITY_LOG_ID);
-        assertEq(fresh.getLogState(AUTHORITY_LOG_ID).size, 2);
+        assertEq(fresh.logState(AUTHORITY_LOG_ID).size, 2);
     }
 
     /// @notice Root extension requires grant (inclusion proof) in root
@@ -81,7 +81,7 @@ contract UnivocityExtendTest is UnivocityTestHelper {
             IDTIMESTAMP_AUTH,
             g
         );
-        assertEq(univocity.getLogState(AUTHORITY_LOG_ID).size, 3);
+        assertEq(univocity.logState(AUTHORITY_LOG_ID).size, 3);
     }
 
     function test_publishCheckpoint_bootstrapCanPublishToAuthorityLog()
@@ -110,7 +110,7 @@ contract UnivocityExtendTest is UnivocityTestHelper {
         );
 
         assertTrue(univocity.isLogInitialized(AUTHORITY_LOG_ID));
-        assertEq(univocity.getLogState(AUTHORITY_LOG_ID).size, 3);
+        assertEq(univocity.logState(AUTHORITY_LOG_ID).size, 3);
     }
 
     function test_publishCheckpoint_bootstrapCanPublishToAnyLog() public {
@@ -127,7 +127,7 @@ contract UnivocityExtendTest is UnivocityTestHelper {
         _publishFirstToTestLog(
             univocity, keccak256("peak1"), authorityLeaf0, grantTestLog
         );
-        uint256 sizeBefore = univocity.getLogState(TEST_LOG_ID).size;
+        uint256 sizeBefore = univocity.logState(TEST_LOG_ID).size;
         assertEq(sizeBefore, 1);
 
         IUnivocity.ConsistencyReceipt memory consistency1to3 =
@@ -153,7 +153,7 @@ contract UnivocityExtendTest is UnivocityTestHelper {
         );
 
         assertEq(
-            univocity.getLogState(TEST_LOG_ID).size,
+            univocity.logState(TEST_LOG_ID).size,
             sizeBefore,
             "log size must not change after invalid grant revert"
         );
@@ -212,6 +212,6 @@ contract UnivocityExtendTest is UnivocityTestHelper {
             idt1,
             gTarget
         );
-        assertEq(fresh.getLogState(logId).size, 1);
+        assertEq(fresh.logState(logId).size, 1);
     }
 }

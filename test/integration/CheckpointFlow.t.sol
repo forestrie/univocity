@@ -104,7 +104,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
 
         assertEq(fresh.rootLogId(), rootLogId);
         assertTrue(fresh.isLogInitialized(rootLogId));
-        assertEq(fresh.getLogState(rootLogId).size, 1);
+        assertEq(fresh.logState(rootLogId).size, 1);
     }
 
     function _leafCommitment(
@@ -436,7 +436,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
         );
 
         assertTrue(univocity.isLogInitialized(TARGET_LOG));
-        assertEq(univocity.getLogState(TARGET_LOG).size, 1);
+        assertEq(univocity.logState(TARGET_LOG).size, 1);
     }
 
     function test_fullFlow_sameReceiptDifferentSubmitters() public {
@@ -497,7 +497,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
             gTarget
         );
 
-        assertEq(univocity.getLogState(TARGET_LOG).size, 2);
+        assertEq(univocity.logState(TARGET_LOG).size, 2);
     }
 
     function _buildConsistencyReceipt1To3(

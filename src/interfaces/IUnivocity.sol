@@ -94,12 +94,9 @@ interface IUnivocity is IUnivocityEvents {
         view
         returns (int64 bootstrapAlg, bytes memory bootstrapKey);
     function rootLogId() external view returns (bytes32);
-    function getLogState(bytes32 logId) external view returns (LogState memory);
-    function getLogConfig(bytes32 logId)
-        external
-        view
-        returns (LogConfig memory);
-    function getLogRootKey(bytes32 logId)
+    function logState(bytes32 logId) external view returns (LogState memory);
+    function logConfig(bytes32 logId) external view returns (LogConfig memory);
+    function logRootKey(bytes32 logId)
         external
         view
         returns (bytes32 rootKeyX, bytes32 rootKeyY);

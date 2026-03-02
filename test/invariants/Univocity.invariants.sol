@@ -244,7 +244,7 @@ contract UnivocityHandler is Test {
             consistency1to2, _emptyInclusionProof(), bytes8(0), gAuth
         );
 
-        IUnivocity.LogState memory s = univocity.getLogState(rootLogId);
+        IUnivocity.LogState memory s = univocity.logState(rootLogId);
         ghost_lastSize[rootLogId] = s.size;
     }
 
@@ -317,7 +317,7 @@ contract UnivocityInvariantTest is Test {
         for (uint256 i = 0; i < logIds.length; i++) {
             bytes32 id = logIds[i];
             if (!handler.univocity().isLogInitialized(id)) continue;
-            uint64 onChain = handler.univocity().getLogState(id).size;
+            uint64 onChain = handler.univocity().logState(id).size;
             assertGe(
                 onChain, handler.ghost_lastSize(id), "size must not decrease"
             );
@@ -329,7 +329,7 @@ contract UnivocityInvariantTest is Test {
         for (uint256 i = 0; i < logIds.length; i++) {
             bytes32 id = logIds[i];
             if (!handler.univocity().isLogInitialized(id)) continue;
-            IUnivocity.LogState memory s = handler.univocity().getLogState(id);
+            IUnivocity.LogState memory s = handler.univocity().logState(id);
             uint256 expectedPeaks =
                 s.size == 0 ? 0 : peaks(uint256(s.size) - 1).length;
             assertEq(
