@@ -129,7 +129,7 @@ Foundry’s notion of the signer for key 1.
 ### 5.1 Why keep normalization
 
 - **Stable identity:** Same signer always yields the same `(x, y)` for
-  comparison and storage (e.g. bootstrap authority, grant data).
+  comparison and storage (e.g. bootstrap key, grant data).
 - **No ambiguity:** Callers do not need to remember that `(x, y)` and
   `(x, p−y)` are the same key.
 
@@ -143,7 +143,7 @@ If we **removed** `_normalizeP256Y` and returned the raw recovered point:
   `(x, p−y)`.
 - **Caller impact:**
   - Any logic that **compares** recovered keys (e.g. “does recovered key equal
-    bootstrap authority?”) must treat both encodings as the same key, e.g.:
+    bootstrap key?”) must treat both encodings as the same key, e.g.:
     - Compare `(qx, min(qy, p − qy))` for both sides, or
     - Compare `qx` and accept that `qy` may be either `y` or `p−y`.
   - Stored keys (e.g. in grants or config) would need a documented convention:

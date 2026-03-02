@@ -18,7 +18,7 @@ signer key; GF_REQUIRE_SIGNER is no longer branched on.
 | Document | Role |
 |----------|------|
 | **ADR-0005** | Decision: GF_REQUIRE_SIGNER; grantData = key bytes when set; bootstrap must commit to bootstrap key; scope = first checkpoint only. |
-| **IUnivocity.sol** | PublishGrant (grant, grantData); getBootstrapKeyConfig(). |
+| **IUnivocity.sol** | PublishGrant (grant, grantData); bootstrapConfig(). |
 | **Univocity.sol** | publishCheckpoint flow; _verifyInclusionGrant; _verifyCheckpointSignature; _updateLogState; GF_* constants. |
 
 ---
@@ -194,7 +194,7 @@ Inside `_verifyCheckpointSignatureES256`, in the block where
              }
 +            if ((grant & GF_REQUIRE_SIGNER) != 0) {
 +                if (rootLogId == bytes32(0)) {
-+                    (, bytes memory bootstrapKey) = getBootstrapKeyConfig();
++                    (, bytes memory bootstrapKey) = bootstrapConfig();
 +                    if (grantData.length != bootstrapKey.length)
 +                        revert GrantDataInvalidKeyLength(grantData.length);
 +                    if (keccak256(grantData) != keccak256(bootstrapKey))
@@ -219,7 +219,7 @@ Inside `_verifyCheckpointSignatureKS256`, in the block where
          if (config.initializedAt == 0) {
 +            if ((grant & GF_REQUIRE_SIGNER) != 0) {
 +                if (rootLogId == bytes32(0)) {
-+                    (, bytes memory bootstrapKey) = getBootstrapKeyConfig();
++                    (, bytes memory bootstrapKey) = bootstrapConfig();
 +                    if (grantData.length != bootstrapKey.length)
 +                        revert GrantDataInvalidKeyLength(grantData.length);
 +                    if (keccak256(grantData) != keccak256(bootstrapKey))

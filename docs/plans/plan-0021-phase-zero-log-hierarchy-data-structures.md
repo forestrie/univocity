@@ -66,7 +66,7 @@ Phase F (authority log creation) — optional extension so hierarchy is testable
        against ownerLogId (parent), set kind=Authority, authLogId=parent.
   F.3  Extend existing log: when config.kind==Authority and authLogId!=rootLogId (child)
        (child), verify inclusion against parent (_logs[config.authLogId]);
-       no OnlyBootstrapAuthority.
+       no address check.
   F.4  _updateLogState: when isNewLog and not root, set kind from grant
        (Authority if createAsAuthority else Data), authLogId=ownerLogId.
   F.5  Tests D.5–D.8: create child authority; extend child; create data
@@ -91,7 +91,7 @@ will supply. Phase F depends on C (authForInclusion and ownerLogId already used 
 |------|--------|--------|
 | **PublishGrant** | Add `ownerLogId` (already planned for data log creation), add `createAsAuthority bool`. | One extra field; both needed so first checkpoint sets kind correctly (Authority vs Data). |
 | **Leaf commitment** | Extend inner hash to include `ownerLogId` and `createAsAuthority` when present. | Breaks existing receipt format; new deployments use extended format. Document or version. |
-| **publishCheckpoint** | New branch: existing log with kind==Authority and authLogId!=rootLogId (child) → verify inclusion against parent, consistency against child’s rootKey; no bootstrap. First checkpoint to new log with createAsAuthority → verify inclusion against ownerLogId, set kind=Authority, authLogId=ownerLogId. | Reuse existing authForInclusion logic; Only first checkpoint ever uses OnlyBootstrapAuthority; root extension requires grant in root (ADR-0004). |
+| **publishCheckpoint** | New branch: existing log with kind==Authority and authLogId!=rootLogId (child) → verify inclusion against parent, consistency against child’s rootKey; no bootstrap. First checkpoint to new log with createAsAuthority → verify inclusion against ownerLogId, set kind=Authority, authLogId=ownerLogId. | Reuse existing authForInclusion logic; First checkpoint ever must be signed by bootstrap key; root extension requires grant in root (ADR-0004). |
 | **_updateLogState** | When isNewLog and not root: set kind from grant (Authority if createAsAuthority else Data), authLogId=ownerLogId. | Single extra parameter or derive from grant. |
 | **Tests** | D.5–D.8: create child authority (first checkpoint, createAsAuthority, inclusion in root); extend child; create data under child; extend data under child. | Four test cases; reuses same publishCheckpoint path. |
 
@@ -272,7 +272,7 @@ _logConfigs[logId].kind=Data, _logConfigs[logId].authLogId=authorityLogIdUsed.
 |------|----------|--------|------------|
 | F.1 | `IUnivocity.sol`, `Univocity.sol` | Add `ownerLogId` and `createAsAuthority` to PublishGrant. Extend _leafCommitment inner hash to include both (document as new receipt format). | Grant struct and leaf binding support log-creation semantics. |
 | F.2 | `Univocity.sol` — `publishCheckpoint` | First checkpoint to new log: when createAsAuthority, verify inclusion against ownerLogId (parent); set kind=Authority, authLogId=ownerLogId via _updateLogState. | New authority log created with parent link. |
-| F.3 | `Univocity.sol` — `publishCheckpoint` | When target log exists and _logConfigs[logId].kind==Authority and _logConfigs[logId].authLogId!=0: verify inclusion against _logs[_logConfigs[logId].authLogId]; consistency against child's rootKey; no OnlyBootstrapAuthority. | Child authority extend path works. |
+| F.3 | `Univocity.sol` — `publishCheckpoint` | When target log exists and _logConfigs[logId].kind==Authority and _logConfigs[logId].authLogId!=0: verify inclusion against _logs[_logConfigs[logId].authLogId]; consistency against child's rootKey; no address check. | Child authority extend path works. |
 | F.4 | `Univocity.sol` — `_updateLogState` | When isNewLog and logId != authorityLogId: set kind = Authority if createAsAuthority else Data; set authLogId = ownerLogId. | Config set correctly for new data and new authority. |
 | F.5 | `test/` | D.5: First checkpoint with createAsAuthority=true, ownerLogId=root, inclusion in root → getLogConfig(childId): kind==Authority, authLogId==root. D.6: Second checkpoint to child (inclusion in root). D.7: First checkpoint to data log with ownerLogId=childId → getLogConfig(dataId): kind==Data, authLogId==childId. D.8: Second checkpoint to that data log (inclusion in child). | Full root→child→data hierarchy covered. |
 
@@ -337,7 +337,7 @@ The four rules in §3.3 address the previously raised gaps as follows.
    equal bootstrap key bytes). Submission permissionless. No other log has
    grant against self.
 
-5. **OnlyBootstrapAuthority for child authority:** Child authority checkpoints are gated by inclusion proof in the parent and consistency signature from the child's rootKey (or key that becomes it). Any caller can submit with grant and valid signature; no OnlyBootstrapAuthority for child authority.
+5. **Child authority:** Child authority checkpoints are gated by inclusion proof in the parent and consistency signature from the child's rootKey (or key that becomes it). Any caller can submit with grant and valid signature.
 
 **Resolved: owner in grant for log creation**
 

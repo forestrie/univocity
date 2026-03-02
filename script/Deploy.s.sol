@@ -8,8 +8,6 @@ import {ALG_ES256, ALG_KS256} from "@univocity/cosecbor/constants.sol";
 
 contract DeployUnivocity is Script {
     function run() external {
-        address bootstrapAuthority = vm.envAddress("BOOTSTRAP_AUTHORITY");
-
         address ks256Signer = vm.envOr("KS256_SIGNER", address(0));
         bytes32 es256X = vm.envOr("ES256_X", bytes32(0));
         bytes32 es256Y = vm.envOr("ES256_Y", bytes32(0));
@@ -35,15 +33,13 @@ contract DeployUnivocity is Script {
 
         vm.startBroadcast();
 
-        Univocity univocity =
-            new Univocity(bootstrapAuthority, bootstrapAlg, bootstrapKey);
-        // Authority log is set by bootstrap's first publishCheckpoint
-        // (logId, ..) call (same or separate tx).
+        Univocity univocity = new Univocity(bootstrapAlg, bootstrapKey);
+        // Authority log is set by first publishCheckpoint (signed by bootstrap
+        // key) (same or separate tx).
 
         vm.stopBroadcast();
 
         console.log("Univocity deployed at:", address(univocity));
-        console.log("Bootstrap authority:", bootstrapAuthority);
         console.log("Bootstrap alg:", uint256(int256(bootstrapAlg)));
         console.log("KS256:", ks256Signer != address(0));
     }

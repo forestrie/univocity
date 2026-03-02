@@ -85,7 +85,6 @@ interface IUnivocity is IUnivocityEvents {
 
     // === View Functions ===
 
-    function bootstrapAuthority() external view returns (address);
     /// @notice Bootstrap key in opaque form (same as constructor). Plan 0018.
     /// @return bootstrapAlg COSE alg (ALG_KS256 or ALG_ES256).
     /// @return bootstrapKey 20 bytes (KS256) or 64 bytes (ES256).

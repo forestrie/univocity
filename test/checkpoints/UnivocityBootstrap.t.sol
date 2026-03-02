@@ -15,10 +15,6 @@ contract UnivocityBootstrapTest is UnivocityTestHelper {
         univocity = _deployUnivocityKS256();
     }
 
-    function test_bootstrap_constructor_setsBootstrapAuthority() public view {
-        assertEq(univocity.bootstrapAuthority(), BOOTSTRAP);
-    }
-
     function test_bootstrap_constructor_setsKs256Signer() public view {
         assertEq(univocity.ks256Signer(), KS256_SIGNER);
     }

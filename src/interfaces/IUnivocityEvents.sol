@@ -5,10 +5,8 @@ pragma solidity ^0.8.24;
 /// @notice Events for univocity transparency log checkpoints and
 ///    payment-grant authorization.
 interface IUnivocityEvents {
-    /// @notice Contract initialized
-    event Initialized(
-        address indexed bootstrapAuthority, bytes32 indexed rootLogId
-    );
+    /// @notice Contract initialized (root log established).
+    event Initialized(bytes32 indexed rootLogId);
 
     /// @notice New log registered (first checkpoint). Same indexed fields as
     ///    first three of CheckpointPublished (rootKey as keccak256(rootKey)).

@@ -28,8 +28,7 @@ contract UnivocityHandler is Test {
         ks256Signer = vm.addr(SIGNER_PK);
         rootLogId = keccak256("authority");
         vm.prank(bootstrap);
-        univocity =
-            new Univocity(bootstrap, ALG_KS256, abi.encodePacked(ks256Signer));
+        univocity = new Univocity(ALG_KS256, abi.encodePacked(ks256Signer));
     }
 
     function initialize() external {

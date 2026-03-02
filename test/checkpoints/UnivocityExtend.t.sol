@@ -17,9 +17,8 @@ contract UnivocityExtendTest is UnivocityTestHelper {
     }
 
     function test_firstCheckpoint_sizeTwo_succeeds() public {
-        Univocity fresh = new Univocity(
-            BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
-        );
+        Univocity fresh =
+            new Univocity(ALG_KS256, abi.encodePacked(KS256_SIGNER));
         IUnivocity.PublishGrant memory g0 = _publishGrant(
             AUTHORITY_LOG_ID,
             GRANT_ROOT,
@@ -161,9 +160,8 @@ contract UnivocityExtendTest is UnivocityTestHelper {
 
     /// @notice Plan 0012 Phase C: Idtimestamp optional test (4.3 item 7).
     function test_twoCheckpoints_differentIdtimestamps_bothSucceed() public {
-        Univocity fresh = new Univocity(
-            BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
-        );
+        Univocity fresh =
+            new Univocity(ALG_KS256, abi.encodePacked(KS256_SIGNER));
         bytes32 logId = keccak256("multi-idts");
         bytes8 idt0 = bytes8(0);
         bytes8 idt1 = bytes8(uint64(1));

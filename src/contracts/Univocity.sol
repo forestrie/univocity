@@ -34,9 +34,8 @@ import {peaks} from "@univocity/algorithms/peaks.sol";
 ///    MAX_HEIGHT). The signer key is supplied in grantData (verify-only; no
 ///    on-chain recovery). For the root's first checkpoint that key must match
 ///    the bootstrap key and grantData must equal bootstrap key bytes (prevents
-///    front-running). Submission is
-///    permissionless; bootstrapAuthority is the contract's configured
-///    identity (for off-chain use); CheckpointPublished carries the sender.
+///    front-running). Submission is permissionless; CheckpointPublished
+///    carries the sender.
 /// 2. **Grant = inclusion against owner:** To extend any other log, the caller
 ///    must supply a grant evidenced by an inclusion proof in that log's
 ///    *owner* (data log → owning authority log; child authority → parent log).
@@ -54,10 +53,6 @@ import {peaks} from "@univocity/algorithms/peaks.sol";
 contract Univocity is IUnivocity, IUnivocityErrors {
     // === State ===
 
-    /// @notice Address of the identity whose key must sign the root's first
-    ///    checkpoint (signer constraint, not caller). Emitted in Initialized.
-    address public immutable bootstrapAuthority;
-
     /// @notice Ethereum address used to verify KS256 (secp256k1) signatures on
     ///    COSE receipts.
     address public immutable ks256Signer;
@@ -69,9 +64,8 @@ contract Univocity is IUnivocity, IUnivocityErrors {
     /// @notice P-256 public key y-coordinate for ES256 receipt verification.
     bytes32 public immutable es256Y;
 
-    /// @notice The log ID of the root authority log.
-    ///    Set on the first successful publishCheckpoint call
-    ///    from the bootstrap authority; zero until then.
+    /// @notice The log ID of the root authority log. Set on the first
+    ///    successful publishCheckpoint (signed by bootstrap key); zero until then.
     bytes32 public rootLogId;
 
     mapping(bytes32 => LogState) private _logs;
@@ -100,35 +94,22 @@ contract Univocity is IUnivocity, IUnivocityErrors {
 
     // === Constructor ===
 
-    /// @notice Deploys the Univocity transparency contract with bootstrap
-    ///    authority and a single bootstrap key (alg + opaque bytes, same
-    ///    pattern as rootKey / delegationKey). Plan 0018.
+    /// @notice Deploys the Univocity transparency contract with a single
+    ///    bootstrap key (alg + opaque bytes, same pattern as rootKey /
+    ///    delegationKey). Plan 0018.
     /// @dev The bootstrap key (from _bootstrapAlg + _bootstrapKey) constrains
     ///    the **signer** of the root's first checkpoint: the consistency receipt
     ///    must be signed by that key (prevents front-running). Calling
     ///    publishCheckpoint is always permissionless (anyone with a valid grant
     ///    and validly signed checkpoint may submit; the caller pays gas).
-    ///    _bootstrapAuthority is the address of that identity (emitted in
-    ///    Initialized; not checked against msg.sender for publishCheckpoint).
-    /// @param _bootstrapAuthority Address of the identity whose key must sign
-    ///    the root's first checkpoint. Constrains the signer, not the caller.
-    ///    Must not be zero.
     /// @param _bootstrapAlg COSE algorithm: ALG_KS256 (-65799) or ALG_ES256
     ///    (-7). Key format depends on alg.
     /// @param _bootstrapKey Opaque key: KS256 = 20 bytes (Ethereum address);
     ///    ES256 = 64 bytes (P-256 x || y).
-    /// @custom:throws OnlyBootstrapAuthority If _bootstrapAuthority is zero.
     /// @custom:throws InvalidBootstrapAlgorithm If alg is not KS256 or ES256.
     /// @custom:throws InvalidBootstrapKeyLength If key length does not match
     ///    alg (20 for KS256, 64 for ES256).
-    constructor(
-        address _bootstrapAuthority,
-        int64 _bootstrapAlg,
-        bytes memory _bootstrapKey
-    ) {
-        if (_bootstrapAuthority == address(0)) {
-            revert OnlyBootstrapAuthority();
-        }
+    constructor(int64 _bootstrapAlg, bytes memory _bootstrapKey) {
         if (_bootstrapAlg != ALG_KS256 && _bootstrapAlg != ALG_ES256) {
             revert InvalidBootstrapAlgorithm(_bootstrapAlg);
         }
@@ -164,7 +145,6 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             es256Y = _ey;
             ks256Signer = address(0);
         }
-        bootstrapAuthority = _bootstrapAuthority;
     }
 
     /// @notice Bootstrap key in opaque form (same as constructor). Plan 0018.
@@ -365,7 +345,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             emit LogRegistered(logId, logId, config.rootKey);
 
             rootLogId = logId;
-            emit Initialized(bootstrapAuthority, logId);
+            emit Initialized(logId);
 
             return logId;
         }

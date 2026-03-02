@@ -12,7 +12,7 @@
 This document describes the **log hierarchy and authority model** revised to be
 consistent with the choices made in the current univocity implementation. It
 defines how authority logs and data logs relate, how creation and extension
-are gated by grants, and how the bootstrap authority works. An **initial
+are gated by grants, and how the bootstrap (key-signed first checkpoint) works. An **initial
 phase** focuses on the **data structures** required for the hierarchy. An
 **appendix** lists features that cannot be implemented yet due to current
 choices.
@@ -21,7 +21,7 @@ choices.
 
 - **Root log / rootLogId:** The very first log, the root authority log.
   State variable `rootLogId`; set on the first successful
-  `publishCheckpoint` from the bootstrap authority.
+  `publishCheckpoint` signed by the bootstrap key.
 - **Auth log:** Any authority log (root or child). Extension is gated by a
   grant from the log’s **authLogId** (root: self; child: parent). Bootstrap
   is used only for the first checkpoint ever (creation of the root).
@@ -66,7 +66,7 @@ to support it and any future multi-authority design.
 4. **Bootstrap** is used only for the **first checkpoint ever** (no log
    exists yet): grant is self-inclusion (index 0; path length up to
    MAX_HEIGHT) in the new tree; receipt signer must match bootstrap key
-   (prevents front-running; OnlyBootstrapAuthority). After that, the root
+   (prevents front-running). After that, the root
    has authLogId = rootLogId; root extension requires a grant (inclusion
    proof) in the root, like any other log.
 5. **Log creation:** when a grant allows creating a log (first checkpoint to
@@ -100,16 +100,15 @@ do without breaking changes:
   authLogId = rootLogId (self). |
 | **Ownership** | LogConfig.authLogId: for data logs = owning auth log; for
   auth logs = parent (root has self = rootLogId). |
-| **Bootstrap authority** | One address, immutable (`bootstrapAuthority`). The
-  **first checkpoint ever** (creates root) is accepted only if the **receipt
-  signer** matches the bootstrap key; the **caller** (msg.sender) is not
-  checked — submission is permissionless. Root extension thereafter
-  requires a grant in the root (permissionless). `setLogRoot` is
-  **internal**; see [§ Root key rollover](#root-key-rollover). |
+| **Bootstrap** | The **first checkpoint ever** (creates root) is accepted only if
+  the **receipt signer** matches the bootstrap key (constructor key). The
+  **caller** (msg.sender) is not checked — submission is permissionless.
+  Root extension thereafter requires a grant in the root (permissionless).
+  `setLogRoot` is **internal**; see [§ Root key rollover](#root-key-rollover). |
 | **Grant evidence** | Pre-decoded inclusion proof (index, path) against the
   owner’s accumulator. No COSE Receipt of Inclusion. |
 
-So today: **one root log**, **one bootstrap authority**. Non-root logs use
+So today: **one root log**; bootstrap is key-only (no address). Non-root logs use
 `config.authLogId` (owning or parent) for grant verification.
 
 ### Enumerating authority logs: off-chain indexer concern
@@ -228,7 +227,7 @@ support it.
   (as parent) never changes. So the hierarchy is immutable from the
   contract’s perspective.
 
-### 4.4 How the auth log and bootstrap authority work
+### 4.4 How the auth log and bootstrap work
 
 **Goal:** Clarify how the **right to extend** the root and other authority
 logs is determined.
@@ -245,7 +244,7 @@ For payment evidence (path length, bootstrap signer) see
 - **Root extension (after creation):** Extension of the root requires a
   **grant** (inclusion proof) in the root log itself. `publishGrant.ownerLogId
   == rootLogId` and the contract verifies inclusion against the root's
-  accumulator. **No** `msg.sender == bootstrapAuthority` check; submission
+  accumulator. **No** caller check; submission
   is permissionless (anyone with a valid grant in the root may extend).
 - **Child authority extension (future):** Governed by §2: grant in the
   **parent** log; receipt verifiable against the child's rootKey. Phase 0
@@ -333,14 +332,14 @@ logs is an off-chain indexer concern (see
 
 ## 7. Security model (holistic assessment)
 
-**Trust root:** The bootstrap authority (one address) and bootstrap keys.
+**Trust root:** The bootstrap key (constructor key).
 The root is created by the bootstrap (first checkpoint ever); thereafter,
 root extension is gated by a **grant in the root** (self-issued), not by
 identity. So every extension (including root) has on-chain grant evidence.
 
 **Two gates for extension:** To extend any non-bootstrap log, a caller must satisfy **both** (a) **Grant:** an inclusion proof in the **owner's** log (parent for authority, owning authority for data), and (b) **Consistency receipt:** a signature or delegation verifiable against that log's **established rootKey** (or, on first checkpoint, a key that is then stored as rootKey). An attacker who holds a grant but not the log's key cannot extend the log; an attacker who holds the key but has no grant cannot pass the inclusion check. The hierarchy is enforced by key selection: child authority's rootKey is set at creation (from grantData, verify-only); data log's rootKey is set at creation (from grantData, verify-only).
 
-**Limitations:** There is **no revocation list** in the current design: once a grant (leaf) is in an authority log's MMR, it is valid until **consumed**. Grants are **growth-bounded** (max_size, min_range): they allow only a limited amount of log growth; after that, a new grant is required. Revocation (explicit invalidation) would require a later phase (see §9). The root authority is a single point of trust: compromise of the bootstrap authority or keys allows full control of the root log and thus of all grants issued from it.
+**Limitations:** There is **no revocation list** in the current design: once a grant (leaf) is in an authority log's MMR, it is valid until **consumed**. Grants are **growth-bounded** (max_size, min_range): they allow only a limited amount of log growth; after that, a new grant is required. Revocation (explicit invalidation) would require a later phase (see §9). The root authority is a single point of trust: compromise of the bootstrap key allows full control of the root log and thus of all grants issued from it.
 
 ---
 
