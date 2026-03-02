@@ -170,7 +170,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
     /// @notice Bootstrap key in opaque form (same as constructor). Plan 0018.
     /// @return bootstrapAlg COSE alg (ALG_KS256 or ALG_ES256).
     /// @return bootstrapKey 20 bytes (KS256) or 64 bytes (ES256).
-    function getBootstrapKeyConfig()
+    function bootstrapConfig()
         external
         view
         returns (int64 bootstrapAlg, bytes memory bootstrapKey)
@@ -545,7 +545,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
                     revert RootSignerMustMatchBootstrap();
                 }
                 // slither-disable-next-line unused-return
-                (, bytes memory bootstrapKey) = this.getBootstrapKeyConfig();
+                (, bytes memory bootstrapKey) = this.bootstrapConfig();
                 if (grantData.length != bootstrapKey.length) {
                     revert GrantDataInvalidKeyLength(grantData.length);
                 }
@@ -604,7 +604,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         if (config.initializedAt == 0) {
             if (rootLogId == bytes32(0)) {
                 // slither-disable-next-line unused-return
-                (, bytes memory bootstrapKey) = this.getBootstrapKeyConfig();
+                (, bytes memory bootstrapKey) = this.bootstrapConfig();
                 if (grantData.length != bootstrapKey.length) {
                     revert GrantDataInvalidKeyLength(grantData.length);
                 }
