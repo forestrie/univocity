@@ -21,11 +21,13 @@ interface IUnivocityEvents {
     ///    grantLogId and rootKey are indexed (rootKey as keccak256(rootKey)).
     ///    grantLogId is the log in which the grant was verified. grantIndex
     ///    and grantPath are the inclusion proof payload (empty when no proof).
+    ///    grantIDTimestampBe is the big-endian idtimestamp used for the leaf.
     event CheckpointPublished(
         bytes32 indexed logId,
         bytes32 indexed grantLogId,
         bytes indexed rootKey,
         address sender,
+        bytes8 grantIDTimestampBe,
         uint8 logKind,
         uint64 size,
         bytes32[] accumulator,

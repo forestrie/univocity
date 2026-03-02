@@ -107,6 +107,7 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
             AUTHORITY_LOG_ID,
             abi.encodePacked(KS256_SIGNER),
             address(this),
+            IDTIMESTAMP_AUTH,
             uint8(IUnivocity.LogKind.Authority),
             1,
             _toAcc(leaf0),

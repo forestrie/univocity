@@ -53,6 +53,7 @@ contract UnivocityStateAndEventsTest is UnivocityTestHelper, IUnivocityEvents {
             AUTHORITY_LOG_ID,
             abi.encodePacked(KS256_SIGNER),
             address(this),
+            IDTIMESTAMP_TEST,
             uint8(IUnivocity.LogKind.Data),
             1,
             acc,
