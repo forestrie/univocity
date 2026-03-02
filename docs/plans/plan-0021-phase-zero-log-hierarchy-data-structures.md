@@ -6,7 +6,7 @@
 [ARC-0017](../arc/arc-0017-log-hierarchy-and-authority.md),
 [ARC-0016](../arc/arc-0016-checkpoint-incentivisation-implementation.md)
 
-**Design summary.** Phase 0 of [ARC-0017](../arc/arc-0017-log-hierarchy-and-authority.md): data structures for the log hierarchy. **Implemented** in Univocity.sol (LogConfig.kind, authLogId, rootKey; _verifyInclusionGrant; grant bounds via maxHeight, minGrowth). **Authorization:** ARC-0017 §2 — rootKey at first checkpoint (direct or **recovered rootKey** in delegation); grant = inclusion against owner; **ownerLogId** in grant for log creation; bootstrap only for **first checkpoint ever**; root has authLogId = self ([ADR-0004](../adr/adr-0004-root-log-self-grant-extension.md)). **Grant bounds:** growth-based only (max_size/maxHeight, min_range/minGrowth); effective cap (max_size − current_size) / min_range. No checkpoint counter (Phase E). **Phase F (optional):** Create new authority logs via grant (ownerLogId + createAsAuthority; extend leaf commitment) so tests cover root→child→data hierarchy.
+**Design summary.** Phase 0 of [ARC-0017](../arc/arc-0017-log-hierarchy-and-authority.md): data structures for the log hierarchy. **Implemented** in Univocity.sol (LogConfig.kind, authLogId, rootKey; _verifyInclusionGrant; grant bounds via maxHeight, minGrowth). **Authorization:** ARC-0017 §2 — rootKey at first checkpoint from **grantData** (verify-only; no on-chain recovery); grant = inclusion against owner; **ownerLogId** in grant for log creation; bootstrap only for **first checkpoint ever**; root has authLogId = self ([ADR-0004](../adr/adr-0004-root-log-self-grant-extension.md)). **Grant vs request:** grant = GF_* flags (in leaf); request = GC_* code (not in leaf) for new-log kind; request must be allowed by grant. **Grant bounds:** growth-based only (max_size/maxHeight, min_range/minGrowth); effective cap (max_size − current_size) / min_range. No checkpoint counter (Phase E). **Phase F (optional):** Create new authority logs via grant (ownerLogId + createAsAuthority; extend leaf commitment) so tests cover root→child→data hierarchy.
 
 ---
 
@@ -16,7 +16,7 @@
 
 **Out of scope (until Phase F):** Multiple authority logs (beyond root + one child for testing); per-log bootstrap; explicit revocation. Phase F adds **creation of new authority logs via a grant** so tests can cover the hierarchical model (root → child authority → data under child).
 
-**Decisions (fixed):** Log kind 0 / Authority=1 / Data=2; single authLogId (owning for data, parent for authority); rootKey at first checkpoint (recovered rootKey in delegation); grant = inclusion against owner; ownerLogId in grant for log creation. Full rules: **ARC-0017 §2** and plan §3.3.
+**Decisions (fixed):** Log kind 0 / Authority=1 / Data=2; single authLogId (owning for data, parent for authority); rootKey at first checkpoint from grantData (verify-only; no on-chain recovery); grant = inclusion against owner; ownerLogId in grant for log creation. Full rules: **ARC-0017 §2** and plan §3.3.
 
 ---
 
@@ -168,15 +168,16 @@ expose config.
 
 ### 3.3 Authority model (ARC-0017 §2)
 
-The four canonical rules and how they govern log extension are in **ARC-0017 §2 (Authorization rules)**. Summary: (1) RootKey at first checkpoint — direct key or **recovered rootKey** in delegation; (2) Grant = inclusion against owner (parent for authority, auth log for data); (3) First checkpoint establishes kind and authLogId; (4) Bootstrap only for first checkpoint ever (grant against self, index 0,
+The four canonical rules and how they govern log extension are in **ARC-0017 §2 (Authorization rules)**. Summary: (1) RootKey at first checkpoint — key from **grantData** (verify-only); (2) Grant = inclusion against owner (parent for authority, auth log for data); (3) First checkpoint establishes kind and authLogId; (4) Bootstrap only for first checkpoint ever (grant against self, index 0,
     path up to MAX_HEIGHT; receipt signer must match bootstrap key); (5) Log-creation grants must include **ownerLogId**.
 
 **Derived: key for consistency receipt**
 
-- **First checkpoint, bootstrap:** Receipt signer must match bootstrap key;
-    store as rootKey (prevents front-running).
-- **First checkpoint, other log (direct):** Signing key from receipt; verify, then store as rootKey.
-- **First checkpoint, other log (delegation):** Verify delegation; store the **recovered rootKey** (the key that signed the delegation) as rootKey. Grant/receipt may need to supply both delegation and public root key.
+- **First checkpoint, bootstrap:** Signer key from grantData; must match
+    bootstrap key; grantData must equal bootstrap key bytes; verify and store
+    (prevents front-running).
+- **First checkpoint, other log:** Key from **grantData** (verify-only); verify
+    receipt (and delegation if present) against it; store as rootKey.
 - **Later checkpoint, any log:** That log's established rootKey (or delegation from it).
 
 So after the first checkpoint, **every** log uses **its own** rootKey for the
@@ -194,9 +195,10 @@ verifies the inclusion proof against that owner log and sets
 authLogId = owner logId when applying the first checkpoint.
 
 - **First checkpoint ever (bootstrap):** Grant against self (index 0, path
-    length up to MAX_HEIGHT); OnlyBootstrapAuthority; receipt signer must
-    match bootstrap key; creates root with authLogId = rootLogId (self). No
-    owner field (N/A). See [ARC-0016](../arc/arc-0016-checkpoint-incentivisation-implementation.md) §2.2, §3.1.
+    length up to MAX_HEIGHT); receipt signer must match bootstrap key (signer
+    key from grantData; grantData must equal bootstrap key bytes); creates root
+    with authLogId = rootLogId (self). No owner field (N/A). See
+    [ARC-0016](../arc/arc-0016-checkpoint-incentivisation-implementation.md) §2.2, §3.1.
 - **Root extension (after creation):** Grant in root; ownerLogId == rootLogId; verify inclusion against root’s accumulator; permissionless (no bootstrap check).
 - **Data log:** Inclusion proof against owning authority (`_logConfigs[logId].authLogId`). First checkpoint: **owner logId from grant** = associated auth log; set authLogId from that.
 - **Child authority:** Inclusion proof against **parent** log. First checkpoint: **owner logId from grant** = parent logId; set kind = Authority, authLogId = parentLogId.
@@ -211,13 +213,10 @@ When non-zero, use `_logs[authorityLogIdForInclusion]` for `verifyInclusion`.
 
 **A. Key for consistency receipt (implementation)**
 
-- **First checkpoint** (log not yet initialized): Bootstrap log → verify
-  with bootstrap keys. Any other log: **direct** signature → verify and
-  **store** the signing key as `_logConfigs[logId].rootKey`; **delegation**
-  → verify delegation and **store the recovered rootKey** (the key that
-  signed the delegation) as `_logConfigs[logId].rootKey`. The grant/receipt
-  may need to supply both the delegation proof and the public root key when
-  using delegation for first checkpoint.
+- **First checkpoint** (log not yet initialized): Key from **grantData**
+  (verify-only). Bootstrap log → grantData must equal bootstrap key; verify
+  and store. Any other log → verify receipt (and delegation if present)
+  against grantData; store as `_logConfigs[logId].rootKey`.
 - **Later checkpoint:** Verify consistency receipt against
   `_decodeLogRootKey` for the **target** log (every log uses its own
   established rootKey).
@@ -329,9 +328,14 @@ The four rules in §3.3 address the previously raised gaps as follows.
 
 2. **Grant = inclusion against owner:** Rule 2 — the grant is always an inclusion proof against the log's owner (parent for authority, authority for data). For first checkpoint we need the owner logId (authorityLogId for new data log; parent logId for new child authority — see remaining choice below).
 
-3. **First checkpoint signature:** Rule 3 — for the first checkpoint, **direct** signature → store signing key as rootKey; **delegation** → store the **recovered rootKey** (the key that signed the delegation) as rootKey. Bootstrap uses bootstrap keys (rule 4).
+3. **First checkpoint signature:** Rule 3 — for the first checkpoint, key
+   from **grantData** (verify-only); verify receipt and store as rootKey.
+   Bootstrap: grantData must equal bootstrap key (rule 4).
 
-4. **Bootstrap special case:** Rule 4 — grant against self, size > 1, bootstrap key signature, OnlyBootstrapAuthority. No other log has grant against self.
+4. **Bootstrap special case:** Rule 4 — grant against self (index 0); receipt
+   signer must match bootstrap key (signer key from grantData; grantData must
+   equal bootstrap key bytes). Submission permissionless. No other log has
+   grant against self.
 
 5. **OnlyBootstrapAuthority for child authority:** Child authority checkpoints are gated by inclusion proof in the parent and consistency signature from the child's rootKey (or key that becomes it). Any caller can submit with grant and valid signature; no OnlyBootstrapAuthority for child authority.
 
@@ -355,7 +359,10 @@ grants.
 - [ ] First checkpoint that sets `authorityLogId` also sets _logConfigs[authorityLogId].kind = Authority, _logConfigs[authorityLogId].authLogId = 0.
 - [ ] First checkpoint to any other log sets _logConfigs[logId].kind = Data (or Authority when Phase F createAsAuthority), _logConfigs[logId].authLogId from grant ownerLogId.
 - [ ] Subsequent checkpoints to a data log use `_logConfigs[logId].authLogId` for inclusion verification; (Phase F) subsequent checkpoints to a child authority use parent (config.authLogId) for inclusion.
-- [ ] Consistency receipt key selection per §3.3: first checkpoint → bootstrap keys (bootstrap) or verify and store **recovered rootKey** in delegation case (other logs); later → target's rootKey. Grant for log creation includes **ownerLogId**; delegation first-checkpoint grant may include both delegation and public root key (C.1, C.4).
+- [ ] Consistency receipt key selection per §3.3: first checkpoint → key from
+  **grantData** (verify-only); bootstrap: grantData must equal bootstrap key;
+  other logs: verify and store grantData as rootKey; later → target's rootKey.
+  Grant for log creation includes **ownerLogId** (C.1, C.4).
 - [ ] Grant bounds use size only (maxHeight, minGrowth); checkpointCount removed from state and events (Phase E). `getLogState(logId)` and `getLogConfig(logId)`; all existing tests pass.
 - [ ] (Without Phase F) No change to proof format or leaf commitment. (Phase F) Leaf commitment extended for ownerLogId and createAsAuthority; permissionless submission unchanged.
 - [ ] `forge build` and `forge test` pass. (Phase F) Hierarchy tests D.5–D.8 pass.

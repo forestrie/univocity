@@ -33,9 +33,10 @@ import {peaks} from "@univocity/algorithms/peaks.sol";
 /// ## Authorization model (enforced rules)
 /// 1. **First checkpoint ever (root):** The first checkpoint establishes the
 ///    root authority log. Grant is self-inclusion (index 0; path length up to
-///    MAX_HEIGHT). The receipt signer becomes that log's root key; for the
-///    root's first checkpoint the recovered signer must match the bootstrap
-///    key (no grant-based protection; prevents front-running). Submission is
+///    MAX_HEIGHT). The signer key is supplied in grantData (verify-only; no
+///    on-chain recovery). For the root's first checkpoint that key must match
+///    the bootstrap key and grantData must equal bootstrap key bytes (prevents
+///    front-running). Submission is
 ///    permissionless; bootstrapAuthority is the contract's configured
 ///    identity (for off-chain use); CheckpointPublished carries the sender.
 /// 2. **Grant = inclusion against owner:** To extend any other log, the caller
@@ -43,8 +44,9 @@ import {peaks} from "@univocity/algorithms/peaks.sol";
 ///    *owner* (data log → owning authority log; child authority → parent log).
 /// 3. **Log creation requires ownerLogId:** The first checkpoint to a new log
 ///    (data or child authority) requires paymentGrant.ownerLogId and an
-///    inclusion proof against that owner; kind (Authority/Data) is set from
-///    grant (GF_CREATE, GF_EXTEND; log kind: GC_AUTH_LOG or GC_DATA_LOG).
+///    inclusion proof against that owner. Log kind (Authority/Data) is set
+///    from request (GC_AUTH_LOG or GC_DATA_LOG); request must be allowed by
+///    grant flags (GF_AUTH_LOG, GF_DATA_LOG).
 /// 4. **Grant bounds:** Growth is bounded only by minGrowth and maxHeight
 ///    (no checkpoint counter); size must satisfy currentSize + minGrowth <=
 ///    size <= maxHeight (when maxHeight != 0).
@@ -236,7 +238,8 @@ contract Univocity is IUnivocity, IUnivocityErrors {
     ///    and optional inclusion proof (grant).
     /// @dev Authorization: target = paymentGrant.logId. Root not yet set:
     ///   first checkpoint ever; grant = self-inclusion (index 0, path length
-    ///   up to MAX_HEIGHT); receipt signer must match bootstrap key (rule 1).
+    ///   up to MAX_HEIGHT); signer key (from grantData) must match bootstrap
+    ///   key; grantData must equal bootstrap key bytes (rule 1).
     ///   First checkpoint to a new log: ownerLogId required; inclusion
     ///   verified against owner; kind from grant (rule 2, 3).
     ///   Extend existing log: inclusion verified against config.authLogId
@@ -456,8 +459,9 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         bytes calldata grantData
     ) internal view returns (bytes memory initialRoot) {
         // Rule 5: consistency receipt signature verification.
-        // We distinguish (1) the log root key — authority for this log, recovered or from storage —
-        // and (2) the verifier key — the key that must have signed the consistency receipt.
+        // We distinguish (1) the log root key — from grantData (first checkpoint,
+        // verify-only) or from storage — and (2) the verifier key — the key that
+        // must have signed the consistency receipt.
         // When there is no delegation, the root signs the receipt (verifier == root). When there is
         // delegation, the root signs the delegation; the delegate signs the receipt (verifier == delegate).
         int64 alg = extractAlgorithm(consistencyParts.protectedHeader);
@@ -629,9 +633,9 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             bytes32 verifierY
         )
     {
-        // Root key from storage, or recover from receipt/delegation on first
-        // checkpoint. Caller enforces for the root's first checkpoint that the
-        // recovered signer matches the bootstrap key (no grant-based protection).
+        // Root key from storage, or from grantData on first checkpoint
+        // (verify-only; no on-chain recovery). For root's first checkpoint the
+        // signer key (from grantData) must match the bootstrap key.
         (rootX, rootY) = _decodeLogRootKeyES256(logId);
 
         if (rootX == bytes32(0) && rootY == bytes32(0)) {
@@ -682,7 +686,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             return (rootX, rootY, verifierX, verifierY);
         }
 
-        // Root key present (from storage or just recovered). Verifier is
+        // Root key present (from storage or from grantData on first checkpoint). Verifier is
         // delegate if delegation, else root.
         if (delegationProof.signature.length > 0) {
             // Note: We do this twice for the very first checkpoint (root auth log),

@@ -53,14 +53,16 @@ to support it and any future multi-authority design.
 
 ## 2. Authorization rules
 
-1. **RootKey** for every log is established by the **first checkpoint** for that log (not set beforehand). Direct signature → that key is stored as rootKey. Delegation → the **recovered rootKey** (the key that signed the delegation) is stored; the grant may need to supply both delegation and public root key.
+1. **RootKey** for every log is established by the **first checkpoint** for that log (not set beforehand). The signer key is supplied in **grantData** (verify-only; no on-chain key recovery). The contract verifies the receipt (and, with delegation, the delegation proof) against that key and stores it as rootKey.
 2. **Grant** = inclusion proof against the log’s **owner** (authLogId): data
    log → owning authority log; authority log → parent log; **root** → self
    (authLogId = rootLogId, so grant is in the root log itself).
 3. **First checkpoint** establishes the log’s **kind** and **authLogId**
-   (owner). Any checkpoint’s signature or delegation must verify against that
-   log’s established rootKey — or it is the first checkpoint, in which case
-   the key (or recovered rootKey) is stored as rootKey.
+   (owner). Kind is set from the grant’s **request** (GC_AUTH_LOG or
+   GC_DATA_LOG); request must be allowed by the grant flags. Any checkpoint’s
+   signature or delegation must verify against that log’s established rootKey
+   — or it is the first checkpoint, in which case the key from grantData is
+   verified and stored as rootKey.
 4. **Bootstrap** is used only for the **first checkpoint ever** (no log
    exists yet): grant is self-inclusion (index 0; path length up to
    MAX_HEIGHT) in the new tree; receipt signer must match bootstrap key
@@ -235,9 +237,10 @@ logs is determined.
 For payment evidence (path length, bootstrap signer) see
 [ARC-0016](arc-0016-checkpoint-incentivisation-implementation.md) §2.2, §3.1.
 
-- **First checkpoint ever:** Only `bootstrapAuthority` may publish. No log
-  exists yet; grant is self-inclusion (index 0; path length up to
-  MAX_HEIGHT); receipt signer must match bootstrap key. This creates the root
+- **First checkpoint ever:** No log exists yet; grant is self-inclusion
+  (index 0; path length up to MAX_HEIGHT); receipt signer must match
+  bootstrap key (signer key from grantData; verify-only; grantData must equal
+  bootstrap key bytes). Submission is permissionless. This creates the root
   with `authLogId = rootLogId` (self).
 - **Root extension (after creation):** Extension of the root requires a
   **grant** (inclusion proof) in the root log itself. `paymentGrant.ownerLogId
@@ -306,7 +309,7 @@ in that authority log).
 | Field | Meaning |
 |-------|--------|
 | **initializedAt** | Block number of first checkpoint. |
-| **rootKey** | Root public key (e.g. 64-byte P-256). **Established at first checkpoint** (§2 rule 1): direct signature → that key; delegation → recovered rootKey. setLogRoot may be used for rotation later. |
+| **rootKey** | Root public key (e.g. 64-byte P-256). **Established at first checkpoint** (§2 rule 1): key from grantData (verify-only) verified and stored. setLogRoot may be used for rotation later. |
 | **kind** | 0 = undefined/not set; Authority = 1; Data = 2. Set at first checkpoint. |
 | **authLogId** | If kind == Data: **owning** authority log. If kind == Authority: **parent**
   (root has **self** = rootLogId). Set at first checkpoint from grant
@@ -335,7 +338,7 @@ The root is created by the bootstrap (first checkpoint ever); thereafter,
 root extension is gated by a **grant in the root** (self-issued), not by
 identity. So every extension (including root) has on-chain grant evidence.
 
-**Two gates for extension:** To extend any non-bootstrap log, a caller must satisfy **both** (a) **Grant:** an inclusion proof in the **owner's** log (parent for authority, owning authority for data), and (b) **Consistency receipt:** a signature or delegation verifiable against that log's **established rootKey** (or, on first checkpoint, a key that is then stored as rootKey). An attacker who holds a grant but not the log's key cannot extend the log; an attacker who holds the key but has no grant cannot pass the inclusion check. The hierarchy is enforced by key selection: child authority's rootKey is set at creation (from parent's delegation or recovered rootKey); data log's rootKey is set at creation (from signer or owner's delegation).
+**Two gates for extension:** To extend any non-bootstrap log, a caller must satisfy **both** (a) **Grant:** an inclusion proof in the **owner's** log (parent for authority, owning authority for data), and (b) **Consistency receipt:** a signature or delegation verifiable against that log's **established rootKey** (or, on first checkpoint, a key that is then stored as rootKey). An attacker who holds a grant but not the log's key cannot extend the log; an attacker who holds the key but has no grant cannot pass the inclusion check. The hierarchy is enforced by key selection: child authority's rootKey is set at creation (from grantData, verify-only); data log's rootKey is set at creation (from grantData, verify-only).
 
 **Limitations:** There is **no revocation list** in the current design: once a grant (leaf) is in an authority log's MMR, it is valid until **consumed**. Grants are **growth-bounded** (max_size, min_range): they allow only a limited amount of log growth; after that, a new grant is required. Revocation (explicit invalidation) would require a later phase (see §9). The root authority is a single point of trust: compromise of the bootstrap authority or keys allows full control of the root log and thus of all grants issued from it.
 

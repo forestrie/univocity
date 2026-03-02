@@ -113,10 +113,13 @@ flowchart TB
 ```
 
 - **Root, first:** Receipt must be signed by the **bootstrap key**
-  (contract config). No grant-based protection yet, so the signer is
-  constrained to prevent front-running.
-- **Any other first:** Receipt signer (or recovered root from delegation)
-  is stored as that log’s **root key**. Future checkpoints to that log
+  (contract config). The signer key is supplied in **grantData**
+  (verify-only; no on-chain recovery). grantData must equal the bootstrap
+  key bytes. No grant-based protection yet, so the signer is constrained
+  to prevent front-running.
+- **Any other first:** The signer key is supplied in **grantData**
+  (verify-only). The contract verifies the receipt against that key and
+  stores it as that log’s **root key**. Future checkpoints to that log
   must be signed by that key (or a delegate).
 - **Any later:** Receipt must verify against the **stored root key** for
   that log (or a valid delegation from it).
@@ -127,11 +130,12 @@ events.
 
 **Delegation.** Signer delegation is supported: a delegate key may sign
 the consistency receipt when authorized by the log’s root key (delegation
-proof). For the **first checkpoint**, the key that is **recovered** from
-the receipt or from the delegation proof becomes that log’s root key; for
-later checkpoints with delegation, the recovered root must match the
-stored log key (and the delegate signs the receipt). Allowed algorithms
-and delegation support:
+proof). For the **first checkpoint**, **grantData** supplies the root key;
+the contract verifies the delegation and receipt against it (verify-only;
+no on-chain recovery) and stores it as root key. For later checkpoints
+with delegation, the stored root must match the key used to verify the
+delegation (and the delegate signs the receipt). Allowed algorithms and
+delegation support:
 
 | Algorithm | Description        | Delegation |
 |-----------|--------------------|------------|
@@ -186,3 +190,16 @@ flowchart TB
 
 The only on-chain authorization is: **grant in owner** + **receipt
 signed by the correct key**.
+
+---
+
+## 6. Grant vs request (first-checkpoint log kind)
+
+- **Grant** (in the leaf commitment): flags GF_CREATE, GF_EXTEND, GF_AUTH_LOG,
+  GF_DATA_LOG — what the leaf allows (create and/or extend; allow auth and/or
+  data log).
+- **Request** (not in the leaf hash): high 32 bits = GC_AUTH_LOG or GC_DATA_LOG
+  (mutually exclusive). For the first checkpoint to a new log, request
+  selects the log kind; it must be allowed by the grant (e.g. request
+  GC_AUTH_LOG requires GF_AUTH_LOG). Extend checkpoints use GF_EXTEND; request
+  is irrelevant for kind. Rules 1–3 enforce grant and request consistency.

@@ -68,8 +68,11 @@ interface IUnivocity is IUnivocityEvents {
     ///    grant (in commitment): GF_CREATE (1<<32), GF_EXTEND (1<<33),
     ///    GF_AUTH_LOG (1), GF_DATA_LOG (2). request is NOT in the commitment;
     ///    high 32 bits = GC_AUTH_LOG or GC_DATA_LOG (mutually exclusive), must
-    ///    be allowed by grant. Leaf inner hash: logId, payer, grant, maxHeight,
-    ///    minGrowth, ownerLogId, grantData (no request).
+    ///    be allowed by grant. Log kind for new logs is set from request.
+    ///    Leaf inner hash: logId, payer, grant, maxHeight, minGrowth,
+    ///    ownerLogId, grantData (no request). First checkpoint: grantData
+    ///    supplies the signer (root) key; receipt verified against it
+    ///    (verify-only; no on-chain recovery).
     struct PaymentGrant {
         bytes32 logId;
         address payer;
