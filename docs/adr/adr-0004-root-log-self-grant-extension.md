@@ -10,8 +10,8 @@
 
 **Option A (Adopt) is accepted.** The root log’s `authLogId` is set to its
 own `logId` (self). Extension of the root requires a grant (inclusion
-proof) in the root itself (self-issued). The bootstrap authority is used
-only for the **first checkpoint ever** (creation of the root). There are
+proof) in the root itself (self-issued). The **first checkpoint ever**
+(creation of the root) must be signed by the bootstrap key. There are
 **no existing deployments**; the project is in design and development
 phase, so we adopt this model comprehensively in ARC, plans, and
 implementation with no migration constraints.
@@ -21,9 +21,9 @@ implementation with no migration constraints.
 Today the **root authority log** is extended under different rules than other
 logs:
 
-- **Root extension:** Only `bootstrapAuthority` may publish; no inclusion
-  proof is required (index 0; path length up to MAX_HEIGHT). The contract checks
-  `msg.sender == bootstrapAuthority`.
+- **Root extension (historical):** Previously an address was used; the contract
+  now has no address check. Root extension requires a grant (inclusion proof)
+  in the root.
 - **Other logs:** Extension requires a **grant** — an inclusion proof against
   the log’s **owner** (data log → owning auth log; child authority → parent
   log). No identity check; submission is permissionless once the grant exists.
@@ -48,18 +48,17 @@ grant (inclusion proof against the root log itself).
    extends the root (`logId == rootLogId` and root already exists), require
    the same rule as for other logs: `publishGrant.ownerLogId == config.authLogId`
    (so `ownerLogId == rootLogId`) and verify inclusion of the grant leaf
-   against the root log’s accumulator (and size). No `msg.sender ==
-   bootstrapAuthority` check for extension.
+   against the root log’s accumulator (and size). No caller check for extension.
 
 3. **Single special case: first checkpoint ever.** The only remaining
    special case is the **creation** of the root (no log exists yet). That
-   still requires the bootstrap authority and a self-inclusion style proof
+   still requires the bootstrap key (receipt signer) and a self-inclusion proof
    (index 0; path length up to MAX_HEIGHT, new tree). After that, the root exists with
    `authLogId = rootLogId`, and all further extensions (root and non-root)
    use the same rule: grant from the log’s authLogId.
 
-4. **Bootstrap only for creation.** The bootstrap authority would be used
-   solely to publish the **first** checkpoint (which creates the root). Every
+4. **Bootstrap only for creation.** The **first** checkpoint (which creates the
+   root) must be signed by the bootstrap key. Every
    subsequent root extension would be permissionless for whoever holds a
    valid grant (inclusion proof) in the root — consistent with
    [ADR-0001](adr-0001-payer-attribution-permissionless-submission.md).

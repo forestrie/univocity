@@ -213,7 +213,7 @@ After actioning the “> Updates” blocks above, the following was checked for
   setLogRoot internal and root key rollover described in one place; A.7
   enumerating logs by owner stated as off-chain by design.
 - **ADRs 0001–0003:** ADR-0001 updated for removed events and revert-based
-  auth failures; ADR-0003 updated for LogConfig and getBootstrapKeyConfig.
+  auth failures; ADR-0003 updated for LogConfig and bootstrapConfig.
 - **Plans 0012, 0021, 0016:** Plan-0012 events/bounds aligned with ARC-0016;
   plan-0021 LogKind enum includes Undefined; hierarchy and grant-expiry tests
   marked must-have; plan-0016 design intents (COSE/CBOR) added.
@@ -228,7 +228,7 @@ After actioning the “> Updates” blocks above, the following was checked for
   logs. Plan-0021 and ARC-0017 use rootLogId in step text where appropriate.
 - **Cross-references:** ARC-0016 references ARC-0017 for root key rollover;
   plan-0012 and ADR-0001 reference ARC-0016 authorization-failure registry;
-  ADR-0003 references LogConfig and getBootstrapKeyConfig.
+  ADR-0003 references LogConfig and bootstrapConfig.
 - **Events vs reverts:** Docs consistently state that authorization failures
   revert (custom errors) and that no separate “authorization verified” or
   “payment registered” events exist.

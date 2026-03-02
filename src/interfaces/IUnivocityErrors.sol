@@ -7,7 +7,6 @@ interface IUnivocityErrors {
     // Initialization
     error AlreadyInitialized();
     error NotInitialized();
-    error OnlyBootstrapAuthority();
     error BootstrapLogMustUseSelf();
     error BootstrapLogMustBeAuthLog();
     /// @notice Bootstrap algorithm not supported (use COSE ALG_ES256 or

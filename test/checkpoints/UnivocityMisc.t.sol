@@ -28,10 +28,6 @@ contract UnivocityMiscTest is UnivocityTestHelper {
                 ) != 0
         );
         assertTrue(
-            uint32(bytes4(IUnivocityErrors.OnlyBootstrapAuthority.selector))
-                != 0
-        );
-        assertTrue(
             uint32(bytes4(IUnivocityErrors.GrantRequirement.selector)) != 0
         );
         assertTrue(

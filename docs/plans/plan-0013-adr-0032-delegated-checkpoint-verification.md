@@ -147,7 +147,7 @@ in that log’s **first** checkpoint. No global root configuration.
 
 **Why it remains secure:**
 
-- **Authority log:** Only the bootstrap authority can publish the first
+- **Authority log:** Only a checkpoint signed by the bootstrap key can publish the first
   checkpoint (the one that establishes the authority log). So the bootstrap
   authority is the only one who can set the root for the authority log. The
   delegation cert in that first checkpoint is signed by the intended root

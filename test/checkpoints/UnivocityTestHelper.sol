@@ -295,8 +295,7 @@ abstract contract UnivocityTestHelper is Test {
     /// @notice Deploy Univocity with KS256 bootstrap key (no checkpoints).
     function _deployUnivocityKS256() internal returns (Univocity) {
         vm.prank(BOOTSTRAP);
-        return
-            new Univocity(BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER));
+        return new Univocity(ALG_KS256, abi.encodePacked(KS256_SIGNER));
     }
 
     /// @notice Publish bootstrap (first) checkpoint and second checkpoint on

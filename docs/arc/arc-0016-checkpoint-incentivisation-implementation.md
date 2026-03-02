@@ -31,7 +31,13 @@ as implemented in `Univocity.sol` and related interfaces.
 
 | Role | Description | Implementation |
 |------|-------------|----------------|
-| **Bootstrap authority** | Address that may publish the **first checkpoint ever** (creating the root log). Root extension thereafter requires a grant in the root (inclusion proof); no identity check. | `bootstrapAuthority` immutable; `msg.sender == bootstrapAuthority` only when creating the root (no log exists yet). Root extension uses grant from root (ownerLogId == rootLogId). `setLogRoot` is internal (see [ARC-0017 root key rollover](../arc/arc-0017-log-hierarchy-and-authority.md#root-key-rollover)). See [ADR-0004](../adr/adr-0004-root-log-self-grant-extension.md). |
+| **Bootstrap** | The **first checkpoint ever** (creates root) must be signed by the
+  bootstrap key (constructor key). Root extension thereafter requires a grant
+  in the root (inclusion proof); no caller check. | First checkpoint: receipt
+  signer must match bootstrap key. Root extension uses grant from root
+  (ownerLogId == rootLogId). `setLogRoot` is internal (see [ARC-0017 root key
+  rollover](../arc/arc-0017-log-hierarchy-and-authority.md#root-key-rollover)).
+  See [ADR-0004](../adr/adr-0004-root-log-self-grant-extension.md). |
 | **Signer** | Produces the consistency receipt (COSE Sign1 over the derived accumulator). | Off-chain; verified on-chain with bootstrap keys or delegated P-256 key. |
 | *(removed)* | Payer was removed from the grant; not used in authorization. | N/A; any sender may submit. |
 | **Submitter** | Caller of `publishCheckpoint`. | `msg.sender`; emitted as `sender` in `CheckpointPublished`. |
@@ -42,11 +48,10 @@ Signer, payer, and submitter are independent. The contract does **not** verify
 ### 2.2 Root log and auth logs
 
 - **Establishment:** The first successful `publishCheckpoint` from the
-  bootstrap authority establishes `rootLogId` (the root authority log). No
+  first checkpoint signed by the bootstrap key establishes `rootLogId`. No
   separate “create authority” tx.
-- **Root log publishing:** **First checkpoint ever:** only the bootstrap
-  authority; self-inclusion (index 0; path length up to MAX_HEIGHT);
-  receipt signer must match bootstrap key. **Root extension (after
+- **Root log publishing:** **First checkpoint ever:** self-inclusion (index 0;
+  path length up to MAX_HEIGHT); receipt signer must match bootstrap key. **Root extension (after
   creation):** requires a **grant** (inclusion proof) in the root;
   `publishGrant.ownerLogId == rootLogId`; any sender with a valid grant may
   publish (permissionless).
@@ -134,7 +139,7 @@ satisfies those bounds relative to the current log size.
 
 | Event | Emitted when | Indexed / payload |
 |-------|--------------|-------------------|
-| **Initialized** | First checkpoint establishes root log. | bootstrapAuthority, rootLogId. |
+| **Initialized** | First checkpoint establishes root log. | rootLogId. |
 | **LogRegistered** | First checkpoint for a log (any log). | logId, registeredBy. |
 | **CheckpointPublished** | Every successful checkpoint. | logId, sender, payer; payload includes **logKind** (config.kind), size, accumulator, paymentIndex, paymentPath. |
 
@@ -154,7 +159,6 @@ reasonCode → encoding.
 
 | reasonCode | Error | Meaning |
 |------------|--------|--------|
-| 1 | OnlyBootstrapAuthority | Caller is not bootstrap but tried to perform first-checkpoint-ever (bootstrap-only) action. |
 | 2 | InvalidPaymentReceipt / InvalidReceiptInclusionProof | Grant or inclusion proof invalid. |
 | 3 | MinGrowthNotMet | New size − current size &lt; minGrowth. |
 | 4 | MaxHeightExceeded | size &gt; maxHeight (when maxHeight != 0). |

@@ -71,8 +71,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
         commitmentHarness = new ConsistencyCommitmentHarness();
 
         vm.prank(BOOTSTRAP);
-        univocity =
-            new Univocity(BOOTSTRAP, ALG_KS256, abi.encodePacked(ks256Signer));
+        univocity = new Univocity(ALG_KS256, abi.encodePacked(ks256Signer));
         // Authority log is established by first bootstrap publishCheckpoint in
         // tests that need it
     }
@@ -85,7 +84,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
     ///    commits to that leaf.
     function test_fullFlow_bootstrapInitializesAndPublishesAuthority() public {
         Univocity fresh =
-            new Univocity(BOOTSTRAP, ALG_KS256, abi.encodePacked(ks256Signer));
+            new Univocity(ALG_KS256, abi.encodePacked(ks256Signer));
         IUnivocity.PublishGrant memory g = _publishGrant(
             rootLogId,
             GRANT_ROOT,

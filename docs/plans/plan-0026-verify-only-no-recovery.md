@@ -71,7 +71,7 @@ stored root) and `config.initializedAt == 0` (first checkpoint):
   bootstrap key length from config). Require
   `_es256KeyMatchesBootstrap(rootX, rootY)` (rootX, rootY already from
   grantData and verified). Optionally keep a length check against
-  `getBootstrapKeyConfig()` and binary/keccak compare of grantData to
+  `bootstrapConfig()` and binary/keccak compare of grantData to
   bootstrapKey for consistency. Remove all branches on `(grant & GF_REQUIRE_SIGNER)`:
   always enforce that grantData is the bootstrap key for root.
 
