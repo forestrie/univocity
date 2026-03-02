@@ -6,6 +6,14 @@ import {Univocity} from "@univocity/contracts/Univocity.sol";
 import {ALG_KS256} from "@univocity/cosecbor/constants.sol";
 import {buildSigStructure} from "@univocity/cosecbor/cosecbor.sol";
 import {IUnivocity} from "@univocity/interfaces/IUnivocity.sol";
+import {
+    ConsistencyProof,
+    ConsistencyReceipt,
+    DelegationProof,
+    InclusionProof,
+    LogState,
+    PublishGrant
+} from "@univocity/interfaces/Types.sol";
 import {hashPosPair64} from "@univocity/algorithms/binUtils.sol";
 import {peaks} from "@univocity/algorithms/peaks.sol";
 
@@ -34,7 +42,7 @@ contract UnivocityHandler is Test {
     function initialize() external {
         if (initialized) return;
         bytes8 idts = bytes8(0);
-        IUnivocity.PublishGrant memory g = _publishGrant(
+        PublishGrant memory g = _publishGrant(
             rootLogId,
             GRANT_ROOT,
             GC_AUTH_LOG,
@@ -44,7 +52,7 @@ contract UnivocityHandler is Test {
             abi.encodePacked(ks256Signer)
         );
         _authorityLeaf0 = _leafCommitment(idts, g);
-        IUnivocity.ConsistencyReceipt memory consistency =
+        ConsistencyReceipt memory consistency =
             _buildConsistencyReceipt(_toAcc(_authorityLeaf0));
         univocity.publishCheckpoint(
             consistency, _emptyInclusionProof(), idts, g
@@ -52,10 +60,11 @@ contract UnivocityHandler is Test {
         initialized = true;
     }
 
-    function _leafCommitment(
-        bytes8 idtimestampBe,
-        IUnivocity.PublishGrant memory g
-    ) internal pure returns (bytes32) {
+    function _leafCommitment(bytes8 idtimestampBe, PublishGrant memory g)
+        internal
+        pure
+        returns (bytes32)
+    {
         bytes32 inner = sha256(
             abi.encodePacked(
                 g.logId,
@@ -86,8 +95,8 @@ contract UnivocityHandler is Test {
         uint64 minGrowth,
         bytes32 ownerLogId,
         bytes memory grantData
-    ) internal pure returns (IUnivocity.PublishGrant memory) {
-        return IUnivocity.PublishGrant({
+    ) internal pure returns (PublishGrant memory) {
+        return PublishGrant({
             logId: logId,
             grant: grant,
             request: request,
@@ -107,9 +116,9 @@ contract UnivocityHandler is Test {
     function _emptyDelegationProof()
         internal
         pure
-        returns (IUnivocity.DelegationProof memory)
+        returns (DelegationProof memory)
     {
-        return IUnivocity.DelegationProof({
+        return DelegationProof({
             delegationKey: "", mmrStart: 0, mmrEnd: 0, alg: 0, signature: ""
         });
     }
@@ -117,19 +126,18 @@ contract UnivocityHandler is Test {
     function _emptyInclusionProof()
         internal
         pure
-        returns (IUnivocity.InclusionProof memory)
+        returns (InclusionProof memory)
     {
-        return IUnivocity.InclusionProof({index: 0, path: new bytes32[](0)});
+        return InclusionProof({index: 0, path: new bytes32[](0)});
     }
 
     function _buildConsistencyReceipt(bytes32[] memory accMem)
         internal
         pure
-        returns (IUnivocity.ConsistencyReceipt memory)
+        returns (ConsistencyReceipt memory)
     {
-        IUnivocity.ConsistencyProof[] memory proofs =
-            new IUnivocity.ConsistencyProof[](1);
-        proofs[0] = IUnivocity.ConsistencyProof({
+        ConsistencyProof[] memory proofs = new ConsistencyProof[](1);
+        proofs[0] = ConsistencyProof({
             treeSize1: 0,
             treeSize2: 1,
             paths: new bytes32[][](0),
@@ -141,7 +149,7 @@ contract UnivocityHandler is Test {
             buildSigStructure(protected, abi.encodePacked(commitment));
         (uint8 v, bytes32 r, bytes32 s) =
             vm.sign(SIGNER_PK, keccak256(sigStruct));
-        return IUnivocity.ConsistencyReceipt({
+        return ConsistencyReceipt({
             protectedHeader: protected,
             signature: abi.encodePacked(r, s, v),
             consistencyProofs: proofs,
@@ -225,7 +233,7 @@ contract UnivocityHandler is Test {
         if (!initialized) return;
         vm.prank(bootstrap);
         bytes8 idts = bytes8(sizeSeed % 256);
-        IUnivocity.PublishGrant memory gAuth = _publishGrant(
+        PublishGrant memory gAuth = _publishGrant(
             rootLogId,
             GRANT_ROOT,
             GC_AUTH_LOG,
@@ -234,23 +242,23 @@ contract UnivocityHandler is Test {
             bytes32(0),
             abi.encodePacked(ks256Signer)
         );
-        IUnivocity.PublishGrant memory gLog =
+        PublishGrant memory gLog =
             _publishGrant(logId, GRANT_DATA, GC_DATA_LOG, 0, 0, rootLogId, "");
         bytes32 leaf1 = _leafCommitment(idts, gLog);
-        IUnivocity.ConsistencyReceipt memory consistency1to2 =
+        ConsistencyReceipt memory consistency1to2 =
             _buildConsistencyReceipt1To2(_authorityLeaf0, leaf1);
         univocity.publishCheckpoint(
             consistency1to2, _emptyInclusionProof(), bytes8(0), gAuth
         );
 
-        IUnivocity.LogState memory s = univocity.logState(rootLogId);
+        LogState memory s = univocity.logState(rootLogId);
         ghost_lastSize[rootLogId] = s.size;
     }
 
     function _buildConsistencyReceipt1To2(bytes32 leaf0, bytes32 leaf1)
         internal
         pure
-        returns (IUnivocity.ConsistencyReceipt memory)
+        returns (ConsistencyReceipt memory)
     {
         bytes32 parent = hashPosPair64(3, leaf0, leaf1);
         bytes32[] memory path0 = new bytes32[](1);
@@ -260,9 +268,8 @@ contract UnivocityHandler is Test {
         bytes32[] memory toAcc = new bytes32[](2);
         toAcc[0] = parent;
         toAcc[1] = leaf1;
-        IUnivocity.ConsistencyProof[] memory proofs =
-            new IUnivocity.ConsistencyProof[](1);
-        proofs[0] = IUnivocity.ConsistencyProof({
+        ConsistencyProof[] memory proofs = new ConsistencyProof[](1);
+        proofs[0] = ConsistencyProof({
             treeSize1: 1, treeSize2: 2, paths: paths, rightPeaks: toAcc
         });
         bytes memory protected = hex"a1013a00010106";
@@ -271,7 +278,7 @@ contract UnivocityHandler is Test {
             buildSigStructure(protected, abi.encodePacked(commitment));
         (uint8 v, bytes32 r, bytes32 s) =
             vm.sign(SIGNER_PK, keccak256(sigStruct));
-        return IUnivocity.ConsistencyReceipt({
+        return ConsistencyReceipt({
             protectedHeader: protected,
             signature: abi.encodePacked(r, s, v),
             consistencyProofs: proofs,
@@ -328,7 +335,7 @@ contract UnivocityInvariantTest is Test {
         for (uint256 i = 0; i < logIds.length; i++) {
             bytes32 id = logIds[i];
             if (!handler.univocity().isLogInitialized(id)) continue;
-            IUnivocity.LogState memory s = handler.univocity().logState(id);
+            LogState memory s = handler.univocity().logState(id);
             uint256 expectedPeaks =
                 s.size == 0 ? 0 : peaks(uint256(s.size) - 1).length;
             assertEq(

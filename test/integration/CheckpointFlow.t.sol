@@ -6,6 +6,13 @@ import {Univocity} from "@univocity/contracts/Univocity.sol";
 import {ALG_KS256} from "@univocity/cosecbor/constants.sol";
 import {buildSigStructure} from "@univocity/cosecbor/cosecbor.sol";
 import {IUnivocity} from "@univocity/interfaces/IUnivocity.sol";
+import {
+    ConsistencyProof,
+    ConsistencyReceipt,
+    DelegationProof,
+    InclusionProof,
+    PublishGrant
+} from "@univocity/interfaces/Types.sol";
 import {includedRoot} from "@univocity/algorithms/includedRoot.sol";
 import {IUnivocityEvents} from "@univocity/interfaces/IUnivocityEvents.sol";
 import {consistentRoots} from "@univocity/algorithms/consistentRoots.sol";
@@ -85,7 +92,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
     function test_fullFlow_bootstrapInitializesAndPublishesAuthority() public {
         Univocity fresh =
             new Univocity(ALG_KS256, abi.encodePacked(ks256Signer));
-        IUnivocity.PublishGrant memory g = _publishGrant(
+        PublishGrant memory g = _publishGrant(
             rootLogId,
             GRANT_ROOT,
             GC_AUTH_LOG,
@@ -95,7 +102,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
             abi.encodePacked(ks256Signer)
         );
         bytes32 leaf0 = _leafCommitment(IDTIMESTAMP_0, g);
-        IUnivocity.ConsistencyReceipt memory consistency =
+        ConsistencyReceipt memory consistency =
             _buildConsistencyReceipt(_toAcc(leaf0));
         fresh.publishCheckpoint(
             consistency, _emptyInclusionProof(), IDTIMESTAMP_0, g
@@ -106,10 +113,11 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
         assertEq(fresh.logState(rootLogId).size, 1);
     }
 
-    function _leafCommitment(
-        bytes8 idtimestampBe,
-        IUnivocity.PublishGrant memory g
-    ) internal pure returns (bytes32) {
+    function _leafCommitment(bytes8 idtimestampBe, PublishGrant memory g)
+        internal
+        pure
+        returns (bytes32)
+    {
         bytes32 inner = sha256(
             abi.encodePacked(
                 g.logId,
@@ -140,8 +148,8 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
         uint64 minGrowth,
         bytes32 ownerLogId,
         bytes memory grantData
-    ) internal pure returns (IUnivocity.PublishGrant memory) {
-        return IUnivocity.PublishGrant({
+    ) internal pure returns (PublishGrant memory) {
+        return PublishGrant({
             logId: logId,
             grant: grant,
             request: request,
@@ -161,9 +169,9 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
     function _emptyDelegationProof()
         internal
         pure
-        returns (IUnivocity.DelegationProof memory)
+        returns (DelegationProof memory)
     {
-        return IUnivocity.DelegationProof({
+        return DelegationProof({
             delegationKey: "", mmrStart: 0, mmrEnd: 0, alg: 0, signature: ""
         });
     }
@@ -171,27 +179,26 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
     function _emptyInclusionProof()
         internal
         pure
-        returns (IUnivocity.InclusionProof memory)
+        returns (InclusionProof memory)
     {
-        return IUnivocity.InclusionProof({index: 0, path: new bytes32[](0)});
+        return InclusionProof({index: 0, path: new bytes32[](0)});
     }
 
     function _buildPaymentInclusionProof(uint64 index, bytes32[] memory path)
         internal
         pure
-        returns (IUnivocity.InclusionProof memory)
+        returns (InclusionProof memory)
     {
-        return IUnivocity.InclusionProof({index: index, path: path});
+        return InclusionProof({index: index, path: path});
     }
 
     function _buildConsistencyReceipt(bytes32[] memory accMem)
         internal
         pure
-        returns (IUnivocity.ConsistencyReceipt memory)
+        returns (ConsistencyReceipt memory)
     {
-        IUnivocity.ConsistencyProof[] memory proofs =
-            new IUnivocity.ConsistencyProof[](1);
-        proofs[0] = IUnivocity.ConsistencyProof({
+        ConsistencyProof[] memory proofs = new ConsistencyProof[](1);
+        proofs[0] = ConsistencyProof({
             treeSize1: 0,
             treeSize2: 1,
             paths: new bytes32[][](0),
@@ -203,7 +210,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
             buildSigStructure(protected, abi.encodePacked(commitment));
         (uint8 v, bytes32 r, bytes32 s) =
             vm.sign(SIGNER_PK, keccak256(sigStruct));
-        return IUnivocity.ConsistencyReceipt({
+        return ConsistencyReceipt({
             protectedHeader: protected,
             signature: abi.encodePacked(r, s, v),
             consistencyProofs: proofs,
@@ -213,7 +220,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
 
     function _buildConsistencyReceipt1To2(bytes32 leaf0, bytes32 leaf1)
         internal
-        returns (IUnivocity.ConsistencyReceipt memory)
+        returns (ConsistencyReceipt memory)
     {
         bytes32[] memory path0 = new bytes32[](1);
         path0[0] = leaf1;
@@ -226,9 +233,8 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
         commitmentHarness.setAccumulator(accFrom);
         bytes32 commitment =
             commitmentHarness.getCommitment(0, paths, rightPeaksOnly);
-        IUnivocity.ConsistencyProof[] memory proofs =
-            new IUnivocity.ConsistencyProof[](1);
-        proofs[0] = IUnivocity.ConsistencyProof({
+        ConsistencyProof[] memory proofs = new ConsistencyProof[](1);
+        proofs[0] = ConsistencyProof({
             treeSize1: 1,
             treeSize2: 2,
             paths: paths,
@@ -239,7 +245,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
             buildSigStructure(protected, abi.encodePacked(commitment));
         (uint8 v, bytes32 r, bytes32 s) =
             vm.sign(SIGNER_PK, keccak256(sigStruct));
-        return IUnivocity.ConsistencyReceipt({
+        return ConsistencyReceipt({
             protectedHeader: protected,
             signature: abi.encodePacked(r, s, v),
             consistencyProofs: proofs,
@@ -391,7 +397,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
     }
 
     function test_fullFlow_userCheckpointsWithReceipt() public {
-        IUnivocity.PublishGrant memory g0 = _publishGrant(
+        PublishGrant memory g0 = _publishGrant(
             rootLogId,
             GRANT_ROOT,
             GC_AUTH_LOG,
@@ -408,7 +414,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
             g0
         );
 
-        IUnivocity.PublishGrant memory gTarget = _publishGrant(
+        PublishGrant memory gTarget = _publishGrant(
             TARGET_LOG,
             GRANT_DATA,
             GC_DATA_LOG,
@@ -418,7 +424,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
             abi.encodePacked(ks256Signer)
         );
         bytes32 targetLeaf = _leafCommitment(IDTIMESTAMP_1, gTarget);
-        IUnivocity.ConsistencyReceipt memory consistency1 =
+        ConsistencyReceipt memory consistency1 =
             _buildConsistencyReceipt1To2(authLeaf0, targetLeaf);
         vm.prank(BOOTSTRAP);
         univocity.publishCheckpoint(
@@ -439,7 +445,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
     }
 
     function test_fullFlow_sameReceiptDifferentSubmitters() public {
-        IUnivocity.PublishGrant memory g0 = _publishGrant(
+        PublishGrant memory g0 = _publishGrant(
             rootLogId,
             GRANT_ROOT,
             GC_AUTH_LOG,
@@ -456,7 +462,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
             g0
         );
 
-        IUnivocity.PublishGrant memory gTarget = _publishGrant(
+        PublishGrant memory gTarget = _publishGrant(
             TARGET_LOG,
             GRANT_DATA,
             GC_DATA_LOG,
@@ -466,7 +472,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
             abi.encodePacked(ks256Signer)
         );
         bytes32 targetLeaf = _leafCommitment(IDTIMESTAMP_1, gTarget);
-        IUnivocity.ConsistencyReceipt memory consistency1 =
+        ConsistencyReceipt memory consistency1 =
             _buildConsistencyReceipt1To2(authLeaf0, targetLeaf);
         vm.prank(BOOTSTRAP);
         univocity.publishCheckpoint(
@@ -486,7 +492,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
 
         bytes32 leaf2 =
             0xcd2662154e6d76b2b2b92e70c0cac3ccf534f9b74eb5b89819ec509083d00a50;
-        IUnivocity.ConsistencyReceipt memory consistency1to2 =
+        ConsistencyReceipt memory consistency1to2 =
             _buildConsistencyReceipt1To2(peak1, leaf2);
         vm.prank(address(0xB0b));
         univocity.publishCheckpoint(
@@ -503,7 +509,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
         bytes32 leaf0,
         bytes32 leaf1,
         bytes32 leaf2
-    ) internal returns (IUnivocity.ConsistencyReceipt memory) {
+    ) internal returns (ConsistencyReceipt memory) {
         bytes32[] memory path0 = _path2(leaf1, leaf2);
         bytes32[][] memory paths = new bytes32[][](1);
         paths[0] = path0;
@@ -513,9 +519,8 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
         bytes32[] memory emptyRightPeaks = new bytes32[](0);
         bytes32 commitment =
             commitmentHarness.getCommitment(0, paths, emptyRightPeaks);
-        IUnivocity.ConsistencyProof[] memory proofs =
-            new IUnivocity.ConsistencyProof[](1);
-        proofs[0] = IUnivocity.ConsistencyProof({
+        ConsistencyProof[] memory proofs = new ConsistencyProof[](1);
+        proofs[0] = ConsistencyProof({
             treeSize1: 1,
             treeSize2: 3,
             paths: paths,
@@ -526,7 +531,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
             buildSigStructure(protected, abi.encodePacked(commitment));
         (uint8 v, bytes32 r, bytes32 s) =
             vm.sign(SIGNER_PK, keccak256(sigStruct));
-        return IUnivocity.ConsistencyReceipt({
+        return ConsistencyReceipt({
             protectedHeader: protected,
             signature: abi.encodePacked(r, s, v),
             consistencyProofs: proofs,

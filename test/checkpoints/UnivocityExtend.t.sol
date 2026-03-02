@@ -7,6 +7,10 @@ pragma solidity ^0.8.24;
 import "./UnivocityTestHelper.sol";
 import {Univocity} from "@univocity/contracts/Univocity.sol";
 import {IUnivocity} from "@univocity/interfaces/IUnivocity.sol";
+import {
+    ConsistencyReceipt,
+    PublishGrant
+} from "@univocity/interfaces/Types.sol";
 import {IUnivocityErrors} from "@univocity/interfaces/IUnivocityErrors.sol";
 
 contract UnivocityExtendTest is UnivocityTestHelper {
@@ -19,7 +23,7 @@ contract UnivocityExtendTest is UnivocityTestHelper {
     function test_firstCheckpoint_sizeTwo_succeeds() public {
         Univocity fresh =
             new Univocity(ALG_KS256, abi.encodePacked(KS256_SIGNER));
-        IUnivocity.PublishGrant memory g0 = _publishGrant(
+        PublishGrant memory g0 = _publishGrant(
             AUTHORITY_LOG_ID,
             GRANT_ROOT,
             GC_AUTH_LOG,
@@ -29,12 +33,12 @@ contract UnivocityExtendTest is UnivocityTestHelper {
             abi.encodePacked(KS256_SIGNER)
         );
         bytes32 leaf0 = _leafCommitment(IDTIMESTAMP_AUTH, g0);
-        IUnivocity.ConsistencyReceipt memory consistency0 =
+        ConsistencyReceipt memory consistency0 =
             _buildConsistencyReceipt(_toAcc(leaf0));
         fresh.publishCheckpoint(
             consistency0, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g0
         );
-        IUnivocity.PublishGrant memory g1 = _publishGrant(
+        PublishGrant memory g1 = _publishGrant(
             TEST_LOG_ID,
             GRANT_DATA,
             GC_DATA_LOG,
@@ -44,7 +48,7 @@ contract UnivocityExtendTest is UnivocityTestHelper {
             abi.encodePacked(KS256_SIGNER)
         );
         bytes32 leaf1 = _leafCommitment(IDTIMESTAMP_TEST, g1);
-        IUnivocity.ConsistencyReceipt memory consistency1 =
+        ConsistencyReceipt memory consistency1 =
             _buildConsistencyReceipt1To2(leaf0, leaf1);
         fresh.publishCheckpoint(
             consistency1, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g0
@@ -59,11 +63,10 @@ contract UnivocityExtendTest is UnivocityTestHelper {
     function test_publishCheckpoint_authorityLogSecondCheckpoint_requiresInclusionProof()
         public
     {
-        IUnivocity.ConsistencyReceipt memory consistency2 =
-            _buildConsistencyReceipt2To3(
-                authorityLeaf0, authorityLeaf1, keccak256("extra")
-            );
-        IUnivocity.PublishGrant memory g = _publishGrant(
+        ConsistencyReceipt memory consistency2 = _buildConsistencyReceipt2To3(
+            authorityLeaf0, authorityLeaf1, keccak256("extra")
+        );
+        PublishGrant memory g = _publishGrant(
             AUTHORITY_LOG_ID,
             GRANT_ROOT,
             GC_AUTH_LOG,
@@ -86,11 +89,11 @@ contract UnivocityExtendTest is UnivocityTestHelper {
     function test_publishCheckpoint_bootstrapCanPublishToAuthorityLog()
         public
     {
-        IUnivocity.ConsistencyReceipt memory consistency2 =
+        ConsistencyReceipt memory consistency2 =
             _buildConsistencyReceipt2To3(
                 authorityLeaf0, authorityLeaf1, keccak256("third")
             );
-        IUnivocity.PublishGrant memory g = _publishGrant(
+        PublishGrant memory g = _publishGrant(
             AUTHORITY_LOG_ID,
             GRANT_ROOT,
             GC_AUTH_LOG,
@@ -129,12 +132,11 @@ contract UnivocityExtendTest is UnivocityTestHelper {
         uint256 sizeBefore = univocity.logState(TEST_LOG_ID).size;
         assertEq(sizeBefore, 1);
 
-        IUnivocity.ConsistencyReceipt memory consistency1to3 =
-            _buildConsistencyReceipt1To3(
-                keccak256("peak1"), authorityLeaf1, keccak256("leaf2")
-            );
+        ConsistencyReceipt memory consistency1to3 = _buildConsistencyReceipt1To3(
+            keccak256("peak1"), authorityLeaf1, keccak256("leaf2")
+        );
         bytes32[] memory pathInvalid = _path1(authorityLeaf0);
-        IUnivocity.PublishGrant memory invalidGrant = _publishGrant(
+        PublishGrant memory invalidGrant = _publishGrant(
             TEST_LOG_ID, GRANT_DATA, GC_DATA_LOG, 1, 0, AUTHORITY_LOG_ID, ""
         );
         vm.expectRevert(
@@ -165,7 +167,7 @@ contract UnivocityExtendTest is UnivocityTestHelper {
         bytes32 logId = keccak256("multi-idts");
         bytes8 idt0 = bytes8(0);
         bytes8 idt1 = bytes8(uint64(1));
-        IUnivocity.PublishGrant memory g0 = _publishGrant(
+        PublishGrant memory g0 = _publishGrant(
             AUTHORITY_LOG_ID,
             GRANT_ROOT,
             GC_AUTH_LOG,
@@ -175,12 +177,12 @@ contract UnivocityExtendTest is UnivocityTestHelper {
             abi.encodePacked(KS256_SIGNER)
         );
         bytes32 leaf0 = _leafCommitment(idt0, g0);
-        IUnivocity.ConsistencyReceipt memory consistency0 =
+        ConsistencyReceipt memory consistency0 =
             _buildConsistencyReceipt(_toAcc(leaf0));
         fresh.publishCheckpoint(consistency0, _emptyInclusionProof(), idt0, g0);
         assertEq(fresh.rootLogId(), AUTHORITY_LOG_ID);
 
-        IUnivocity.PublishGrant memory g1 = _publishGrant(
+        PublishGrant memory g1 = _publishGrant(
             logId,
             GRANT_DATA,
             GC_DATA_LOG,
@@ -190,11 +192,11 @@ contract UnivocityExtendTest is UnivocityTestHelper {
             abi.encodePacked(KS256_SIGNER)
         );
         bytes32 leaf1 = _leafCommitment(idt1, g1);
-        IUnivocity.ConsistencyReceipt memory consistency1 =
+        ConsistencyReceipt memory consistency1 =
             _buildConsistencyReceipt1To2(leaf0, leaf1);
         fresh.publishCheckpoint(consistency1, _emptyInclusionProof(), idt0, g0);
 
-        IUnivocity.PublishGrant memory gTarget = _publishGrant(
+        PublishGrant memory gTarget = _publishGrant(
             logId,
             GRANT_DATA,
             GC_DATA_LOG,
