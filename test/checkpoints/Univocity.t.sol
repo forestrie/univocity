@@ -124,9 +124,9 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
     }
 
     /// @notice Phase D.1: First bootstrap sets kind=Authority, authLogId=self (ADR-0004).
-    function test_getLogConfig_bootstrapSetsAuthorityKind() public view {
+    function test_logConfig_bootstrapSetsAuthorityKind() public view {
         IUnivocity.LogConfig memory config =
-            univocity.getLogConfig(AUTHORITY_LOG_ID);
+            univocity.logConfig(AUTHORITY_LOG_ID);
         assertEq(uint8(config.kind), uint8(IUnivocity.LogKind.Authority));
         assertEq(config.authLogId, AUTHORITY_LOG_ID); // root's parent is self
         assertGt(config.initializedAt, 0);
@@ -189,10 +189,10 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
             gChild
         );
 
-        IUnivocity.LogConfig memory config = fresh.getLogConfig(childId);
+        IUnivocity.LogConfig memory config = fresh.logConfig(childId);
         assertEq(uint8(config.kind), uint8(IUnivocity.LogKind.Authority));
         assertEq(config.authLogId, AUTHORITY_LOG_ID);
-        assertEq(fresh.getLogState(childId).size, 1);
+        assertEq(fresh.logState(childId).size, 1);
     }
 
     function test_firstPublish_emitsInitialized() public {
@@ -362,7 +362,7 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
             consistency, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g
         );
         bytes32[] memory stored =
-        fresh.getLogState(AUTHORITY_LOG_ID).accumulator;
+        fresh.logState(AUTHORITY_LOG_ID).accumulator;
         assertEq(stored.length, 1);
         assertEq(stored[0], expectedLeaf);
     }
@@ -565,7 +565,7 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
             IDTIMESTAMP_AUTH,
             g
         );
-        assertEq(univocity.getLogState(AUTHORITY_LOG_ID).size, 3);
+        assertEq(univocity.logState(AUTHORITY_LOG_ID).size, 3);
     }
 
     function test_publishCheckpoint_nonBootstrapNeedsReceipt() public {

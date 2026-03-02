@@ -20,7 +20,7 @@ pragma solidity ^0.8.24;
 ///   - UnivocityConsistencyProof.t.sol: consistency proof chain, invalid proof.
 ///   - UnivocityBounds.t.sol: maxHeight, minGrowth, grant exhausted.
 ///   - UnivocityDelegation.t.sol: ES256, delegation, algorithm mismatch.
-///   - UnivocityStateAndEvents.t.sol: getLogState, events, isLogInitialized.
+///   - UnivocityStateAndEvents.t.sol: logState, events, isLogInitialized.
 ///   - UnivocityMisc.t.sol: error coverage matrix, idtimestamp, etc.
 
 import {Test} from "forge-std/Test.sol";

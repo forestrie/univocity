@@ -184,7 +184,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
     // === View Functions ===
 
     /// @notice Returns the mutable state of a log (accumulator, size).
-    function getLogState(bytes32 logId)
+    function logState(bytes32 logId)
         external
         view
         returns (LogState memory)
@@ -193,7 +193,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
     }
 
     /// @notice Returns the immutable config of a log (kind, authLogId, rootKey, initializedAt).
-    function getLogConfig(bytes32 logId)
+    function logConfig(bytes32 logId)
         external
         view
         returns (IUnivocity.LogConfig memory)
@@ -203,23 +203,12 @@ contract Univocity is IUnivocity, IUnivocityErrors {
 
     /// @notice Returns the per-log root public key for delegation (ADR-0032).
     ///    ES256 only: 64-byte rootKey decoded to (x, y).
-    function getLogRootKey(bytes32 logId)
+    function logRootKey(bytes32 logId)
         external
         view
         returns (bytes32 rootKeyX, bytes32 rootKeyY)
     {
         return _decodeLogRootKeyES256(logId);
-    }
-
-    /// @notice Set the root public key for a log (bootstrap only). Plan 0016:
-    ///    root is never derived from a delegation cert. P-256 only: 64 bytes.
-    /// @param logId The 32-byte log identifier.
-    /// @param rootKey Opaque key; must be 64 bytes (P-256 x || y).
-    function setLogRoot(bytes32 logId, bytes calldata rootKey) internal {
-        if (rootKey.length != 64) {
-            revert InvalidRootKeyLength(rootKey.length);
-        }
-        _logConfigs[logId].rootKey = rootKey;
     }
 
     /// @notice Returns whether a log has received at least one checkpoint.

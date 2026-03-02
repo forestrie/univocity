@@ -155,7 +155,7 @@ contract UnivocityBoundsTest is UnivocityTestHelper {
         _publishFirstToTestLog(
             univocity, keccak256("peak1"), authorityLeaf0, grantTestLog
         );
-        assertEq(univocity.getLogState(TEST_LOG_ID).size, 1);
+        assertEq(univocity.logState(TEST_LOG_ID).size, 1);
 
         IUnivocity.ConsistencyReceipt memory consistency1to2 =
             _buildConsistencyReceipt1To2(
@@ -236,7 +236,7 @@ contract UnivocityBoundsTest is UnivocityTestHelper {
         fresh.publishCheckpoint(
             receipt1, _buildPaymentInclusionProof(1, path), IDTIMESTAMP_TEST, g
         );
-        assertEq(fresh.getLogState(TEST_LOG_ID).size, 1);
+        assertEq(fresh.logState(TEST_LOG_ID).size, 1);
 
         IUnivocity.ConsistencyReceipt memory consistency1to2Data =
             _buildConsistencyReceipt1To2(peak1, leaf2);
@@ -246,7 +246,7 @@ contract UnivocityBoundsTest is UnivocityTestHelper {
             IDTIMESTAMP_TEST,
             g
         );
-        assertEq(fresh.getLogState(TEST_LOG_ID).size, 2);
+        assertEq(fresh.logState(TEST_LOG_ID).size, 2);
 
         IUnivocity.ConsistencyReceipt memory consistency2to3 =
             _buildConsistencyReceipt2To3(peak1, leaf2, leaf3);
@@ -263,6 +263,6 @@ contract UnivocityBoundsTest is UnivocityTestHelper {
             IDTIMESTAMP_TEST,
             g
         );
-        assertEq(fresh.getLogState(TEST_LOG_ID).size, 2);
+        assertEq(fresh.logState(TEST_LOG_ID).size, 2);
     }
 }
