@@ -10,9 +10,12 @@ interface IUnivocityEvents {
         address indexed bootstrapAuthority, bytes32 indexed rootLogId
     );
 
-    /// @notice New log registered (first checkpoint)
+    /// @notice New log registered (first checkpoint). Same indexed fields as
+    ///    first three of CheckpointPublished (rootKey as keccak256(rootKey)).
     event LogRegistered(
-        bytes32 indexed logId, address indexed registeredBy, uint64 initialSize
+        bytes32 indexed logId,
+        bytes32 indexed grantLogId,
+        bytes indexed rootKey
     );
 
     /// @notice Checkpoint published (all logs including root/auth logs).

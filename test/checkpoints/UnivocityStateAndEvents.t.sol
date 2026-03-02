@@ -37,6 +37,10 @@ contract UnivocityStateAndEventsTest is UnivocityTestHelper, IUnivocityEvents {
     }
 
     function test_publishCheckpoint_emitsLogRegistered() public {
+        vm.expectEmit(true, true, true, false);
+        emit LogRegistered(
+            TEST_LOG_ID, AUTHORITY_LOG_ID, abi.encodePacked(KS256_SIGNER)
+        );
         _publishFirstToTestLog(
             univocity, keccak256("peak1"), authorityLeaf0, grantTestLog
         );
