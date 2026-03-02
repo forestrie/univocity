@@ -32,7 +32,7 @@ P256 (ES256), WitnetBuffer (Trail of Bits audited), native ecrecover (KS256).
 | Location | Purpose |
 |----------|---------|
 | `src/contracts/Univocity.sol` | Main contract; `_logs`, `publishCheckpoint`, `_updateLogState`. |
-| `src/checkpoints/interfaces/IUnivocity.sol` | `LogState` struct, `publishCheckpoint` signature; extend with root key and new param. |
+| `src/interfaces/IUnivocity.sol` | `LogState` struct, `publishCheckpoint` signature; extend with root key and new param. |
 | `src/cose/lib/LibCose.sol` | `decodeCoseSign1`, `CoseSign1`, `_skipValue`, `buildSigStructure`, ES256 verify. |
 | `src/cbor/lib/LibCbor.sol` | CBOR parsing, `_skipValue`; use for delegation/checkpoint payload decode. |
 | `src/checkpoints/lib/LibAuthorityVerifier.sol` | Receipt verification; reference for COSE decode usage. |
@@ -683,7 +683,7 @@ keep existing behaviour for receipt and MMR.
 
 5.1. **Interface and errors**  
      - Add `bytes calldata checkpointCoseSign1` to `IUnivocity
-       .publishCheckpoint` (see `src/checkpoints/interfaces/IUnivocity.sol`).  
+       .publishCheckpoint` (see `src/interfaces/IUnivocity.sol`).  
      - Add new errors (e.g. in `IUnivocityErrors` or Univocity.sol) so that
        agents and tests can rely on exact revert reasons:  
        `InvalidCheckpointCose`, `MissingDelegationCert`,
@@ -1076,12 +1076,12 @@ divergences; and assesses test coverage.
   checkpoint payload (log_id, massif_id, mmr_size, mmr_root, mmr_index). |
 | **Plan 0014** | Consistency receipt as single COSE parameter; calldata. |
 | **Plan 0015** | publishCheckpoint API: payment receipt as Receipt of
-  Inclusion; PaymentGrant; leaf commitment formula. |
+  Inclusion; PublishGrant; leaf commitment formula. |
 
 ### B.2 Implemented behaviour (summary)
 
 **API (plan 0015):** `publishCheckpoint(consistencyReceipt, paymentReceipt,
-paymentIDTimestampBe, paymentGrant)` is implemented. There is **no** separate
+paymentIDTimestampBe, publishGrant)` is implemented. There is **no** separate
 `checkpointCoseSign1` parameter. The consistency receipt carries optional
 delegation cert bytes in unprotected label 1000.
 
@@ -1182,7 +1182,7 @@ form.
   bounds are size-based only.)
 - **Payment receipt as RoI:** Implemented via LibInclusionReceipt; authority
   log accumulator and size used for inclusion check.
-- **PaymentGrant struct and bounds:** Implemented; maxHeight, minGrowth
+- **PublishGrant struct and bounds:** Implemented; maxHeight, minGrowth
   (size-based bounds only).
 
 ### B.5 Test coverage assessment

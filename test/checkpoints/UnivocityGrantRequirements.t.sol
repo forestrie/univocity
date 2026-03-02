@@ -6,10 +6,8 @@ pragma solidity ^0.8.24;
 
 import "./UnivocityTestHelper.sol";
 import {Univocity} from "@univocity/contracts/Univocity.sol";
-import {IUnivocity} from "@univocity/checkpoints/interfaces/IUnivocity.sol";
-import {
-    IUnivocityErrors
-} from "@univocity/checkpoints/interfaces/IUnivocityErrors.sol";
+import {IUnivocity} from "@univocity/interfaces/IUnivocity.sol";
+import {IUnivocityErrors} from "@univocity/interfaces/IUnivocityErrors.sol";
 
 contract UnivocityGrantRequirementsTest is UnivocityTestHelper {
     function setUp() public override {
@@ -24,9 +22,8 @@ contract UnivocityGrantRequirementsTest is UnivocityTestHelper {
         Univocity fresh = new Univocity(
             BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
         );
-        IUnivocity.PaymentGrant memory g = _paymentGrant(
+        IUnivocity.PublishGrant memory g = _publishGrant(
             AUTHORITY_LOG_ID,
-            KS256_SIGNER,
             GF_EXTEND,
             0,
             0,
@@ -57,15 +54,8 @@ contract UnivocityGrantRequirementsTest is UnivocityTestHelper {
         Univocity fresh = new Univocity(
             BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
         );
-        IUnivocity.PaymentGrant memory g = _paymentGrant(
-            AUTHORITY_LOG_ID,
-            KS256_SIGNER,
-            GF_CREATE | GF_AUTH,
-            0,
-            0,
-            0,
-            bytes32(0),
-            ""
+        IUnivocity.PublishGrant memory g = _publishGrant(
+            AUTHORITY_LOG_ID, GF_CREATE | GF_AUTH, 0, 0, 0, bytes32(0), ""
         );
         bytes32 leaf0 = _leafCommitment(IDTIMESTAMP_AUTH, g);
         IUnivocity.ConsistencyReceipt memory consistency =
@@ -88,9 +78,8 @@ contract UnivocityGrantRequirementsTest is UnivocityTestHelper {
         Univocity fresh = new Univocity(
             BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
         );
-        IUnivocity.PaymentGrant memory g = _paymentGrant(
+        IUnivocity.PublishGrant memory g = _publishGrant(
             AUTHORITY_LOG_ID,
-            KS256_SIGNER,
             GF_CREATE | GF_DATA,
             GC_DATA_LOG,
             0,
@@ -119,9 +108,8 @@ contract UnivocityGrantRequirementsTest is UnivocityTestHelper {
         Univocity fresh = new Univocity(
             BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
         );
-        IUnivocity.PaymentGrant memory g0 = _paymentGrant(
+        IUnivocity.PublishGrant memory g0 = _publishGrant(
             AUTHORITY_LOG_ID,
-            KS256_SIGNER,
             GRANT_ROOT,
             GC_AUTH_LOG,
             0,
@@ -132,15 +120,8 @@ contract UnivocityGrantRequirementsTest is UnivocityTestHelper {
         bytes32 leaf0 = _leafCommitment(IDTIMESTAMP_AUTH, g0);
         bytes32 leaf1 = _leafCommitment(
             IDTIMESTAMP_AUTH,
-            _paymentGrant(
-                AUTHORITY_LOG_ID,
-                KS256_SIGNER,
-                GRANT_ROOT,
-                GC_AUTH_LOG,
-                0,
-                0,
-                bytes32(0),
-                ""
+            _publishGrant(
+                AUTHORITY_LOG_ID, GRANT_ROOT, GC_AUTH_LOG, 0, 0, bytes32(0), ""
             )
         );
         IUnivocity.ConsistencyReceipt memory consistency0 =
@@ -154,9 +135,8 @@ contract UnivocityGrantRequirementsTest is UnivocityTestHelper {
         bytes32 leaf2 = keccak256("third");
         IUnivocity.ConsistencyReceipt memory consistency1 =
             _buildConsistencyReceipt2To3(leaf0, leaf1, leaf2);
-        IUnivocity.PaymentGrant memory gWrong = _paymentGrant(
+        IUnivocity.PublishGrant memory gWrong = _publishGrant(
             AUTHORITY_LOG_ID,
-            KS256_SIGNER,
             GF_CREATE | GF_AUTH,
             GC_AUTH_LOG,
             0,
@@ -185,9 +165,8 @@ contract UnivocityGrantRequirementsTest is UnivocityTestHelper {
     ///    must be signer key so signature verification runs before grant check.
     function test_newLogGrant_GF_CREATE_required_reverts() public {
         bytes32 newLogId = keccak256("new-data-log");
-        IUnivocity.PaymentGrant memory gNoCreate = _paymentGrant(
+        IUnivocity.PublishGrant memory gNoCreate = _publishGrant(
             newLogId,
-            KS256_SIGNER,
             GF_EXTEND | GF_DATA,
             GC_DATA_LOG,
             0,
@@ -219,9 +198,8 @@ contract UnivocityGrantRequirementsTest is UnivocityTestHelper {
         Univocity fresh = new Univocity(
             BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
         );
-        IUnivocity.PaymentGrant memory g0 = _paymentGrant(
+        IUnivocity.PublishGrant memory g0 = _publishGrant(
             AUTHORITY_LOG_ID,
-            KS256_SIGNER,
             GRANT_ROOT,
             GC_AUTH_LOG,
             0,
@@ -238,9 +216,8 @@ contract UnivocityGrantRequirementsTest is UnivocityTestHelper {
         bytes32 leaf1 = keccak256("second");
         IUnivocity.ConsistencyReceipt memory consistency1 =
             _buildConsistencyReceipt1To2(leaf0, leaf1);
-        IUnivocity.PaymentGrant memory gNoExtend = _paymentGrant(
+        IUnivocity.PublishGrant memory gNoExtend = _publishGrant(
             AUTHORITY_LOG_ID,
-            KS256_SIGNER,
             GF_CREATE | GF_AUTH,
             GC_AUTH_LOG,
             0,

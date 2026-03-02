@@ -21,10 +21,10 @@ Trillian-style).
 | Rule | Spec | Implementation | Match |
 |------|------|----------------|-------|
 | **1. RootKey** | Established at first checkpoint (direct or recovered from delegation). | `_verifyCheckpointSignature` → ES256/KS256 paths; root key from recovery or bootstrap; stored in `_updateLogState` when `rootKeyToSet.length == 64 or 20`. Root's first: ES256 path requires recovered signer == bootstrap key (`RootSignerMustMatchBootstrap`). | Yes. |
-| **2. Grant** | Inclusion proof against owner (authLogId). | `_verifyInclusionGrant`: for non-root, `resolvedAuthLogId = config.initializedAt == 0 ? paymentGrant.ownerLogId : config.authLogId`; `verifyInclusion` against `_logs[resolvedAuthLogId]`. Root extension: inclusion against root (self). | Yes. |
+| **2. Grant** | Inclusion proof against owner (authLogId). | `_verifyInclusionGrant`: for non-root, `resolvedAuthLogId = config.initializedAt == 0 ? publishGrant.ownerLogId : config.authLogId`; `verifyInclusion` against `_logs[resolvedAuthLogId]`. Root extension: inclusion against root (self). | Yes. |
 | **3. First checkpoint** | Establishes kind and authLogId. | `_updateLogState`: when `isNewLog`, set `config.kind` (Authority for root or createAsAuthority; else Data), `config.authLogId` (logId for root; authorityLogIdUsed for others). | Yes. |
 | **4. Bootstrap** | First checkpoint ever only; self-inclusion (index 0; path up to MAX_HEIGHT); receipt signer == bootstrap key. | Root branch when `rootLogId == bytes32(0)`: index must be 0, path.length ≤ MAX_HEIGHT, self-inclusion verified; ES256 enforces recovered signer == bootstrap key. No `msg.sender` check for publishCheckpoint. | Yes. |
-| **5. Log creation** | ownerLogId in grant for first checkpoint to new log. | `PaymentGrant.ownerLogId`; when `config.initializedAt == 0` and non-root, `resolvedAuthLogId = paymentGrant.ownerLogId`; revert if `ownerLogId == 0`. Leaf commitment includes ownerLogId, createAsAuthority. | Yes. |
+| **5. Log creation** | ownerLogId in grant for first checkpoint to new log. | `PublishGrant.ownerLogId`; when `config.initializedAt == 0` and non-root, `resolvedAuthLogId = publishGrant.ownerLogId`; revert if `ownerLogId == 0`. Leaf commitment includes ownerLogId, createAsAuthority. | Yes. |
 
 ### 1.2 Plan-0021 Phase 0 (data structures and routing)
 
@@ -35,13 +35,13 @@ Trillian-style).
 | **C.1–C.3** | Compute authority for inclusion; use for verification and _updateLogState. | `authForInclusion = _verifyInclusionGrant(…)`; used as `authorityLogIdUsed` in _updateLogState. Inclusion verified against `_logs[resolvedAuthLogId]`. | Yes. |
 | **D.1** | After bootstrap: kind==Authority, authLogId==rootLogId (self). | Code sets `config.authLogId = logId` for root (self). Plan D.1 table said "authLogId == 0" but ARC and code use authLogId = self (rootLogId). | Doc typo in plan D.1 (should be rootLogId, not 0). |
 | **D.2–D.4** | Data log config; subsequent checkpoint; getLogConfig/getLogState. | Implemented and covered by tests (e.g. test_hierarchy_createChildAuthority_setsConfig, data log creation). | Yes. |
-| **Phase E** | Remove checkpointCount; bounds via size only (maxHeight, minGrowth). | No checkpointCount in LogState or events. `_checkPaymentGrantBoundsMaxHeight`, minGrowth check only. | Yes. |
-| **Phase F** | ownerLogId, createAsAuthority; create child authority; extend child; data under child. | PaymentGrant has ownerLogId, createAsAuthority. First checkpoint to new log with createAsAuthority sets kind=Authority, authLogId=ownerLogId. Extend child: resolvedAuthLogId = config.authLogId (parent); no special bootstrap check. test_hierarchy_createChildAuthority_setsConfig covers create child and extend child. | Yes (Phase F implemented). |
+| **Phase E** | Remove checkpointCount; bounds via size only (maxHeight, minGrowth). | No checkpointCount in LogState or events. `_checkPublishGrantBoundsMaxHeight`, minGrowth check only. | Yes. |
+| **Phase F** | ownerLogId, createAsAuthority; create child authority; extend child; data under child. | PublishGrant has ownerLogId, createAsAuthority. First checkpoint to new log with createAsAuthority sets kind=Authority, authLogId=ownerLogId. Extend child: resolvedAuthLogId = config.authLogId (parent); no special bootstrap check. test_hierarchy_createChildAuthority_setsConfig covers create child and extend child. | Yes (Phase F implemented). |
 
 ### 1.3 Plan-0013 (delegation) and Plan-0016 (pre-decode API)
 
 - **Delegation (ES256):** Root from first checkpoint (recovery or bootstrap); delegation proof verified; delegate signs receipt. Implemented in `_checkpointSignersES256`, `delegationVerifier.sol`. KS256: no delegation.
-- **Pre-decoded API:** ConsistencyReceipt, InclusionProof, PaymentGrant as in plan-0016; no COSE/CBOR decode on-chain for receipt or payment. Implemented.
+- **Pre-decoded API:** ConsistencyReceipt, InclusionProof, PublishGrant as in plan-0016; no COSE/CBOR decode on-chain for receipt or payment. Implemented.
 
 ---
 

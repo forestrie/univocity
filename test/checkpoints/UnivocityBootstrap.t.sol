@@ -7,7 +7,7 @@ pragma solidity ^0.8.24;
 
 import "./UnivocityTestHelper.sol";
 import {Univocity} from "@univocity/contracts/Univocity.sol";
-import {IUnivocity} from "@univocity/checkpoints/interfaces/IUnivocity.sol";
+import {IUnivocity} from "@univocity/interfaces/IUnivocity.sol";
 
 contract UnivocityBootstrapTest is UnivocityTestHelper {
     function setUp() public override {
@@ -24,9 +24,8 @@ contract UnivocityBootstrapTest is UnivocityTestHelper {
     }
 
     function test_bootstrap_firstCheckpoint_revertsIfSizeZero() public {
-        IUnivocity.PaymentGrant memory g = _paymentGrant(
+        IUnivocity.PublishGrant memory g = _publishGrant(
             AUTHORITY_LOG_ID,
-            KS256_SIGNER,
             GRANT_ROOT,
             GC_AUTH_LOG,
             0,
@@ -48,9 +47,8 @@ contract UnivocityBootstrapTest is UnivocityTestHelper {
     }
 
     function test_bootstrap_firstCheckpoint_correctGrant_succeeds() public {
-        IUnivocity.PaymentGrant memory g = _paymentGrant(
+        IUnivocity.PublishGrant memory g = _publishGrant(
             AUTHORITY_LOG_ID,
-            KS256_SIGNER,
             GRANT_ROOT,
             GC_AUTH_LOG,
             0,

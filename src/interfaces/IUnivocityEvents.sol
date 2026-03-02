@@ -17,17 +17,19 @@ interface IUnivocityEvents {
 
     /// @notice Checkpoint published (all logs including root/auth logs).
     /// @dev Block number recoverable from tx receipt. size = MMR size after
-    ///    checkpoint. logKind = config.kind (Authority or Data). Both sender
-    ///    and payer are attributed and indexed. paymentIndex and paymentPath
-    ///    are the inclusion proof payload (empty when no payment proof).
+    ///    checkpoint. logKind = config.kind (Authority or Data). logId,
+    ///    grantLogId and rootKey are indexed (rootKey as keccak256(rootKey)).
+    ///    grantLogId is the log in which the grant was verified. grantIndex
+    ///    and grantPath are the inclusion proof payload (empty when no proof).
     event CheckpointPublished(
         bytes32 indexed logId,
-        address indexed sender,
-        address indexed payer,
+        bytes32 indexed grantLogId,
+        bytes indexed rootKey,
+        address sender,
         uint8 logKind,
         uint64 size,
         bytes32[] accumulator,
-        uint64 paymentIndex,
-        bytes32[] paymentPath
+        uint64 grantIndex,
+        bytes32[] grantPath
     );
 }

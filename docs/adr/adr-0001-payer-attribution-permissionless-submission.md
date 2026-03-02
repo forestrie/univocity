@@ -12,33 +12,35 @@ Historical: [plan-0001](../history/plans/plan-0001-r5-authority.md),
 
 **After the grant is made to any payer, any sender may publish the checkpoint.**
 
-The owner’s log (root or auth log) commits to a leaf that includes the payer
-(who paid) and bounds (including min_growth; see
-[ARC-0001](../arc/arc-0001-grant-minimum-range.md)). The contract does not check
-`msg.sender` against `paymentGrant.payer`. Payer is for attribution only (who
-paid for the grant); submission is permissionless. In `CheckpointPublished`,
-both **sender** and **payer** are attributed and are **indexed** parameters
-(filterable by indexers). See [plan-0013](../plans/plan-0013-adr-0032-delegated-checkpoint-verification.md)
+The owner’s log (root or auth log) commits to a leaf that includes the grant
+and bounds (including min_growth; see
+[ARC-0001](../arc/arc-0001-grant-minimum-range.md)). The contract does not
+restrict who may submit. The grant struct was renamed to PublishGrant and the
+**payer field was removed**; any sender may submit; submission is
+permissionless. In `CheckpointPublished`, **sender** is a non-indexed
+parameter; **grantLogId** and **rootKey** are indexed. See [plan-0013](../plans/plan-0013-adr-0032-delegated-checkpoint-verification.md)
 and historical plans (payment receipt, R5) in [history/plans](../history/plans/).
 
 ## Context
 
-The `address payer` field in `PaymentGrant` was assessed for purpose and
+The `address payer` field (formerly in the grant struct, now PublishGrant) was
+assessed for purpose and
 consistency with the original design (permissionless submission; “who paid”
 vs “who may submit”).
 
 - **Plans (0001, 0015, 0013):** Payer is “who paid”; part of leaf commitment
   and events for attribution. No check of `msg.sender` against payer;
   submission is permissionless.
-- **Implementation:** Aligned: no `msg.sender == paymentGrant.payer` check;
-  payer used only in leaf commitment and in `CheckpointPublished`. The events
+- **Implementation:** Aligned: no sender-vs-payer check; payer was later
+  removed from the grant struct (PublishGrant);
+  The events
   `CheckpointAuthorized` and `PaymentReceiptRegistered` were removed (implied
   by successful publish); authorization failures revert with custom errors
   (see [ARC-0016](../arc/arc-0016-checkpoint-incentivisation-implementation.md#authorization-failure-revert-codes)).
 
 ## Consequences
 
-- Payer remains in `PaymentGrant` and in the leaf commitment for attribution
+- Payer was removed from the grant; leaf commitment no longer includes it
   and leaf binding.
 - Submission stays permissionless; no access control on `msg.sender`.
-- Events that include payer (when emitted) attribute “who paid” for indexers.
+- Events attribute sender (who submitted) and grant/log data for indexers.

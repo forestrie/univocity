@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {Univocity} from "@univocity/contracts/Univocity.sol";
 import {ALG_KS256} from "@univocity/cosecbor/constants.sol";
 import {buildSigStructure} from "@univocity/cosecbor/cosecbor.sol";
-import {IUnivocity} from "@univocity/checkpoints/interfaces/IUnivocity.sol";
+import {IUnivocity} from "@univocity/interfaces/IUnivocity.sol";
 import {hashPosPair64} from "@univocity/algorithms/binUtils.sol";
 import {peaks} from "@univocity/algorithms/peaks.sol";
 
@@ -35,9 +35,8 @@ contract UnivocityHandler is Test {
     function initialize() external {
         if (initialized) return;
         bytes8 idts = bytes8(0);
-        IUnivocity.PaymentGrant memory g = _paymentGrant(
+        IUnivocity.PublishGrant memory g = _publishGrant(
             rootLogId,
-            ks256Signer,
             GRANT_ROOT,
             GC_AUTH_LOG,
             0,
@@ -56,12 +55,11 @@ contract UnivocityHandler is Test {
 
     function _leafCommitment(
         bytes8 idtimestampBe,
-        IUnivocity.PaymentGrant memory g
+        IUnivocity.PublishGrant memory g
     ) internal pure returns (bytes32) {
         bytes32 inner = sha256(
             abi.encodePacked(
                 g.logId,
-                g.payer,
                 g.grant,
                 g.maxHeight,
                 g.minGrowth,
@@ -81,19 +79,17 @@ contract UnivocityHandler is Test {
     uint256 internal constant GRANT_ROOT = GF_CREATE | GF_EXTEND | GF_AUTH;
     uint256 internal constant GRANT_DATA = GF_CREATE | GF_EXTEND | GF_DATA;
 
-    function _paymentGrant(
+    function _publishGrant(
         bytes32 logId,
-        address payer,
         uint256 grant,
         uint256 request,
         uint64 maxHeight,
         uint64 minGrowth,
         bytes32 ownerLogId,
         bytes memory grantData
-    ) internal pure returns (IUnivocity.PaymentGrant memory) {
-        return IUnivocity.PaymentGrant({
+    ) internal pure returns (IUnivocity.PublishGrant memory) {
+        return IUnivocity.PublishGrant({
             logId: logId,
-            payer: payer,
             grant: grant,
             request: request,
             maxHeight: maxHeight,
@@ -230,9 +226,8 @@ contract UnivocityHandler is Test {
         if (!initialized) return;
         vm.prank(bootstrap);
         bytes8 idts = bytes8(sizeSeed % 256);
-        IUnivocity.PaymentGrant memory gAuth = _paymentGrant(
+        IUnivocity.PublishGrant memory gAuth = _publishGrant(
             rootLogId,
-            ks256Signer,
             GRANT_ROOT,
             GC_AUTH_LOG,
             0,
@@ -240,9 +235,8 @@ contract UnivocityHandler is Test {
             bytes32(0),
             abi.encodePacked(ks256Signer)
         );
-        IUnivocity.PaymentGrant memory gLog = _paymentGrant(
-            logId, ks256Signer, GRANT_DATA, GC_DATA_LOG, 0, 0, rootLogId, ""
-        );
+        IUnivocity.PublishGrant memory gLog =
+            _publishGrant(logId, GRANT_DATA, GC_DATA_LOG, 0, 0, rootLogId, "");
         bytes32 leaf1 = _leafCommitment(idts, gLog);
         IUnivocity.ConsistencyReceipt memory consistency1to2 =
             _buildConsistencyReceipt1To2(_authorityLeaf0, leaf1);

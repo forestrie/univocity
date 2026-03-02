@@ -5,11 +5,9 @@ import {Test} from "forge-std/Test.sol";
 import {Univocity} from "@univocity/contracts/Univocity.sol";
 import {ALG_KS256} from "@univocity/cosecbor/constants.sol";
 import {buildSigStructure} from "@univocity/cosecbor/cosecbor.sol";
-import {IUnivocity} from "@univocity/checkpoints/interfaces/IUnivocity.sol";
+import {IUnivocity} from "@univocity/interfaces/IUnivocity.sol";
 import {includedRoot} from "@univocity/algorithms/includedRoot.sol";
-import {
-    IUnivocityEvents
-} from "@univocity/checkpoints/interfaces/IUnivocityEvents.sol";
+import {IUnivocityEvents} from "@univocity/interfaces/IUnivocityEvents.sol";
 import {consistentRoots} from "@univocity/algorithms/consistentRoots.sol";
 
 /// @notice Harness to call includedRoot with calldata proof (tests pass memory).
@@ -88,9 +86,8 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
     function test_fullFlow_bootstrapInitializesAndPublishesAuthority() public {
         Univocity fresh =
             new Univocity(BOOTSTRAP, ALG_KS256, abi.encodePacked(ks256Signer));
-        IUnivocity.PaymentGrant memory g = _paymentGrant(
+        IUnivocity.PublishGrant memory g = _publishGrant(
             rootLogId,
-            ks256Signer,
             GRANT_ROOT,
             GC_AUTH_LOG,
             0,
@@ -112,12 +109,11 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
 
     function _leafCommitment(
         bytes8 idtimestampBe,
-        IUnivocity.PaymentGrant memory g
+        IUnivocity.PublishGrant memory g
     ) internal pure returns (bytes32) {
         bytes32 inner = sha256(
             abi.encodePacked(
                 g.logId,
-                g.payer,
                 g.grant,
                 g.maxHeight,
                 g.minGrowth,
@@ -137,19 +133,17 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
     uint256 internal constant GRANT_ROOT = GF_CREATE | GF_EXTEND | GF_AUTH;
     uint256 internal constant GRANT_DATA = GF_CREATE | GF_EXTEND | GF_DATA;
 
-    function _paymentGrant(
+    function _publishGrant(
         bytes32 logId,
-        address payer,
         uint256 grant,
         uint256 request,
         uint64 maxHeight,
         uint64 minGrowth,
         bytes32 ownerLogId,
         bytes memory grantData
-    ) internal pure returns (IUnivocity.PaymentGrant memory) {
-        return IUnivocity.PaymentGrant({
+    ) internal pure returns (IUnivocity.PublishGrant memory) {
+        return IUnivocity.PublishGrant({
             logId: logId,
-            payer: payer,
             grant: grant,
             request: request,
             maxHeight: maxHeight,
@@ -398,9 +392,8 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
     }
 
     function test_fullFlow_userCheckpointsWithReceipt() public {
-        IUnivocity.PaymentGrant memory g0 = _paymentGrant(
+        IUnivocity.PublishGrant memory g0 = _publishGrant(
             rootLogId,
-            ks256Signer,
             GRANT_ROOT,
             GC_AUTH_LOG,
             1000,
@@ -416,9 +409,8 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
             g0
         );
 
-        IUnivocity.PaymentGrant memory gTarget = _paymentGrant(
+        IUnivocity.PublishGrant memory gTarget = _publishGrant(
             TARGET_LOG,
-            ks256Signer,
             GRANT_DATA,
             GC_DATA_LOG,
             1000,
@@ -448,9 +440,8 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
     }
 
     function test_fullFlow_sameReceiptDifferentSubmitters() public {
-        IUnivocity.PaymentGrant memory g0 = _paymentGrant(
+        IUnivocity.PublishGrant memory g0 = _publishGrant(
             rootLogId,
-            ks256Signer,
             GRANT_ROOT,
             GC_AUTH_LOG,
             1000,
@@ -466,9 +457,8 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
             g0
         );
 
-        IUnivocity.PaymentGrant memory gTarget = _paymentGrant(
+        IUnivocity.PublishGrant memory gTarget = _publishGrant(
             TARGET_LOG,
-            ks256Signer,
             GRANT_DATA,
             GC_DATA_LOG,
             0,

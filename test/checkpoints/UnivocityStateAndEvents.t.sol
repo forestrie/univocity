@@ -6,10 +6,8 @@ pragma solidity ^0.8.24;
 
 import "./UnivocityTestHelper.sol";
 import {Univocity} from "@univocity/contracts/Univocity.sol";
-import {IUnivocity} from "@univocity/checkpoints/interfaces/IUnivocity.sol";
-import {
-    IUnivocityEvents
-} from "@univocity/checkpoints/interfaces/IUnivocityEvents.sol";
+import {IUnivocity} from "@univocity/interfaces/IUnivocity.sol";
+import {IUnivocityEvents} from "@univocity/interfaces/IUnivocityEvents.sol";
 
 contract UnivocityStateAndEventsTest is UnivocityTestHelper, IUnivocityEvents {
     function setUp() public override {
@@ -52,8 +50,9 @@ contract UnivocityStateAndEventsTest is UnivocityTestHelper, IUnivocityEvents {
         bytes32[] memory pathEmits = new bytes32[](0);
         emit CheckpointPublished(
             TEST_LOG_ID,
+            AUTHORITY_LOG_ID,
+            abi.encodePacked(KS256_SIGNER),
             address(this),
-            KS256_SIGNER,
             uint8(IUnivocity.LogKind.Data),
             1,
             acc,
@@ -77,9 +76,8 @@ contract UnivocityStateAndEventsTest is UnivocityTestHelper, IUnivocityEvents {
         IUnivocity.ConsistencyReceipt memory consistency1to2 =
             _buildConsistencyReceipt1To2(peak1, leaf2);
         bytes32[] memory path2 = _path1(authorityLeaf0);
-        IUnivocity.PaymentGrant memory g = _paymentGrant(
+        IUnivocity.PublishGrant memory g = _publishGrant(
             TEST_LOG_ID,
-            KS256_SIGNER,
             GRANT_DATA,
             GC_DATA_LOG,
             0,

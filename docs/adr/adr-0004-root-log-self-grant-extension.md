@@ -46,7 +46,7 @@ grant (inclusion proof against the root log itself).
 
 2. **Root extension requires a grant in the root.** For any checkpoint that
    extends the root (`logId == rootLogId` and root already exists), require
-   the same rule as for other logs: `paymentGrant.ownerLogId == config.authLogId`
+   the same rule as for other logs: `publishGrant.ownerLogId == config.authLogId`
    (so `ownerLogId == rootLogId`) and verify inclusion of the grant leaf
    against the root log’s accumulator (and size). No `msg.sender ==
    bootstrapAuthority` check for extension.
@@ -81,7 +81,7 @@ grant (inclusion proof against the root log itself).
   authLogId is the root itself; for others, it is the parent or owner. No
   separate branch for “if root then check bootstrap and ignore grant.”
 - **Code path:** `_verifyInclusionGrant` could treat root like any other log
-  once the root exists: require `paymentGrant.ownerLogId == rootLogId`, verify
+  once the root exists: require `publishGrant.ownerLogId == rootLogId`, verify
   inclusion against `_logs[rootLogId]`. The only special branch remains “first
   checkpoint ever” (create root, bootstrap only, self-inclusion). So yes, the
   checks simplify and generalise.
@@ -108,7 +108,7 @@ grant (inclusion proof against the root log itself).
 - **Root contains mixed grant types.** The root’s leaves can be both
   self-extension grants (same logId / ownerLogId semantics as used today for
   “extend root”) and child-creation/extension grants. Schema and indexing
-  already distinguish by PaymentGrant fields (logId, ownerLogId,
+  already distinguish by PublishGrant fields (logId, ownerLogId,
   createAsAuthority); no new ambiguity, but docs and UX should spell out that
   the root log is the only one that holds both self- and child-grants.
 

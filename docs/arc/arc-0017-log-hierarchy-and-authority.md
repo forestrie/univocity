@@ -125,8 +125,8 @@ appears in those events, the indexer may call `getLogConfig(logId)` and treat
 ### Root key rollover
 
 Key rollover is **not** implemented by exposing `setLogRoot` externally.
-If we add rollover, it will be **PaymentGrant-based**: the checkpoint to be
-published is signed by the **old** key; the PaymentGrant (or equivalent)
+If we add rollover, it will be **PublishGrant-based**: the checkpoint to be
+published is signed by the **old** key; the PublishGrant (or equivalent)
 carries the **new** public key; if the publish succeeds (signature, grant,
 bounds), the contract calls internal `_setLogRoot(logId, newKey)` once. There
 is no requirement for `setLogRoot` to be externally callable for rollover.
@@ -243,7 +243,7 @@ For payment evidence (path length, bootstrap signer) see
   bootstrap key bytes). Submission is permissionless. This creates the root
   with `authLogId = rootLogId` (self).
 - **Root extension (after creation):** Extension of the root requires a
-  **grant** (inclusion proof) in the root log itself. `paymentGrant.ownerLogId
+  **grant** (inclusion proof) in the root log itself. `publishGrant.ownerLogId
   == rootLogId` and the contract verifies inclusion against the root's
   accumulator. **No** `msg.sender == bootstrapAuthority` check; submission
   is permissionless (anyone with a valid grant in the root may extend).
@@ -270,7 +270,7 @@ in that authority log).
 - There is one authority log. Every non-authority log is implicitly
   “owned” by it. The right to extend a data log is evidenced by an
   **inclusion proof** (index, path) against that authority log’s
-  accumulator: the leaf in the proof is the commitment (paymentGrant +
+  accumulator: the leaf in the proof is the commitment (publishGrant +
   paymentIDTimestampBe). So “grant from the authority log” = “leaf
   committed in the authority log”; the contract verifies inclusion and
   bounds (checkpoint range, min_growth, max_height).
@@ -327,7 +327,7 @@ logs is an off-chain indexer concern (see
 
 - **Storage layout:** This ARC and plan-0021 describe LogConfig as either nested in LogState or in a **separate mapping** keyed by logId. Implementations must be consistent; plan-0021 uses separate mappings. Any reference to `log.config` in this ARC should be read as "config for that logId" (same key in the config mapping).
 - **Grant bounds:** Grants are strictly limited by **state growth**: max_size (max log size under the grant) and min_range (minimum size increase per checkpoint). The effective cap on checkpoints under a grant is (max_size − current_size) / min_range. No separate checkpoint counter; size alone governs.
-- **Grant payload for log creation:** The exact shape of ownerLogId in the grant (e.g. new field on PaymentGrant, or in the leaf commitment) is left to the implementation; §2 rule 5 requires that the owner log be identified when the grant allows creating a log.
+- **Grant payload for log creation:** The exact shape of ownerLogId in the grant (e.g. new field on PublishGrant, or in the leaf commitment) is left to the implementation; §2 rule 5 requires that the owner log be identified when the grant allows creating a log.
 
 ---
 

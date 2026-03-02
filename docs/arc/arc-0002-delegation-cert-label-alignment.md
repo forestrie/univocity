@@ -51,7 +51,7 @@ display; verification is on-chain. No mismatch.
 
 **Alignment:** log_id as tstr/bstr with keccak256 comparison on-chain; 3, 4, 5
 aligned. Delegation signer should emit payload key **1** (log_id) in a form
-consistent with on-chain `paymentGrant.logId` (e.g. `keccak256(log_id_tstr)`).
+consistent with on-chain `publishGrant.logId` (e.g. `keccak256(log_id_tstr)`).
 
 ## 5. Delegation cert protected header
 
@@ -76,4 +76,4 @@ what we align.
 | Checkpoint payload format | Different profiles; not used for consistency-receipt flow. |
 
 No code changes required for interoperability; ensure delegation signer
-emits log_id consistently with on-chain `paymentGrant.logId`.
+emits log_id consistently with on-chain `publishGrant.logId`.

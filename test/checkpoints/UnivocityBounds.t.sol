@@ -6,10 +6,8 @@ pragma solidity ^0.8.24;
 
 import "./UnivocityTestHelper.sol";
 import {Univocity} from "@univocity/contracts/Univocity.sol";
-import {IUnivocity} from "@univocity/checkpoints/interfaces/IUnivocity.sol";
-import {
-    IUnivocityErrors
-} from "@univocity/checkpoints/interfaces/IUnivocityErrors.sol";
+import {IUnivocity} from "@univocity/interfaces/IUnivocity.sol";
+import {IUnivocityErrors} from "@univocity/interfaces/IUnivocityErrors.sol";
 
 contract UnivocityBoundsTest is UnivocityTestHelper {
     function setUp() public override {
@@ -27,9 +25,8 @@ contract UnivocityBoundsTest is UnivocityTestHelper {
             BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
         );
         bytes32 logId = keccak256("other-target");
-        IUnivocity.PaymentGrant memory g0 = _paymentGrant(
+        IUnivocity.PublishGrant memory g0 = _publishGrant(
             AUTHORITY_LOG_ID,
-            KS256_SIGNER,
             GRANT_ROOT,
             GC_AUTH_LOG,
             0,
@@ -44,9 +41,8 @@ contract UnivocityBoundsTest is UnivocityTestHelper {
             consistency0, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g0
         );
 
-        IUnivocity.PaymentGrant memory g1 = _paymentGrant(
+        IUnivocity.PublishGrant memory g1 = _publishGrant(
             AUTHORITY_LOG_ID,
-            KS256_SIGNER,
             GRANT_ROOT,
             GC_AUTH_LOG,
             0,
@@ -59,9 +55,8 @@ contract UnivocityBoundsTest is UnivocityTestHelper {
                 leaf0,
                 _leafCommitment(
                     IDTIMESTAMP_TEST,
-                    _paymentGrant(
+                    _publishGrant(
                         logId,
-                        KS256_SIGNER,
                         GRANT_DATA,
                         GC_DATA_LOG,
                         1,
@@ -75,9 +70,8 @@ contract UnivocityBoundsTest is UnivocityTestHelper {
             consistency1, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g1
         );
 
-        IUnivocity.PaymentGrant memory grantEnd1 = _paymentGrant(
+        IUnivocity.PublishGrant memory grantEnd1 = _publishGrant(
             logId,
-            KS256_SIGNER,
             GRANT_DATA,
             GC_DATA_LOG,
             1,
@@ -117,9 +111,8 @@ contract UnivocityBoundsTest is UnivocityTestHelper {
         Univocity fresh = new Univocity(
             BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
         );
-        IUnivocity.PaymentGrant memory g0 = _paymentGrant(
+        IUnivocity.PublishGrant memory g0 = _publishGrant(
             AUTHORITY_LOG_ID,
-            KS256_SIGNER,
             GRANT_ROOT,
             GC_AUTH_LOG,
             0,
@@ -133,9 +126,8 @@ contract UnivocityBoundsTest is UnivocityTestHelper {
         fresh.publishCheckpoint(
             consistency0, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g0
         );
-        IUnivocity.PaymentGrant memory g1 = _paymentGrant(
+        IUnivocity.PublishGrant memory g1 = _publishGrant(
             AUTHORITY_LOG_ID,
-            KS256_SIGNER,
             GRANT_ROOT,
             GC_AUTH_LOG,
             1,
@@ -170,15 +162,8 @@ contract UnivocityBoundsTest is UnivocityTestHelper {
                 keccak256("peak1"), keccak256("leaf2")
             );
         bytes32[] memory path = _path1(authorityLeaf0);
-        IUnivocity.PaymentGrant memory g = _paymentGrant(
-            TEST_LOG_ID,
-            KS256_SIGNER,
-            GRANT_DATA,
-            GC_DATA_LOG,
-            10,
-            2,
-            AUTHORITY_LOG_ID,
-            ""
+        IUnivocity.PublishGrant memory g = _publishGrant(
+            TEST_LOG_ID, GRANT_DATA, GC_DATA_LOG, 10, 2, AUTHORITY_LOG_ID, ""
         );
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -202,9 +187,8 @@ contract UnivocityBoundsTest is UnivocityTestHelper {
         Univocity fresh = new Univocity(
             BOOTSTRAP, ALG_KS256, abi.encodePacked(KS256_SIGNER)
         );
-        IUnivocity.PaymentGrant memory g0 = _paymentGrant(
+        IUnivocity.PublishGrant memory g0 = _publishGrant(
             AUTHORITY_LOG_ID,
-            KS256_SIGNER,
             GRANT_ROOT,
             GC_AUTH_LOG,
             0,
@@ -218,9 +202,8 @@ contract UnivocityBoundsTest is UnivocityTestHelper {
         fresh.publishCheckpoint(
             consistency0, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g0
         );
-        IUnivocity.PaymentGrant memory g = _paymentGrant(
+        IUnivocity.PublishGrant memory g = _publishGrant(
             TEST_LOG_ID,
-            KS256_SIGNER,
             GRANT_DATA,
             GC_DATA_LOG,
             2,
@@ -231,9 +214,8 @@ contract UnivocityBoundsTest is UnivocityTestHelper {
         bytes32 leaf1 = _leafCommitment(IDTIMESTAMP_TEST, g);
         IUnivocity.ConsistencyReceipt memory consistency1to2 =
             _buildConsistencyReceipt1To2(leaf0, leaf1);
-        IUnivocity.PaymentGrant memory g1 = _paymentGrant(
+        IUnivocity.PublishGrant memory g1 = _publishGrant(
             AUTHORITY_LOG_ID,
-            KS256_SIGNER,
             GRANT_ROOT,
             GC_AUTH_LOG,
             0,
