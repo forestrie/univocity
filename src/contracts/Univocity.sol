@@ -244,7 +244,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
     ///   (rule 2). Grant bounds minGrowth, maxHeight checked (rule 4).
     function publishCheckpoint(
         IUnivocity.ConsistencyReceipt calldata consistencyParts,
-        IUnivocity.InclusionProof calldata paymentInclusionProof,
+        IUnivocity.InclusionProof calldata grantInclusionProof,
         bytes8 grantIDTimestampBe,
         IUnivocity.PublishGrant calldata publishGrant
     ) external {
@@ -302,7 +302,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         bytes32 authForInclusion = _verifyInclusionGrant(
             logId,
             claimedSize,
-            paymentInclusionProof,
+            grantInclusionProof,
             grantIDTimestampBe,
             publishGrant,
             accMem
@@ -312,8 +312,8 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             logId,
             claimedSize,
             accMem,
-            paymentInclusionProof.index,
-            paymentInclusionProof.path,
+            grantInclusionProof.index,
+            grantInclusionProof.path,
             authForInclusion,
             publishGrant.request,
             rootKeyToSet,
@@ -327,7 +327,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
     function _verifyInclusionGrant(
         bytes32 logId,
         uint64 claimedSize,
-        IUnivocity.InclusionProof calldata paymentInclusionProof,
+        IUnivocity.InclusionProof calldata grantInclusionProof,
         bytes8 grantIDTimestampBe,
         IUnivocity.PublishGrant calldata publishGrant,
         bytes32[] memory accMem
@@ -354,16 +354,16 @@ contract Univocity is IUnivocity, IUnivocityErrors {
 
             // Root's first checkpoint: grant is self-inclusion at index 0;
             // path may be any length up to MAX_HEIGHT (claimedSize >= 1).
-            if (paymentInclusionProof.index != 0) {
+            if (grantInclusionProof.index != 0) {
                 revert InvalidPaymentReceipt();
             }
-            if (paymentInclusionProof.path.length > MAX_HEIGHT) {
+            if (grantInclusionProof.path.length > MAX_HEIGHT) {
                 revert ProofPayloadExceedsMaxHeight();
             }
             if (!verifyInclusion(
                     0,
                     leafCommitment,
-                    paymentInclusionProof.path,
+                    grantInclusionProof.path,
                     accMem,
                     claimedSize
                 )) {
@@ -426,18 +426,18 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         LogState storage ownerLog = _logs[authLogId];
         // Empty path is valid only when owner has size 1 and index 0 (peak =
         // leaf); e.g. when creating a child log and the owner has one leaf.
-        if (paymentInclusionProof.path.length == 0) {
-            if (!(ownerLog.size == 1 && paymentInclusionProof.index == 0)) {
+        if (grantInclusionProof.path.length == 0) {
+            if (!(ownerLog.size == 1 && grantInclusionProof.index == 0)) {
                 revert InvalidPaymentReceipt();
             }
         }
-        if (paymentInclusionProof.path.length > MAX_HEIGHT) {
+        if (grantInclusionProof.path.length > MAX_HEIGHT) {
             revert ProofPayloadExceedsMaxHeight();
         }
         if (!verifyInclusion(
-                paymentInclusionProof.index,
+                grantInclusionProof.index,
                 leafCommitment,
-                paymentInclusionProof.path,
+                grantInclusionProof.path,
                 ownerLog.accumulator,
                 ownerLog.size
             )) {
