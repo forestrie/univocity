@@ -298,39 +298,40 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             publishGrant.grantData
         );
 
-        // --- Grant / inclusion enforcement (rules 1, 2, 3) ---
-        bytes32 authForInclusion = _verifyInclusionGrant(
+        // --- Apply grant: verify inclusion, register new logs (rules 1, 2, 3) ---
+        bytes32 authForInclusion = _applyInclusionGrant(
             logId,
             claimedSize,
             grantInclusionProof,
             grantIDTimestampBe,
             publishGrant,
-            accMem
+            accMem,
+            rootKeyToSet
         );
 
         _updateLogState(
             logId,
+            authForInclusion,
             claimedSize,
             accMem,
+            grantIDTimestampBe,
             grantInclusionProof.index,
-            grantInclusionProof.path,
-            authForInclusion,
-            publishGrant.request,
-            rootKeyToSet,
-            grantIDTimestampBe
+            grantInclusionProof.path
         );
     }
 
-    /// @notice Enforce grant/inclusion rules (1, 2, 3). Reverts on failure.
+    /// @notice Apply grant: verify inclusion, set config and emit LogRegistered
+    ///    for new logs (rules 1, 2, 3). Reverts on failure.
     /// @return authLogId Log against which inclusion was verified (logId when
     ///    creating the root; rootLogId for root extension; owner for others).
-    function _verifyInclusionGrant(
+    function _applyInclusionGrant(
         bytes32 logId,
         uint64 claimedSize,
         IUnivocity.InclusionProof calldata grantInclusionProof,
         bytes8 grantIDTimestampBe,
         IUnivocity.PublishGrant calldata publishGrant,
-        bytes32[] memory accMem
+        bytes32[] memory accMem,
+        bytes memory rootKeyToSet
     ) internal returns (bytes32 authLogId) {
         IUnivocity.LogConfig storage config = _logConfigs[logId];
         bytes32 leafCommitment =
@@ -370,9 +371,15 @@ contract Univocity is IUnivocity, IUnivocityErrors {
                 revert InvalidReceiptInclusionProof();
             }
 
+            config.initializedAt = block.number;
+            config.kind = IUnivocity.LogKind.Authority;
+            config.authLogId = logId;
+            if (rootKeyToSet.length == 64 || rootKeyToSet.length == 20) {
+                config.rootKey = rootKeyToSet;
+            }
+            emit LogRegistered(logId, logId, config.rootKey);
+
             rootLogId = logId;
-            // Emit contract's bootstrap identity and new root log id;
-            // CheckpointPublished carries the actual sender.
             emit Initialized(bootstrapAuthority, logId);
 
             return logId;
@@ -381,10 +388,14 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         // grant = inclusion proof against this log's authLogId (root = self).
         // First checkpoint to a non-root log (root already exists; this branch
         // cannot be reached for the root authority log). Resolve the log
-        // against which we verify the grant (owner), then use the same
-        // proof checks as for extending an existing log.
+        // against which we apply the grant (owner), then same proof checks as
+        // for extending an existing log.
 
         if (config.initializedAt == 0) {
+            if (publishGrant.ownerLogId == bytes32(0)) {
+                revert InvalidPaymentReceipt();
+            }
+
             authLogId = publishGrant.ownerLogId;
 
             uint256 g = publishGrant.grant;
@@ -400,21 +411,34 @@ contract Univocity is IUnivocity, IUnivocityErrors {
                         GF_CREATE | GF_AUTH_LOG | GF_DATA_LOG, GC_AUTH_LOG
                     );
                 }
+
+                config.kind = IUnivocity.LogKind.Authority;
             } else if (req == GC_DATA_LOG) {
                 if ((g & GF_DATA_LOG) == 0) {
                     revert GrantRequirement(
                         GF_CREATE | GF_AUTH_LOG | GF_DATA_LOG, GC_DATA_LOG
                     );
                 }
+
+                config.kind = IUnivocity.LogKind.Data;
             } else {
                 revert GrantRequirement(
                     GF_CREATE | GF_AUTH_LOG | GF_DATA_LOG, 0
                 );
             }
 
-            if (publishGrant.ownerLogId == bytes32(0)) {
-                revert InvalidPaymentReceipt();
+            if (logId == rootLogId) {
+                if (logId != authLogId) revert BootstrapLogMustUseSelf();
+                if (req != GC_AUTH_LOG) revert BootstrapLogMustBeAuthLog();
             }
+
+            config.initializedAt = block.number;
+            config.authLogId = authLogId;
+            if (rootKeyToSet.length == 64 || rootKeyToSet.length == 20) {
+                config.rootKey = rootKeyToSet;
+            }
+
+            emit LogRegistered(logId, authLogId, config.rootKey);
         } else {
             authLogId = config.authLogId;
 
@@ -835,44 +859,17 @@ contract Univocity is IUnivocity, IUnivocityErrors {
     }
 
     /// @notice Update log storage and emit CheckpointPublished.
-    /// @param rootKeyToSet When isNewLog and length 64 (ES256) or 20 (KS256),
-    ///    set as log root key.
     function _updateLogState(
         bytes32 logId,
+        bytes32 grantLogId,
         uint64 size,
         bytes32[] memory accumulator,
+        bytes8 grantIDTimestampBe,
         uint64 grantIndex,
-        bytes32[] calldata grantPath,
-        bytes32 grantLogId,
-        uint256 request,
-        bytes memory rootKeyToSet,
-        bytes8 grantIDTimestampBe
+        bytes32[] calldata grantPath
     ) private {
         LogState storage log = _logs[logId];
         IUnivocity.LogConfig storage config = _logConfigs[logId];
-
-        if (config.initializedAt == 0) {
-            config.initializedAt = block.number;
-
-            if (rootKeyToSet.length == 64 || rootKeyToSet.length == 20) {
-                config.rootKey = rootKeyToSet;
-            }
-
-            if (logId == rootLogId) {
-                if (logId != grantLogId) {
-                    revert BootstrapLogMustUseSelf();
-                }
-                if ((request & GF_GC_MASK) != GC_AUTH_LOG) {
-                    revert BootstrapLogMustBeAuthLog();
-                }
-            }
-            config.kind = (request & GF_GC_MASK) == GC_AUTH_LOG
-                ? IUnivocity.LogKind.Authority
-                : IUnivocity.LogKind.Data;
-            config.authLogId = grantLogId;
-
-            emit LogRegistered(logId, grantLogId, config.rootKey);
-        }
 
         delete log.accumulator;
         for (uint256 i = 0; i < accumulator.length; i++) {
