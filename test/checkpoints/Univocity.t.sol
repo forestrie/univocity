@@ -361,8 +361,7 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
         fresh.publishCheckpoint(
             consistency, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g
         );
-        bytes32[] memory stored =
-        fresh.logState(AUTHORITY_LOG_ID).accumulator;
+        bytes32[] memory stored = fresh.logState(AUTHORITY_LOG_ID).accumulator;
         assertEq(stored.length, 1);
         assertEq(stored[0], expectedLeaf);
     }

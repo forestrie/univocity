@@ -184,11 +184,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
     // === View Functions ===
 
     /// @notice Returns the mutable state of a log (accumulator, size).
-    function logState(bytes32 logId)
-        external
-        view
-        returns (LogState memory)
-    {
+    function logState(bytes32 logId) external view returns (LogState memory) {
         return _logs[logId];
     }
 

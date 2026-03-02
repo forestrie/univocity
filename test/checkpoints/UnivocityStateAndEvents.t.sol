@@ -25,8 +25,7 @@ contract UnivocityStateAndEventsTest is UnivocityTestHelper, IUnivocityEvents {
         assertEq(state.accumulator.length, 1);
         assertEq(state.accumulator[0], peak1);
 
-        IUnivocity.LogConfig memory config =
-            univocity.logConfig(TEST_LOG_ID);
+        IUnivocity.LogConfig memory config = univocity.logConfig(TEST_LOG_ID);
         assertGt(config.initializedAt, 0);
         assertEq(uint8(config.kind), uint8(IUnivocity.LogKind.Data));
         assertEq(config.authLogId, AUTHORITY_LOG_ID);
