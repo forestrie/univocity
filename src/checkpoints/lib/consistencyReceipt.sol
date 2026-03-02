@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.24;
 
-import {IUnivocity} from "@univocity/interfaces/IUnivocity.sol";
+import {ConsistencyProof} from "@univocity/interfaces/Types.sol";
 import {
     consistentRootsMemory
 } from "@univocity/algorithms/consistentRoots.sol";
@@ -18,7 +18,7 @@ import {
 ///    for grant bounds and state update.
 function verifyConsistencyProofChain(
     bytes32[] memory initialAccumulator,
-    IUnivocity.ConsistencyProof[] calldata decodedProofs
+    ConsistencyProof[] calldata decodedProofs
 ) pure returns (bytes32[] memory finalAccumulator) {
     uint256 n = decodedProofs.length;
     if (n == 0) {
@@ -29,7 +29,7 @@ function verifyConsistencyProofChain(
     bytes32[] memory accumulatorFrom;
 
     for (uint256 idx = 0; idx < n; idx++) {
-        IUnivocity.ConsistencyProof calldata p = decodedProofs[idx];
+        ConsistencyProof calldata p = decodedProofs[idx];
 
         if (idx == 0) {
             accumulatorFrom = initialAccumulator;

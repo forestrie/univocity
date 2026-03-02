@@ -2,6 +2,16 @@
 pragma solidity ^0.8.24;
 
 import {IUnivocity} from "@univocity/interfaces/IUnivocity.sol";
+import {
+    LogKind,
+    LogConfig,
+    LogState,
+    ConsistencyProof,
+    ConsistencyReceipt,
+    InclusionProof,
+    DelegationProof,
+    PublishGrant
+} from "@univocity/interfaces/Types.sol";
 import {IUnivocityErrors} from "@univocity/interfaces/IUnivocityErrors.sol";
 import {ALG_ES256, ALG_KS256} from "@univocity/cosecbor/constants.sol";
 import {
@@ -69,7 +79,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
     bytes32 public rootLogId;
 
     mapping(bytes32 => LogState) private _logs;
-    mapping(bytes32 => IUnivocity.LogConfig) private _logConfigs;
+    mapping(bytes32 => LogConfig) private _logConfigs;
 
     /// @notice Grant flag: create a new log (first checkpoint to that logId).
     uint256 public constant GF_CREATE = uint256(1) << 32;
@@ -172,7 +182,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
     function logConfig(bytes32 logId)
         external
         view
-        returns (IUnivocity.LogConfig memory)
+        returns (LogConfig memory)
     {
         return _logConfigs[logId];
     }
@@ -208,14 +218,14 @@ contract Univocity is IUnivocity, IUnivocityErrors {
     ///   Extend existing log: inclusion verified against config.authLogId
     ///   (rule 2). Grant bounds minGrowth, maxHeight checked (rule 4).
     function publishCheckpoint(
-        IUnivocity.ConsistencyReceipt calldata consistencyParts,
-        IUnivocity.InclusionProof calldata grantInclusionProof,
+        ConsistencyReceipt calldata consistencyParts,
+        InclusionProof calldata grantInclusionProof,
         bytes8 grantIDTimestampBe,
-        IUnivocity.PublishGrant calldata publishGrant
+        PublishGrant calldata publishGrant
     ) external {
         bytes32 logId = publishGrant.logId;
         LogState storage log = _logs[logId];
-        IUnivocity.LogConfig storage config = _logConfigs[logId];
+        LogConfig storage config = _logConfigs[logId];
 
         if (consistencyParts.consistencyProofs.length == 0) {
             revert InvalidConsistencyProof();
@@ -292,13 +302,13 @@ contract Univocity is IUnivocity, IUnivocityErrors {
     function _applyInclusionGrant(
         bytes32 logId,
         uint64 claimedSize,
-        IUnivocity.InclusionProof calldata grantInclusionProof,
+        InclusionProof calldata grantInclusionProof,
         bytes8 grantIDTimestampBe,
-        IUnivocity.PublishGrant calldata publishGrant,
+        PublishGrant calldata publishGrant,
         bytes32[] memory accMem,
         bytes memory rootKeyToSet
     ) internal returns (bytes32 authLogId) {
-        IUnivocity.LogConfig storage config = _logConfigs[logId];
+        LogConfig storage config = _logConfigs[logId];
         bytes32 leafCommitment =
             _leafCommitment(grantIDTimestampBe, publishGrant);
 
@@ -337,7 +347,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             }
 
             config.initializedAt = block.number;
-            config.kind = IUnivocity.LogKind.Authority;
+            config.kind = LogKind.Authority;
             config.authLogId = logId;
             if (rootKeyToSet.length == 64 || rootKeyToSet.length == 20) {
                 config.rootKey = rootKeyToSet;
@@ -377,7 +387,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
                     );
                 }
 
-                config.kind = IUnivocity.LogKind.Authority;
+                config.kind = LogKind.Authority;
             } else if (req == GC_DATA_LOG) {
                 if ((g & GF_DATA_LOG) == 0) {
                     revert GrantRequirement(
@@ -385,7 +395,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
                     );
                 }
 
-                config.kind = IUnivocity.LogKind.Data;
+                config.kind = LogKind.Data;
             } else {
                 revert GrantRequirement(
                     GF_CREATE | GF_AUTH_LOG | GF_DATA_LOG, 0
@@ -438,10 +448,10 @@ contract Univocity is IUnivocity, IUnivocityErrors {
     function _verifyCheckpointSignature(
         bytes32 logId,
         uint64 claimedSize,
-        IUnivocity.ConsistencyReceipt calldata consistencyParts,
+        ConsistencyReceipt calldata consistencyParts,
         bytes memory detachedPayload,
-        IUnivocity.LogConfig storage config,
-        IUnivocity.DelegationProof calldata delegationProof,
+        LogConfig storage config,
+        DelegationProof calldata delegationProof,
         uint256 grant,
         bytes calldata grantData
     ) internal view returns (bytes memory initialRoot) {
@@ -485,10 +495,10 @@ contract Univocity is IUnivocity, IUnivocityErrors {
     function _verifyCheckpointSignatureES256(
         bytes32 logId,
         uint64 claimedSize,
-        IUnivocity.ConsistencyReceipt calldata consistencyParts,
+        ConsistencyReceipt calldata consistencyParts,
         bytes memory detachedPayload,
-        IUnivocity.LogConfig storage config,
-        IUnivocity.DelegationProof calldata delegationProof,
+        LogConfig storage config,
+        DelegationProof calldata delegationProof,
         uint256,
         /* grant */
         bytes calldata grantData
@@ -543,10 +553,10 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         bytes32 logId,
         uint64,
         /* claimedSize */
-        IUnivocity.ConsistencyReceipt calldata consistencyParts,
+        ConsistencyReceipt calldata consistencyParts,
         bytes memory detachedPayload,
-        IUnivocity.LogConfig storage config,
-        IUnivocity.DelegationProof calldata delegationProof,
+        LogConfig storage config,
+        DelegationProof calldata delegationProof,
         uint256,
         /* grant */
         bytes calldata grantData
@@ -605,10 +615,10 @@ contract Univocity is IUnivocity, IUnivocityErrors {
     function _checkpointSignersES256(
         bytes32 logId,
         uint64 claimedSize,
-        IUnivocity.ConsistencyReceipt calldata consistencyParts,
+        ConsistencyReceipt calldata consistencyParts,
         bytes memory detachedPayload,
-        IUnivocity.LogConfig storage config,
-        IUnivocity.DelegationProof calldata delegationProof,
+        LogConfig storage config,
+        DelegationProof calldata delegationProof,
         bytes calldata grantData
     )
         internal
@@ -700,10 +710,12 @@ contract Univocity is IUnivocity, IUnivocityErrors {
 
     /// @notice Revert if any consistency proof payload array length exceeds
     ///    MAX_HEIGHT (read from calldata; no copy).
-    function _validateConsistencyProofBounds(IUnivocity
-                .ConsistencyProof[] calldata decodedProofs) private pure {
+    function _validateConsistencyProofBounds(ConsistencyProof[] calldata decodedProofs)
+        private
+        pure
+    {
         for (uint256 i = 0; i < decodedProofs.length; i++) {
-            IUnivocity.ConsistencyProof calldata p = decodedProofs[i];
+            ConsistencyProof calldata p = decodedProofs[i];
             if (p.paths.length > MAX_HEIGHT) {
                 revert ProofPayloadExceedsMaxHeight();
             }
@@ -760,7 +772,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
 
     function _leafCommitment(
         bytes8 grantIDTimestampBe,
-        IUnivocity.PublishGrant calldata g
+        PublishGrant calldata g
     ) private pure returns (bytes32) {
         bytes32 inner = sha256(
             abi.encodePacked(
@@ -779,7 +791,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
     ///    chain).
     function _checkPublishGrantBoundsMaxHeight(
         uint64 size,
-        IUnivocity.PublishGrant calldata g
+        PublishGrant calldata g
     ) private pure {
         if (g.maxHeight != 0 && size > g.maxHeight) {
             revert MaxHeightExceeded(size, g.maxHeight);
@@ -834,7 +846,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         bytes32[] calldata grantPath
     ) private {
         LogState storage log = _logs[logId];
-        IUnivocity.LogConfig storage config = _logConfigs[logId];
+        LogConfig storage config = _logConfigs[logId];
 
         delete log.accumulator;
         for (uint256 i = 0; i < accumulator.length; i++) {

@@ -8,6 +8,10 @@ pragma solidity ^0.8.24;
 import "./UnivocityTestHelper.sol";
 import {Univocity} from "@univocity/contracts/Univocity.sol";
 import {IUnivocity} from "@univocity/interfaces/IUnivocity.sol";
+import {
+    ConsistencyReceipt,
+    PublishGrant
+} from "@univocity/interfaces/Types.sol";
 
 contract UnivocityBootstrapTest is UnivocityTestHelper {
     function setUp() public override {
@@ -20,7 +24,7 @@ contract UnivocityBootstrapTest is UnivocityTestHelper {
     }
 
     function test_bootstrap_firstCheckpoint_revertsIfSizeZero() public {
-        IUnivocity.PublishGrant memory g = _publishGrant(
+        PublishGrant memory g = _publishGrant(
             AUTHORITY_LOG_ID,
             GRANT_ROOT,
             GC_AUTH_LOG,
@@ -43,7 +47,7 @@ contract UnivocityBootstrapTest is UnivocityTestHelper {
     }
 
     function test_bootstrap_firstCheckpoint_correctGrant_succeeds() public {
-        IUnivocity.PublishGrant memory g = _publishGrant(
+        PublishGrant memory g = _publishGrant(
             AUTHORITY_LOG_ID,
             GRANT_ROOT,
             GC_AUTH_LOG,
@@ -53,7 +57,7 @@ contract UnivocityBootstrapTest is UnivocityTestHelper {
             abi.encodePacked(KS256_SIGNER)
         );
         bytes32 leaf0 = _leafCommitment(IDTIMESTAMP_AUTH, g);
-        IUnivocity.ConsistencyReceipt memory consistency =
+        ConsistencyReceipt memory consistency =
             _buildConsistencyReceipt(_toAcc(leaf0));
         univocity.publishCheckpoint(
             consistency, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g

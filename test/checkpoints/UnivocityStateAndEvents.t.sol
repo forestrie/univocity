@@ -8,6 +8,7 @@ import "./UnivocityTestHelper.sol";
 import {Univocity} from "@univocity/contracts/Univocity.sol";
 import {IUnivocity} from "@univocity/interfaces/IUnivocity.sol";
 import {IUnivocityEvents} from "@univocity/interfaces/IUnivocityEvents.sol";
+import {LogConfig, LogKind, LogState} from "@univocity/interfaces/Types.sol";
 
 contract UnivocityStateAndEventsTest is UnivocityTestHelper, IUnivocityEvents {
     function setUp() public override {
@@ -20,14 +21,14 @@ contract UnivocityStateAndEventsTest is UnivocityTestHelper, IUnivocityEvents {
         bytes32 peak1 = keccak256("peak1");
         _publishFirstToTestLog(univocity, peak1, authorityLeaf0, grantTestLog);
 
-        IUnivocity.LogState memory state = univocity.logState(TEST_LOG_ID);
+        LogState memory state = univocity.logState(TEST_LOG_ID);
         assertEq(state.size, 1);
         assertEq(state.accumulator.length, 1);
         assertEq(state.accumulator[0], peak1);
 
-        IUnivocity.LogConfig memory config = univocity.logConfig(TEST_LOG_ID);
+        LogConfig memory config = univocity.logConfig(TEST_LOG_ID);
         assertGt(config.initializedAt, 0);
-        assertEq(uint8(config.kind), uint8(IUnivocity.LogKind.Data));
+        assertEq(uint8(config.kind), uint8(LogKind.Data));
         assertEq(config.authLogId, AUTHORITY_LOG_ID);
     }
 
@@ -57,7 +58,7 @@ contract UnivocityStateAndEventsTest is UnivocityTestHelper, IUnivocityEvents {
             abi.encodePacked(KS256_SIGNER),
             address(this),
             IDTIMESTAMP_TEST,
-            uint8(IUnivocity.LogKind.Data),
+            uint8(LogKind.Data),
             1,
             acc,
             uint64(1),
@@ -77,10 +78,10 @@ contract UnivocityStateAndEventsTest is UnivocityTestHelper, IUnivocityEvents {
 
         bytes32 leaf2 =
             0xcd2662154e6d76b2b2b92e70c0cac3ccf534f9b74eb5b89819ec509083d00a50;
-        IUnivocity.ConsistencyReceipt memory consistency1to2 =
+        ConsistencyReceipt memory consistency1to2 =
             _buildConsistencyReceipt1To2(peak1, leaf2);
         bytes32[] memory path2 = _path1(authorityLeaf0);
-        IUnivocity.PublishGrant memory g = _publishGrant(
+        PublishGrant memory g = _publishGrant(
             TEST_LOG_ID,
             GRANT_DATA,
             GC_DATA_LOG,
