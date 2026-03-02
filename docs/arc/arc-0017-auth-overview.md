@@ -1,4 +1,4 @@
-#https://dashboard.tenderly.co/sentientdogs/flip/testnet/ef72b7d9-2787-42be-8eaa-c2bf796c5c39?kind=standard ARC-0017: Authorization model overview
+# ARC-0017: Authorization model overview
 
 **Status:** DRAFT  
 **Date:** 2026-02-23  
@@ -37,7 +37,7 @@ flowchart TB
   ROOT -->|"owner"| D1
   CHILD -->|"owner"| D2
 
-  ROOT -.->|extend: grant in self| R1
+  ROOT -.->|extend: grant in self| ROOT
   CHILD -.->|extend: grant in parent| ROOT
   D1 -.->|extend: grant in owner| ROOT
   D2 -.->|extend: grant in owner| CHILD
@@ -203,3 +203,181 @@ signed by the correct key**.
   selects the log kind; it must be allowed by the grant (e.g. request
   GC_AUTH_LOG requires GF_AUTH_LOG). Extend checkpoints use GF_EXTEND; request
   is irrelevant for kind. Rules 1–3 enforce grant and request consistency.
+
+---
+
+## 7. Operator flows (off-chain services)
+
+This section describes the **intended design of the off-chain services** that
+operate logs and are organised into a logical hierarchy by the authorization
+model. Sequence diagrams are from the perspective of the **bootstrap log
+operator**, **subsequent log operators** (e.g. data log or child authority),
+and **user** (payer / consumer), covering grant creation, first checkpoint,
+subsequent checkpoints, and refresh of GF_EXTEND grants.
+
+### 7.1 Bootstrap log operator: create root (first checkpoint ever)
+
+The bootstrap operator holds the bootstrap key. Creating the root is the one
+flow that does not require a prior grant; the grant is self-inclusion
+(index 0) in the new tree.
+
+```mermaid
+sequenceDiagram
+    participant Op as Bootstrap operator
+    participant C as Univocity contract
+
+    Note over Op: Hold bootstrap key, build receipt for new tree
+    Op->>Op: Build consistency receipt tree size 1 index 0
+    Op->>Op: Sign receipt with bootstrap key
+    Op->>C: publishCheckpoint with self-inclusion GF_CREATE or GF_AUTH_LOG GC_AUTH_LOG grantData bootstrap key bytes
+    C->>C: Verify self-inclusion and signer and grantData equals bootstrap key
+    C-->>Op: Root created rootLogId set, Initialized emitted
+```
+
+### 7.2 Bootstrap log operator: creating grants
+
+A **grant** is a leaf in an authority log’s MMR. The bootstrap operator
+**creates** a grant by publishing a checkpoint to the root that adds a leaf
+whose commitment encodes the grant (logId, payer, GF_*, bounds, ownerLogId,
+grantData). That leaf can allow extending the root (GF_EXTEND) or creating
+or extending another log (GF_CREATE, GF_EXTEND, GF_AUTH_LOG, GF_DATA_LOG).
+
+```mermaid
+sequenceDiagram
+    participant User as User payer
+    participant Op as Bootstrap operator
+    participant C as Univocity contract
+
+    User->>Op: Request grant, payment or agreement off-chain
+    Op->>Op: Build leaf commitment PaymentGrant and idtimestamp for target log and bounds
+    Op->>Op: Build checkpoint extending root MMR with this leaf
+    Op->>Op: Sign consistency receipt with root key
+    Op->>C: publishCheckpoint with inclusionProof for new leaf and paymentGrant
+    C->>C: Verify inclusion in root and receipt with root key, apply bounds
+    C-->>Op: Checkpoint accepted, grant now in root usable via inclusion proof
+    Op-->>User: Grant available index and path for inclusion proof
+```
+
+### 7.3 Bootstrap log operator: extending root (subsequent checkpoint)
+
+After the root exists, extending it requires a **grant** that is already a
+leaf in the root (GF_EXTEND, typically for root’s own logId). The operator
+uses an inclusion proof for that leaf.
+
+```mermaid
+sequenceDiagram
+    participant Op as Bootstrap operator
+    participant C as Univocity contract
+
+    Note over Op: Root key, grant already in root from section 7.2
+    Op->>Op: Build consistency receipt root tree N to N+1
+    Op->>Op: Sign receipt with root key
+    Op->>C: publishCheckpoint with inclusionProof for grant leaf and grant GF_EXTEND
+    C->>C: Verify inclusion in root and receipt with root key
+    C-->>Op: Root extended
+```
+
+### 7.4 Refreshing GF_EXTEND grants
+
+Grants are **growth-bounded** (maxHeight, minGrowth). When a log has
+consumed a grant (size at or near maxHeight, or growth exhausted), no further
+checkpoints can use that leaf. The **owner** of the log must issue a **new**
+grant (new leaf in the owner’s MMR). For a data log, the operator obtains a
+new grant from the bootstrap (or parent) operator; for a child authority,
+from the parent. For the **root**, the owner is the root itself, so the
+bootstrap operator must add a new self-grant by publishing a checkpoint to
+the root that adds a new leaf (§7.2).
+
+**Root bootstrap operator: can they recover if their GF_EXTEND grant
+expires?** To publish *any* checkpoint to the root (including the one that
+adds a new leaf), the submitter must supply an **inclusion proof** — i.e. a
+grant that is already a leaf in the root. So to add the *next* grant leaf,
+the operator must use an *existing* grant to publish that checkpoint. **If
+the root operator’s only GF_EXTEND grant is fully consumed (expired), they
+cannot unilaterally publish a new self-grant** — they have no leaf to use as
+inclusion proof, so they are **locked out** unless another party that still
+holds a valid grant in the root submits the checkpoint that adds a new leaf
+(which can encode a grant for the root operator). **Operational requirement:**
+the root operator must **refresh before expiry**: use the current grant to
+publish the checkpoint whose new leaf is the next self-grant, so that grant
+N+1 exists before grant N is exhausted. The same principle applies to any
+log whose owner is itself (root): always add the next grant leaf while the
+current one is still valid.
+
+**Expected practice vs optional model.** In practice, the root operator
+typically sets an (effectively) **infinite** max_size on their initial
+self-grant and sets both GF_CREATE and GF_EXTEND, so the root does not need
+to refresh and lockout is not a practical concern. Some deployments may
+instead choose the **must-refresh** model (bounded max_size and periodic
+refresh) as a soft guarantee of liveness — e.g. to ensure the operator
+periodically proves control or to bound exposure.
+
+```mermaid
+sequenceDiagram
+    participant Op as Log operator
+    participant Owner as Owner operator
+    participant C as Univocity contract
+
+    Note over Op: Current grant consumed size or growth bound reached
+    Op->>Owner: Request new grant payment or agreement off-chain
+    Owner->>Owner: Build new leaf grant for same or new bounds
+    Owner->>C: publishCheckpoint to owner log add leaf as in section 7.2
+    C-->>Owner: Grant created
+    Owner-->>Op: New inclusion proof index and path
+    Op->>C: publishCheckpoint to target log using new grant
+    C-->>Op: Checkpoint accepted
+```
+
+### 7.5 Subsequent log operator: first checkpoint (create log)
+
+A **data log** or **child authority** is created when the first checkpoint is
+published to a new logId. The operator must hold a **grant** from the owner
+(inclusion proof in the owner’s log) with GF_CREATE and the appropriate
+request (GC_AUTH_LOG or GC_DATA_LOG). The operator supplies **grantData** =
+their public key (verify-only); the contract stores it as that log’s root key.
+
+```mermaid
+sequenceDiagram
+    participant User as User payer
+    participant Owner as Owner operator
+    participant Op as Log operator
+    participant C as Univocity contract
+
+    User->>Owner: Pay or agree for grant off-chain
+    Owner->>C: publishCheckpoint to owner log add leaf GF_CREATE ownerLogId bounds new log section 7.2
+    C-->>Owner: Grant in owner MMR
+    Owner-->>Op: Inclusion proof index and path for new log grant
+    Op->>Op: Build consistency receipt for new log tree size 1
+    Op->>Op: Sign receipt with log key grantData
+    Op->>C: publishCheckpoint with inclusionProof in owner GF_CREATE or GF_AUTH_LOG or GF_DATA_LOG request GC_AUTH_LOG or GC_DATA_LOG ownerLogId grantData operator key
+    C->>C: Verify inclusion in owner and receipt with grantData, set kind authLogId rootKey
+    C-->>Op: Log created, LogRegistered emitted
+```
+
+### 7.6 Subsequent log operator: subsequent checkpoints (extend log)
+
+To extend an existing (non-root) log, the operator uses a **grant** with
+GF_EXTEND that is a leaf in the log’s **owner** (authLogId). The consistency
+receipt is signed by that log’s **root key** (established at first checkpoint).
+
+```mermaid
+sequenceDiagram
+    participant Op as Log operator
+    participant C as Univocity contract
+
+    Note over Op: Log root key, grant in owner from owner section 7.2
+    Op->>Op: Build consistency receipt log tree N to N+1
+    Op->>Op: Sign receipt with log root key
+    Op->>C: publishCheckpoint with inclusionProof in owner grant GF_EXTEND paymentGrant logId this log
+    C->>C: Verify inclusion in owner and receipt with log root key
+    C-->>Op: Log extended
+```
+
+### 7.7 Summary: hierarchy of off-chain services
+
+| Role | Owns / operates | Creates grants by | First checkpoint | Later checkpoints | Refresh |
+|------|-----------------|-------------------|------------------|-------------------|---------|
+| **Bootstrap operator** | Root authority log | Publishing checkpoints to root (leaf = grant) | Create root (§7.1) | Extend root (§7.3) with GF_EXTEND grant | New leaf in root (§7.2) |
+| **Data log operator** | Data log (owner = root or child auth) | — | First to log (§7.5) with grant from owner | Extend log (§7.6) with GF_EXTEND grant from owner | Request new grant from owner (§7.4) |
+| **Child authority operator** | Child authority (owner = parent) | Publishing checkpoints to child (leaf = grant for data under child) | First to child (§7.5) with grant from parent | Extend child (§7.6) with GF_EXTEND grant from parent | Request new grant from parent (§7.4) |
+| **User** | — | — | May pay for grant; submitter may be user or operator | May pay for grant; submitter may be user or operator | Request new grant from owner |
