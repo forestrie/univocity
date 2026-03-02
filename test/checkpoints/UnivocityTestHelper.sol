@@ -127,7 +127,7 @@ contract ES256ReceiptDecodeVerifier {
     function getLeafCommitment(
         IUnivocity.ConsistencyReceipt calldata,
         IUnivocity.InclusionProof calldata,
-        bytes8 paymentIDTimestampBe,
+        bytes8 grantIDTimestampBe,
         IUnivocity.PublishGrant calldata g
     ) external pure returns (bytes32) {
         bytes32 inner = sha256(
@@ -140,7 +140,7 @@ contract ES256ReceiptDecodeVerifier {
                 g.grantData
             )
         );
-        return sha256(abi.encodePacked(paymentIDTimestampBe, inner));
+        return sha256(abi.encodePacked(grantIDTimestampBe, inner));
     }
 }
 
@@ -162,7 +162,7 @@ contract GrantDecodeHarness {
     function decodeGrantFourArgs(
         IUnivocity.ConsistencyReceipt calldata,
         IUnivocity.InclusionProof calldata,
-        bytes8 paymentIDTimestampBe,
+        bytes8 grantIDTimestampBe,
         IUnivocity.PublishGrant calldata g
     ) external pure returns (DecodedGrant memory out) {
         out.logId = g.logId;
@@ -182,7 +182,7 @@ contract GrantDecodeHarness {
                 g.grantData
             )
         );
-        out.leaf = sha256(abi.encodePacked(paymentIDTimestampBe, inner));
+        out.leaf = sha256(abi.encodePacked(grantIDTimestampBe, inner));
     }
 }
 
@@ -193,7 +193,7 @@ contract GrantDecodeHarnessEncoded {
     function decodeGrantEncoded(
         IUnivocity.ConsistencyReceipt calldata,
         IUnivocity.InclusionProof calldata,
-        bytes8 paymentIDTimestampBe,
+        bytes8 grantIDTimestampBe,
         bytes calldata encodedGrant
     ) external pure returns (bytes32 leaf) {
         IUnivocity.PublishGrant memory g = abi.decode(
@@ -209,7 +209,7 @@ contract GrantDecodeHarnessEncoded {
                 g.grantData
             )
         );
-        return sha256(abi.encodePacked(paymentIDTimestampBe, inner));
+        return sha256(abi.encodePacked(grantIDTimestampBe, inner));
     }
 }
 
@@ -338,7 +338,7 @@ abstract contract UnivocityTestHelper is Test {
     }
 
     function _leafCommitment(
-        bytes8 paymentIDTimestampBe,
+        bytes8 grantIDTimestampBe,
         IUnivocity.PublishGrant memory g
     ) internal pure returns (bytes32) {
         bytes32 inner = sha256(
@@ -351,7 +351,7 @@ abstract contract UnivocityTestHelper is Test {
                 g.grantData
             )
         );
-        return sha256(abi.encodePacked(paymentIDTimestampBe, inner));
+        return sha256(abi.encodePacked(grantIDTimestampBe, inner));
     }
 
     function _publishGrant(

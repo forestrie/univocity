@@ -245,7 +245,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
     function publishCheckpoint(
         IUnivocity.ConsistencyReceipt calldata consistencyParts,
         IUnivocity.InclusionProof calldata paymentInclusionProof,
-        bytes8 paymentIDTimestampBe,
+        bytes8 grantIDTimestampBe,
         IUnivocity.PublishGrant calldata publishGrant
     ) external {
         bytes32 logId = publishGrant.logId;
@@ -303,7 +303,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             logId,
             claimedSize,
             paymentInclusionProof,
-            paymentIDTimestampBe,
+            grantIDTimestampBe,
             publishGrant,
             accMem
         );
@@ -316,7 +316,8 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             paymentInclusionProof.path,
             authForInclusion,
             publishGrant.request,
-            rootKeyToSet
+            rootKeyToSet,
+            grantIDTimestampBe
         );
     }
 
@@ -327,13 +328,13 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         bytes32 logId,
         uint64 claimedSize,
         IUnivocity.InclusionProof calldata paymentInclusionProof,
-        bytes8 paymentIDTimestampBe,
+        bytes8 grantIDTimestampBe,
         IUnivocity.PublishGrant calldata publishGrant,
         bytes32[] memory accMem
     ) internal returns (bytes32 authLogId) {
         IUnivocity.LogConfig storage config = _logConfigs[logId];
         bytes32 leafCommitment =
-            _leafCommitment(paymentIDTimestampBe, publishGrant);
+            _leafCommitment(grantIDTimestampBe, publishGrant);
 
         if (rootLogId == bytes32(0)) {
             // Rule 1: First checkpoint ever = root authority log. Grant must
@@ -769,7 +770,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
     }
 
     function _leafCommitment(
-        bytes8 paymentIDTimestampBe,
+        bytes8 grantIDTimestampBe,
         IUnivocity.PublishGrant calldata g
     ) private pure returns (bytes32) {
         bytes32 inner = sha256(
@@ -782,7 +783,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
                 g.grantData
             )
         );
-        return sha256(abi.encodePacked(paymentIDTimestampBe, inner));
+        return sha256(abi.encodePacked(grantIDTimestampBe, inner));
     }
 
     /// @notice Max height bound only; requires derived size (call after proof
@@ -844,7 +845,8 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         bytes32[] calldata grantPath,
         bytes32 grantLogId,
         uint256 request,
-        bytes memory rootKeyToSet
+        bytes memory rootKeyToSet,
+        bytes8 grantIDTimestampBe
     ) private {
         LogState storage log = _logs[logId];
         IUnivocity.LogConfig storage config = _logConfigs[logId];
@@ -884,6 +886,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             grantLogId,
             config.rootKey,
             _msgSender(),
+            grantIDTimestampBe,
             uint8(config.kind),
             size,
             accumulator,

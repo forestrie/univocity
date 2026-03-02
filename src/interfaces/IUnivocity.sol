@@ -114,13 +114,14 @@ interface IUnivocity is IUnivocityEvents {
     /// @param paymentInclusionProof Pre-decoded (index, path). Root's first
     ///    checkpoint: index 0, path length up to MAX_HEIGHT. Other checkpoints:
     ///    inclusion in grant's owner (path length up to MAX_HEIGHT).
-    /// @param paymentIDTimestampBe Big-endian idtimestamp of included content.
+    /// @param grantIDTimestampBe Big-endian idtimestamp of included grant
+    ///    content (for leaf commitment).
     /// @param publishGrant LogId, grant flags, max_height, min_growth for leaf
     ///    commitment and bounds; any sender may submit.
     function publishCheckpoint(
         ConsistencyReceipt calldata consistencyParts,
         InclusionProof calldata paymentInclusionProof,
-        bytes8 paymentIDTimestampBe,
+        bytes8 grantIDTimestampBe,
         PublishGrant calldata publishGrant
     ) external;
 }
