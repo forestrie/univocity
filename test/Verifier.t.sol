@@ -4,7 +4,11 @@ pragma solidity ^0.8.24;
 import {Test} from "forge-std/Test.sol";
 import {Verifier} from "@univocity/contracts/Verifier.sol";
 import {IUnivocal} from "@univocity/interfaces/IUnivocal.sol";
-import {LogState} from "@univocity/interfaces/Types.sol";
+import {
+    InclusionProof,
+    LogState,
+    PublishGrant
+} from "@univocity/interfaces/Types.sol";
 
 /// @notice Mock IUnivocal that exposes a single configurable log state.
 contract MockUnivocal is IUnivocal {
@@ -98,5 +102,77 @@ contract VerifierTest is Test {
         Verifier v = new Verifier(IUnivocal(address(singleMock)));
         bytes32[] memory proof;
         assertTrue(v.verifyInclusion(keccak256("single.log"), 0, leaf, proof));
+    }
+
+    /// @notice Grant leaf commitment formula (must match LibLogState).
+    function _grantLeafCommitment(bytes8 idtBe, PublishGrant memory g)
+        internal
+        pure
+        returns (bytes32)
+    {
+        bytes32 inner = sha256(
+            abi.encodePacked(
+                g.logId,
+                g.grant,
+                g.maxHeight,
+                g.minGrowth,
+                g.ownerLogId,
+                g.grantData
+            )
+        );
+        return sha256(abi.encodePacked(idtBe, inner));
+    }
+
+    function test_verifyGrantInclusion_singlePeak_returnsTrue() public {
+        bytes32 logId = keccak256("grant.log");
+        PublishGrant memory g = PublishGrant({
+            logId: logId,
+            grant: 1,
+            request: 0,
+            maxHeight: 64,
+            minGrowth: 1,
+            ownerLogId: logId,
+            grantData: hex"00"
+        });
+        bytes8 idtBe = bytes8(uint64(1));
+        bytes32 leaf = _grantLeafCommitment(idtBe, g);
+        bytes32[] memory acc = new bytes32[](1);
+        acc[0] = leaf;
+        MockUnivocal grantMock = new MockUnivocal(logId, acc, 1);
+        Verifier v = new Verifier(IUnivocal(address(grantMock)));
+        bytes32[] memory path;
+        InclusionProof memory ip = InclusionProof({index: 0, path: path});
+        assertTrue(v.verifyGrantInclusion(logId, g, idtBe, ip));
+    }
+
+    function test_verifyGrantInclusion_wrongGrant_returnsFalse() public {
+        bytes32 logId = keccak256("grant.log");
+        PublishGrant memory g = PublishGrant({
+            logId: logId,
+            grant: 1,
+            request: 0,
+            maxHeight: 64,
+            minGrowth: 1,
+            ownerLogId: logId,
+            grantData: hex"00"
+        });
+        bytes8 idtBe = bytes8(uint64(1));
+        bytes32 leaf = _grantLeafCommitment(idtBe, g);
+        bytes32[] memory acc = new bytes32[](1);
+        acc[0] = leaf;
+        MockUnivocal grantMock = new MockUnivocal(logId, acc, 1);
+        Verifier v = new Verifier(IUnivocal(address(grantMock)));
+        bytes32[] memory path;
+        PublishGrant memory wrongGrant = PublishGrant({
+            logId: logId,
+            grant: 2,
+            request: 0,
+            maxHeight: 64,
+            minGrowth: 1,
+            ownerLogId: logId,
+            grantData: hex"00"
+        });
+        InclusionProof memory ip = InclusionProof({index: 0, path: path});
+        assertFalse(v.verifyGrantInclusion(logId, wrongGrant, idtBe, ip));
     }
 }

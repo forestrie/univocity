@@ -30,6 +30,10 @@ import {
 } from "@univocity/checkpoints/lib/consistencyReceipt.sol";
 import {MAX_HEIGHT} from "@univocity/algorithms/constants.sol";
 import {verifyInclusion} from "@univocity/algorithms/includedRoot.sol";
+import {
+    LibLogState,
+    _leafCommitment
+} from "@univocity/algorithms/lib/LibLogState.sol";
 import {peaks} from "@univocity/algorithms/peaks.sol";
 
 /// @title Univocity
@@ -61,6 +65,8 @@ import {peaks} from "@univocity/algorithms/peaks.sol";
 ///    verify against the target log's root key (or bootstrap key for the
 ///    root's first checkpoint).
 contract Univocity is IUnivocity, IUnivocityErrors {
+    using LibLogState for LogState;
+
     // === State ===
 
     /// @notice Ethereum address used to verify KS256 (secp256k1) signatures on
@@ -309,8 +315,6 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         bytes memory rootKeyToSet
     ) internal returns (bytes32 authLogId) {
         LogConfig storage config = _logConfigs[logId];
-        bytes32 leafCommitment =
-            _leafCommitment(grantIDTimestampBe, publishGrant);
 
         if (rootLogId == bytes32(0)) {
             // Rule 1: First checkpoint ever = root authority log. Grant must
@@ -336,9 +340,10 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             if (grantInclusionProof.path.length > MAX_HEIGHT) {
                 revert ProofPayloadExceedsMaxHeight();
             }
+
             if (!verifyInclusion(
-                    0,
-                    leafCommitment,
+                    grantInclusionProof.index,
+                    _leafCommitment(grantIDTimestampBe, publishGrant),
                     grantInclusionProof.path,
                     accMem,
                     claimedSize
@@ -433,12 +438,11 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         if (grantInclusionProof.path.length > MAX_HEIGHT) {
             revert ProofPayloadExceedsMaxHeight();
         }
-        if (!verifyInclusion(
+        if (!ownerLog.verifyGrantInclusionStorage(
+                publishGrant,
+                grantIDTimestampBe,
                 grantInclusionProof.index,
-                leafCommitment,
-                grantInclusionProof.path,
-                ownerLog.accumulator,
-                ownerLog.size
+                grantInclusionProof.path
             )) {
             revert InvalidPaymentReceipt();
         }
@@ -768,23 +772,6 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         assembly {
             keyAddr := shr(96, mload(add(rk, 32)))
         }
-    }
-
-    function _leafCommitment(
-        bytes8 grantIDTimestampBe,
-        PublishGrant calldata g
-    ) private pure returns (bytes32) {
-        bytes32 inner = sha256(
-            abi.encodePacked(
-                g.logId,
-                g.grant,
-                g.maxHeight,
-                g.minGrowth,
-                g.ownerLogId,
-                g.grantData
-            )
-        );
-        return sha256(abi.encodePacked(grantIDTimestampBe, inner));
     }
 
     /// @notice Max height bound only; requires derived size (call after proof
