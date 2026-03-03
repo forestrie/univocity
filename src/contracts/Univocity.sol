@@ -342,7 +342,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             }
 
             if (!verifyInclusion(
-                    grantInclusionProof.index,
+                    0,
                     _leafCommitment(grantIDTimestampBe, publishGrant),
                     grantInclusionProof.path,
                     accMem,
