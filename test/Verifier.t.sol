@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
-import {Verifier} from "@univocity/contracts/Verifier.sol";
+import {ImutableVerifier} from "@univocity/contracts/ImutableVerifier.sol";
 import {IUnivocal} from "@univocity/interfaces/IUnivocal.sol";
 import {
     InclusionProof,
@@ -35,9 +35,10 @@ contract MockUnivocal is IUnivocal {
     }
 }
 
-/// @notice Tests for Verifier: MMR inclusion verification against IUnivocal.
+/// @notice Tests for ImutableVerifier: MMR inclusion verification against
+///    IUnivocal (concrete implementation of _Verifier).
 contract VerifierTest is Test {
-    Verifier public verifier;
+    ImutableVerifier public verifier;
     MockUnivocal public mock;
 
     // 7-node MMR (4 leaves): same vectors as includedRoot.t.sol. Leaf 0 has
@@ -57,7 +58,7 @@ contract VerifierTest is Test {
         bytes32[] memory acc = new bytes32[](1);
         acc[0] = H6_ROOT;
         mock = new MockUnivocal(LOG_ID, acc, 7);
-        verifier = new Verifier(IUnivocal(address(mock)));
+        verifier = new ImutableVerifier(IUnivocal(address(mock)));
     }
 
     function test_constructor_setsUnivocal() public view {
@@ -99,7 +100,8 @@ contract VerifierTest is Test {
         acc[0] = leaf;
         MockUnivocal singleMock =
             new MockUnivocal(keccak256("single.log"), acc, 1);
-        Verifier v = new Verifier(IUnivocal(address(singleMock)));
+        ImutableVerifier v =
+            new ImutableVerifier(IUnivocal(address(singleMock)));
         bytes32[] memory proof;
         assertTrue(v.verifyInclusion(keccak256("single.log"), 0, leaf, proof));
     }
@@ -139,7 +141,8 @@ contract VerifierTest is Test {
         bytes32[] memory acc = new bytes32[](1);
         acc[0] = leaf;
         MockUnivocal grantMock = new MockUnivocal(logId, acc, 1);
-        Verifier v = new Verifier(IUnivocal(address(grantMock)));
+        ImutableVerifier v =
+            new ImutableVerifier(IUnivocal(address(grantMock)));
         bytes32[] memory path;
         InclusionProof memory ip = InclusionProof({index: 0, path: path});
         assertTrue(v.verifyGrantInclusion(logId, g, idtBe, ip));
@@ -161,7 +164,8 @@ contract VerifierTest is Test {
         bytes32[] memory acc = new bytes32[](1);
         acc[0] = leaf;
         MockUnivocal grantMock = new MockUnivocal(logId, acc, 1);
-        Verifier v = new Verifier(IUnivocal(address(grantMock)));
+        ImutableVerifier v =
+            new ImutableVerifier(IUnivocal(address(grantMock)));
         bytes32[] memory path;
         PublishGrant memory wrongGrant = PublishGrant({
             logId: logId,
