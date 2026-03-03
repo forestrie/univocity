@@ -33,12 +33,58 @@ function verifyInclusion(
 ) pure returns (bool) {
     if (mmrSize == 0) return false;
 
-    uint256 lc = leafCount(mmrSize);
-    uint256 ipeak = peakIndex(lc, proof.length);
-    if (ipeak >= accumulator.length) return false;
+    bytes32 root = proofLengthRoot(accumulator, mmrSize, proof.length);
+    if (root == bytes32(0)) return false;
 
-    bytes32 computedRoot = includedRoot(leafIndex, nodeHash, proof);
-    return computedRoot == accumulator[ipeak];
+    return root == includedRoot(leafIndex, nodeHash, proof);
+}
+
+/// @notice Storage variant of verifyInclusion; reads peak from storage via
+///    proofLengthRootStorage (no full accumulator copy to memory).
+function verifyInclusionStorage(
+    uint256 leafIndex,
+    bytes32 nodeHash,
+    bytes32[] calldata proof,
+    bytes32[] storage accumulator,
+    uint256 mmrSize
+) view returns (bool) {
+    if (mmrSize == 0) return false;
+
+    bytes32 root = proofLengthRootStorage(accumulator, mmrSize, proof.length);
+    if (root == bytes32(0)) return false;
+
+    return root == includedRoot(leafIndex, nodeHash, proof);
+}
+
+/// @notice Returns the peak hash that commits a proof of the given length
+///    (PeakIndex(LeafCount(mmrSize), proofLength)). Used by verifyInclusion.
+/// @return The committing peak, or bytes32(0) if peak index out of range.
+function proofLengthRoot(
+    bytes32[] memory accumulator,
+    uint256 mmrSize,
+    uint256 proofLength
+) pure returns (bytes32) {
+    uint256 lc = leafCount(mmrSize);
+    uint256 ipeak = peakIndex(lc, proofLength);
+
+    if (ipeak >= accumulator.length) return bytes32(0);
+
+    return accumulator[ipeak];
+}
+
+/// @notice Storage variant of proofLengthRoot; reads peak from storage
+///    (no accumulator copy to memory).
+function proofLengthRootStorage(
+    bytes32[] storage accumulator,
+    uint256 mmrSize,
+    uint256 proofLength
+) view returns (bytes32) {
+    uint256 lc = leafCount(mmrSize);
+    uint256 ipeak = peakIndex(lc, proofLength);
+
+    if (ipeak >= accumulator.length) return bytes32(0);
+
+    return accumulator[ipeak];
 }
 
 /// @notice Computes the MMR root implied by the inclusion proof for a node.

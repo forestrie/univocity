@@ -4,7 +4,10 @@ pragma solidity ^0.8.24;
 import {Test} from "forge-std/Test.sol";
 import {
     includedRoot,
-    verifyInclusion
+    proofLengthRoot,
+    proofLengthRootStorage,
+    verifyInclusion,
+    verifyInclusionStorage
 } from "@univocity/algorithms/includedRoot.sol";
 import {hashPosPair64} from "@univocity/algorithms/binUtils.sol";
 
@@ -35,6 +38,55 @@ contract VerifyInclusionHarness {
     }
 }
 
+/// @notice Harness to call proofLengthRoot (memory accumulator).
+contract ProofLengthRootHarness {
+    function callProofLengthRoot(
+        bytes32[] memory accumulator,
+        uint256 mmrSize,
+        uint256 proofLength
+    ) external pure returns (bytes32) {
+        return proofLengthRoot(accumulator, mmrSize, proofLength);
+    }
+}
+
+/// @notice Harness to call proofLengthRootStorage (storage accumulator).
+contract ProofLengthRootStorageHarness {
+    bytes32[] public acc;
+
+    function setAcc(bytes32[] memory _acc) external {
+        acc = _acc;
+    }
+
+    function callProofLengthRootStorage(uint256 mmrSize, uint256 proofLength)
+        external
+        view
+        returns (bytes32)
+    {
+        return proofLengthRootStorage(acc, mmrSize, proofLength);
+    }
+}
+
+/// @notice Harness to call verifyInclusionStorage (storage accumulator).
+contract VerifyInclusionStorageHarness {
+    bytes32[] public accumulator;
+    uint256 public mmrSize;
+
+    function setAccumulator(bytes32[] memory _acc, uint256 _mmrSize) external {
+        accumulator = _acc;
+        mmrSize = _mmrSize;
+    }
+
+    function callVerifyInclusionStorage(
+        uint256 leafIndex,
+        bytes32 nodeHash,
+        bytes32[] calldata proof
+    ) external view returns (bool) {
+        return verifyInclusionStorage(
+            leafIndex, nodeHash, proof, accumulator, mmrSize
+        );
+    }
+}
+
 /// @title IncludedRootTest
 /// @notice Unit tests for includedRoot MMR inclusion proof verification.
 /// @dev Test vectors generated from reference Python implementation using
@@ -49,10 +101,16 @@ contract VerifyInclusionHarness {
 contract IncludedRootTest is Test {
     IncludedRootHarness harness;
     VerifyInclusionHarness verifyHarness;
+    ProofLengthRootHarness proofLengthRootHarness;
+    ProofLengthRootStorageHarness proofLengthRootStorageHarness;
+    VerifyInclusionStorageHarness verifyInclusionStorageHarness;
 
     function setUp() public {
         harness = new IncludedRootHarness();
         verifyHarness = new VerifyInclusionHarness();
+        proofLengthRootHarness = new ProofLengthRootHarness();
+        proofLengthRootStorageHarness = new ProofLengthRootStorageHarness();
+        verifyInclusionStorageHarness = new VerifyInclusionStorageHarness();
     }
 
     // ========================================================================
@@ -377,6 +435,86 @@ contract IncludedRootTest is Test {
 
         assertTrue(
             verifyHarness.callVerifyInclusion(0, H0, proof, accumulator, 7)
+        );
+    }
+
+    // ========================================================================
+    // =
+    // proofLengthRoot / proofLengthRootStorage
+    // ========================================================================
+    // =
+
+    /// @notice 7-node MMR, proof length 2: committing peak is index 0 (H6).
+    function test_proofLengthRoot_7node_proofLen2_returnsH6() public view {
+        bytes32[] memory acc = new bytes32[](1);
+        acc[0] = H6_ROOT;
+        assertEq(
+            proofLengthRootHarness.callProofLengthRoot(acc, 7, 2), H6_ROOT
+        );
+    }
+
+    /// @notice 7-node MMR, proof length 0: peak index 1, accumulator length 1
+    ///    -> out of range, returns zero.
+    function test_proofLengthRoot_7node_proofLen0_outOfRange_returnsZero()
+        public
+        view
+    {
+        bytes32[] memory acc = new bytes32[](1);
+        acc[0] = H6_ROOT;
+        assertEq(
+            proofLengthRootHarness.callProofLengthRoot(acc, 7, 0), bytes32(0)
+        );
+    }
+
+    /// @notice proofLengthRootStorage returns same value as proofLengthRoot.
+    function test_proofLengthRootStorage_matchesProofLengthRoot() public {
+        bytes32[] memory acc = new bytes32[](1);
+        acc[0] = H6_ROOT;
+        proofLengthRootStorageHarness.setAcc(acc);
+        assertEq(
+            proofLengthRootStorageHarness.callProofLengthRootStorage(7, 2),
+            proofLengthRootHarness.callProofLengthRoot(acc, 7, 2)
+        );
+    }
+
+    // ========================================================================
+    // =
+    // verifyInclusionStorage
+    // ========================================================================
+    // =
+
+    /// @notice verifyInclusionStorage matches verifyInclusion for same inputs.
+    function test_verifyInclusionStorage_matchesVerifyInclusion() public {
+        bytes32[] memory proof = new bytes32[](2);
+        proof[0] = H1;
+        proof[1] = H5;
+        bytes32[] memory acc = new bytes32[](1);
+        acc[0] = H6_ROOT;
+        verifyInclusionStorageHarness.setAccumulator(acc, 7);
+        assertTrue(
+            verifyInclusionStorageHarness.callVerifyInclusionStorage(
+                0, H0, proof
+            )
+        );
+        assertEq(
+            verifyHarness.callVerifyInclusion(0, H0, proof, acc, 7),
+            verifyInclusionStorageHarness.callVerifyInclusionStorage(
+                0, H0, proof
+            )
+        );
+    }
+
+    /// @notice verifyInclusionStorage returns false for wrong node (same as
+    ///    verifyInclusion).
+    function test_verifyInclusionStorage_wrongHash_returnsFalse() public {
+        bytes32 wrongHash = sha256("wrong");
+        bytes32[] memory acc = new bytes32[](1);
+        acc[0] = sha256("receipt");
+        verifyInclusionStorageHarness.setAccumulator(acc, 1);
+        assertFalse(
+            verifyInclusionStorageHarness.callVerifyInclusionStorage(
+                0, wrongHash, new bytes32[](0)
+            )
         );
     }
 }
