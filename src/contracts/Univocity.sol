@@ -3,6 +3,16 @@ pragma solidity ^0.8.24;
 
 import {IUnivocity} from "@univocity/interfaces/IUnivocity.sol";
 import {
+    GF_AUTH_LOG,
+    GF_CREATE,
+    GF_EXTEND,
+    GF_GC_MASK,
+    GF_DATA_LOG,
+    GC_AUTH_LOG,
+    GC_DATA_LOG,
+    P256_P
+} from "@univocity/interfaces/constants.sol";
+import {
     LogKind,
     LogConfig,
     LogState,
@@ -11,7 +21,7 @@ import {
     InclusionProof,
     DelegationProof,
     PublishGrant
-} from "@univocity/interfaces/Types.sol";
+} from "@univocity/interfaces/types.sol";
 import {IUnivocityErrors} from "@univocity/interfaces/IUnivocityErrors.sol";
 import {ALG_ES256, ALG_KS256} from "@univocity/cosecbor/constants.sol";
 import {
@@ -86,27 +96,6 @@ contract Univocity is IUnivocity, IUnivocityErrors {
 
     mapping(bytes32 => LogState) private _logs;
     mapping(bytes32 => LogConfig) private _logConfigs;
-
-    /// @notice Grant flag: create a new log (first checkpoint to that logId).
-    uint256 public constant GF_CREATE = uint256(1) << 32;
-    /// @notice Grant flag: extend an existing log.
-    uint256 public constant GF_EXTEND = uint256(1) << 33;
-    /// @notice Grant flag: new log is an authority log (child authority).
-    uint256 public constant GF_AUTH_LOG = uint256(1);
-    /// @notice Grant flag: new log is a data log.
-    uint256 public constant GF_DATA_LOG = uint256(2);
-
-    /// @notice Grant code (high 32 bits): mutually exclusive log kind for new logs.
-    uint256 public constant GC_AUTH_LOG = uint256(1) << 224;
-    /// @notice Grant code: new log is a data log (mutually exclusive with GC_AUTH_LOG).
-    uint256 public constant GC_DATA_LOG = uint256(2) << 224;
-    /// @notice Mask for request code bits (high 32 bits); (request & GF_GC_MASK)
-    ///    must be GC_AUTH_LOG or GC_DATA_LOG for new logs; not in leaf hash.
-    uint256 public constant GF_GC_MASK = uint256(3) << 224;
-
-    /// @dev P-256 field prime; used to treat (x, y) and (x, P-y) as same key.
-    uint256 private constant P256_P =
-        0xFFFFFFFF00000001000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFF;
 
     // === Constructor ===
 

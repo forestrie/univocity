@@ -12,7 +12,7 @@ import {
     DelegationProof,
     InclusionProof,
     PublishGrant
-} from "@univocity/interfaces/Types.sol";
+} from "@univocity/interfaces/types.sol";
 import {includedRoot} from "@univocity/algorithms/includedRoot.sol";
 import {IUnivocityEvents} from "@univocity/interfaces/IUnivocityEvents.sol";
 import {consistentRoots} from "@univocity/algorithms/consistentRoots.sol";

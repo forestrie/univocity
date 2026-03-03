@@ -35,12 +35,20 @@ import {
 } from "@univocity/checkpoints/lib/consistencyReceipt.sol";
 import {IUnivocity} from "@univocity/interfaces/IUnivocity.sol";
 import {
+    GF_AUTH_LOG,
+    GF_CREATE,
+    GF_DATA_LOG,
+    GF_EXTEND,
+    GC_AUTH_LOG,
+    GC_DATA_LOG
+} from "@univocity/interfaces/constants.sol";
+import {
     ConsistencyProof,
     ConsistencyReceipt,
     DelegationProof,
     InclusionProof,
     PublishGrant
-} from "@univocity/interfaces/Types.sol";
+} from "@univocity/interfaces/types.sol";
 import {IUnivocityErrors} from "@univocity/interfaces/IUnivocityErrors.sol";
 import {P256} from "@openzeppelin/contracts/utils/cryptography/P256.sol";
 import {consistentRoots} from "@univocity/algorithms/consistentRoots.sol";
@@ -279,17 +287,12 @@ abstract contract UnivocityTestHelper is Test {
     bytes8 internal constant IDTIMESTAMP_AUTH = bytes8(0);
     bytes8 internal constant IDTIMESTAMP_TEST = bytes8(uint64(1));
 
-    uint256 internal constant GF_CREATE = uint256(1) << 32;
-    uint256 internal constant GF_EXTEND = uint256(1) << 33;
-    uint256 internal constant GF_AUTH = uint256(1);
-    uint256 internal constant GF_DATA = uint256(2);
-    /// @notice ADR-0005: when set with GF_CREATE, grantData is allowed signer.
-    uint256 internal constant GC_AUTH_LOG = uint256(1) << 224;
-    uint256 internal constant GC_DATA_LOG = uint256(2) << 224;
+    uint256 internal constant GF_AUTH = GF_AUTH_LOG;
+    uint256 internal constant GF_DATA = GF_DATA_LOG;
     /// @notice Root grant: create + extend + auth (grantData = bootstrap key
     ///    for first checkpoint; required by verify-only design).
-    uint256 internal constant GRANT_ROOT = GF_CREATE | GF_EXTEND | GF_AUTH;
-    uint256 internal constant GRANT_DATA = GF_CREATE | GF_EXTEND | GF_DATA;
+    uint256 internal constant GRANT_ROOT = GF_CREATE | GF_EXTEND | GF_AUTH_LOG;
+    uint256 internal constant GRANT_DATA = GF_CREATE | GF_EXTEND | GF_DATA_LOG;
 
     function setUp() public virtual {
         KS256_SIGNER = vm.addr(SIGNER_PK);
