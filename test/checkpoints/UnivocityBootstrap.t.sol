@@ -11,7 +11,7 @@ import {IUnivocity} from "@univocity/interfaces/IUnivocity.sol";
 import {
     ConsistencyReceipt,
     PublishGrant
-} from "@univocity/interfaces/types.sol";
+} from "@univocity/interfaces/Types.sol";
 
 contract UnivocityBootstrapTest is UnivocityTestHelper {
     function setUp() public override {

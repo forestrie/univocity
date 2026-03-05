@@ -13,7 +13,7 @@ import {
     InclusionProof,
     LogState,
     PublishGrant
-} from "@univocity/interfaces/types.sol";
+} from "@univocity/interfaces/Types.sol";
 import {hashPosPair64} from "@univocity/algorithms/binUtils.sol";
 import {peaks} from "@univocity/algorithms/peaks.sol";
 

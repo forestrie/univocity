@@ -48,7 +48,7 @@ import {
     DelegationProof,
     InclusionProof,
     PublishGrant
-} from "@univocity/interfaces/types.sol";
+} from "@univocity/interfaces/Types.sol";
 import {IUnivocityErrors} from "@univocity/interfaces/IUnivocityErrors.sol";
 import {P256} from "@openzeppelin/contracts/utils/cryptography/P256.sol";
 import {consistentRoots} from "@univocity/algorithms/consistentRoots.sol";

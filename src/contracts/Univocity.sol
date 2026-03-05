@@ -21,7 +21,7 @@ import {
     InclusionProof,
     DelegationProof,
     PublishGrant
-} from "@univocity/interfaces/types.sol";
+} from "@univocity/interfaces/Types.sol";
 import {IUnivocityErrors} from "@univocity/interfaces/IUnivocityErrors.sol";
 import {ALG_ES256, ALG_KS256} from "@univocity/cosecbor/constants.sol";
 import {

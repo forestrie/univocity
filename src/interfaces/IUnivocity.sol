@@ -8,7 +8,7 @@ import {
     ConsistencyReceipt,
     InclusionProof,
     PublishGrant
-} from "@univocity/interfaces/types.sol";
+} from "@univocity/interfaces/Types.sol";
 
 /// @title IUnivocity
 /// @notice Interface for univocity transparency log contract (payment-bounded

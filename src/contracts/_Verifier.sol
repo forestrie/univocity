@@ -6,7 +6,7 @@ import {
     InclusionProof,
     LogState,
     PublishGrant
-} from "@univocity/interfaces/types.sol";
+} from "@univocity/interfaces/Types.sol";
 import {LibLogState} from "@univocity/algorithms/lib/LibLogState.sol";
 
 /// @title _Verifier

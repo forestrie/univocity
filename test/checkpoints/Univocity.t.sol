@@ -14,7 +14,7 @@ import {
     LogConfig,
     LogKind,
     PublishGrant
-} from "@univocity/interfaces/types.sol";
+} from "@univocity/interfaces/Types.sol";
 import {IUnivocityErrors} from "@univocity/interfaces/IUnivocityErrors.sol";
 import {
     buildDetachedPayloadCommitment

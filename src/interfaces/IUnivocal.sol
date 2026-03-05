@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.24;
 
-import {LogState} from "@univocity/interfaces/types.sol";
+import {LogState} from "@univocity/interfaces/Types.sol";
 
 /// @title IUnivocal
 /// @notice Interface to a split view protected "univocal" log state.

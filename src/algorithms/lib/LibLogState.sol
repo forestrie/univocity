@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {LogState, PublishGrant} from "@univocity/interfaces/types.sol";
+import {LogState, PublishGrant} from "@univocity/interfaces/Types.sol";
 import {
     verifyInclusion as _verifyInclusion,
     verifyInclusionStorage as _verifyInclusionStorage
