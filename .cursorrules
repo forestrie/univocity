@@ -1,5 +1,7 @@
 # Univocity Cursor Rules
 
+Establish context by first considering ./AGENT_CONTEXT.md
+
 ## Solidity imports
 
 **Always use explicit named imports.** Do not use wild/namespace imports.
