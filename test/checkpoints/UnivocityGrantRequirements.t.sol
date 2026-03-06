@@ -17,7 +17,7 @@ import {
 import {
     ConsistencyReceipt,
     PublishGrant
-} from "@univocity/interfaces/Types.sol";
+} from "@univocity/interfaces/types.sol";
 import {IUnivocityErrors} from "@univocity/interfaces/IUnivocityErrors.sol";
 
 contract UnivocityGrantRequirementsTest is UnivocityTestHelper {
