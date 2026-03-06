@@ -8,9 +8,16 @@ import "./UnivocityTestHelper.sol";
 import {Univocity} from "@univocity/contracts/Univocity.sol";
 import {IUnivocity} from "@univocity/interfaces/IUnivocity.sol";
 import {
+    GC_AUTH_LOG,
+    GF_AUTH_LOG,
+    GF_CREATE,
+    GF_DATA_LOG,
+    GF_EXTEND
+} from "@univocity/interfaces/constants.sol";
+import {
     ConsistencyReceipt,
     PublishGrant
-} from "@univocity/interfaces/Types.sol";
+} from "@univocity/interfaces/types.sol";
 import {IUnivocityErrors} from "@univocity/interfaces/IUnivocityErrors.sol";
 
 contract UnivocityGrantRequirementsTest is UnivocityTestHelper {
@@ -40,8 +47,8 @@ contract UnivocityGrantRequirementsTest is UnivocityTestHelper {
         vm.expectRevert(
             abi.encodeWithSelector(
                 IUnivocityErrors.GrantRequirement.selector,
-                univocity.GF_CREATE() | univocity.GF_AUTH_LOG(),
-                univocity.GC_AUTH_LOG()
+                GF_CREATE | GF_AUTH_LOG,
+                GC_AUTH_LOG
             )
         );
         fresh.publishCheckpoint(
@@ -94,8 +101,8 @@ contract UnivocityGrantRequirementsTest is UnivocityTestHelper {
         vm.expectRevert(
             abi.encodeWithSelector(
                 IUnivocityErrors.GrantRequirement.selector,
-                univocity.GF_CREATE() | univocity.GF_AUTH_LOG(),
-                univocity.GC_AUTH_LOG()
+                GF_CREATE | GF_AUTH_LOG,
+                GC_AUTH_LOG
             )
         );
         fresh.publishCheckpoint(
@@ -148,7 +155,7 @@ contract UnivocityGrantRequirementsTest is UnivocityTestHelper {
         vm.expectRevert(
             abi.encodeWithSelector(
                 IUnivocityErrors.GrantRequirement.selector,
-                univocity.GF_EXTEND(),
+                GF_EXTEND,
                 uint256(0)
             )
         );
@@ -179,8 +186,7 @@ contract UnivocityGrantRequirementsTest is UnivocityTestHelper {
         vm.expectRevert(
             abi.encodeWithSelector(
                 IUnivocityErrors.GrantRequirement.selector,
-                univocity.GF_CREATE() | univocity.GF_AUTH_LOG()
-                    | univocity.GF_DATA_LOG(),
+                GF_CREATE | GF_AUTH_LOG | GF_DATA_LOG,
                 uint256(0)
             )
         );
@@ -228,7 +234,7 @@ contract UnivocityGrantRequirementsTest is UnivocityTestHelper {
         vm.expectRevert(
             abi.encodeWithSelector(
                 IUnivocityErrors.GrantRequirement.selector,
-                univocity.GF_EXTEND(),
+                GF_EXTEND,
                 uint256(0)
             )
         );

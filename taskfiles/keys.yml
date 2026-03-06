@@ -1,0 +1,70 @@
+# ES256 (P-256) key tasks for Univocity bootstrap.
+# Private key path is relative to the directory from which you run task.
+# Usage: task keys:gen:<path>, keys:pub:<path>, keys:check:<path>
+# Example: task keys:gen:bootstrap-key.pem; task keys:pub:bootstrap-key.pem;
+#   task keys:check:bootstrap-key.pem (signs "Hello Forestrie", verifies).
+#
+# Temp files (FULL, X, Y) use Task's dir (ROOT_DIR/.task). Only derived public
+# key material is written there; the private key is never written to this location.
+
+version: "3"
+
+tasks:
+  gen:*:
+    desc: Generate a P-256 (ES256) private key; write to the given path.
+    vars:
+      PRIV: "{{index .MATCH 0}}"
+    preconditions:
+      - test -n "{{.PRIV}}"
+    cmds:
+      - openssl ecparam -name prime256v1 -genkey -noout -out "{{.PRIV}}"
+    silent: true
+
+  pub:*:
+    desc: Derive ES256 public key; first line = 64-byte key as hex (x||y);
+      then ES256_X and ES256_Y. Single POSIX sh block.
+    vars:
+      PRIV: "{{index .MATCH 0}}"
+      TMPDIR: "{{.ROOT_DIR}}/.task"
+      FULL: "{{.ROOT_DIR}}/.task/pubhex.tmp"
+      X: "{{.ROOT_DIR}}/.task/pubhex_x.tmp"
+      Y: "{{.ROOT_DIR}}/.task/pubhex_y.tmp"
+    preconditions:
+      - test -n "{{.PRIV}}"
+      - test -f "{{.PRIV}}"
+    cmds:
+      - |
+        mkdir -p "{{.TMPDIR}}"
+        openssl ec -in "{{.PRIV}}" -text -noout 2>/dev/null | grep -A 10 'pub:' | grep -v 'pub:' | tr -d ' \n:' | sed 's/^04//' > "{{.FULL}}"
+        cut -c1-64 "{{.FULL}}" > "{{.X}}"
+        cut -c65-128 "{{.FULL}}" > "{{.Y}}"
+        printf '0x'; cat "{{.X}}" "{{.Y}}" | tr -d '\n'; echo
+        printf 'ES256_X=0x'; cat "{{.X}}";
+        printf 'ES256_Y=0x'; cat "{{.Y}}";
+        rm -f "{{.FULL}}" "{{.X}}" "{{.Y}}"
+
+  check:*:
+    desc: Run pub to get public key, decode first line (0x + 128 hex) to PEM,
+      sign "Hello Forestrie", verify; confirms the printed public key is correct.
+    vars:
+      PRIV: "{{index .MATCH 0}}"
+      TMPDIR: "{{.ROOT_DIR}}/.task"
+      PUB_OUT: "{{.ROOT_DIR}}/.task/check_pub_out.txt"
+      PUB_PEM: "{{.ROOT_DIR}}/.task/check_pub.pem"
+      SIG_BIN: "{{.ROOT_DIR}}/.task/check_sig.bin"
+      # P-256 SPKI DER header (26 bytes) before 65-byte uncompressed point (04||x||y)
+      DER_HEAD: "3059301306072a8648ce3d020106082a8648ce3d030107034200"
+    preconditions:
+      - test -n "{{.PRIV}}"
+      - test -f "{{.PRIV}}"
+    cmds:
+      - mkdir -p "{{.TMPDIR}}"
+      - task keys:pub:{{.PRIV}} | tee "{{.PUB_OUT}}"
+      - |
+        sed -n '1s/^0x//p' "{{.PUB_OUT}}" | xxd -r -p > "{{.TMPDIR}}/xy64.bin"
+        echo 04 | xxd -r -p | cat - "{{.TMPDIR}}/xy64.bin" > "{{.TMPDIR}}/point65.bin"
+        echo "{{.DER_HEAD}}" | xxd -r -p | cat - "{{.TMPDIR}}/point65.bin" > "{{.TMPDIR}}/pub.der"
+        openssl ec -pubin -inform DER -in "{{.TMPDIR}}/pub.der" -out "{{.PUB_PEM}}"
+        echo -n "Hello Forestrie" | openssl dgst -sha256 -sign "{{.PRIV}}" -out "{{.SIG_BIN}}"
+        echo -n "Hello Forestrie" | openssl dgst -sha256 -verify "{{.PUB_PEM}}" -signature "{{.SIG_BIN}}"
+        rm -f "{{.PUB_OUT}}" "{{.TMPDIR}}/xy64.bin" "{{.TMPDIR}}/point65.bin" "{{.TMPDIR}}/pub.der" "{{.PUB_PEM}}" "{{.SIG_BIN}}"

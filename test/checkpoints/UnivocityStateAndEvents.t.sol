@@ -8,7 +8,7 @@ import "./UnivocityTestHelper.sol";
 import {Univocity} from "@univocity/contracts/Univocity.sol";
 import {IUnivocity} from "@univocity/interfaces/IUnivocity.sol";
 import {IUnivocityEvents} from "@univocity/interfaces/IUnivocityEvents.sol";
-import {LogConfig, LogKind, LogState} from "@univocity/interfaces/Types.sol";
+import {LogConfig, LogKind, LogState} from "@univocity/interfaces/types.sol";
 
 contract UnivocityStateAndEventsTest is UnivocityTestHelper, IUnivocityEvents {
     function setUp() public override {

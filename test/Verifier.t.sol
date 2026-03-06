@@ -8,7 +8,7 @@ import {
     InclusionProof,
     LogState,
     PublishGrant
-} from "@univocity/interfaces/Types.sol";
+} from "@univocity/interfaces/types.sol";
 
 /// @notice Mock IUnivocal that exposes a single configurable log state.
 contract MockUnivocal is IUnivocal {
