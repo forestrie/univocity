@@ -6,7 +6,7 @@ pragma solidity ^0.8.24;
 ///   bootstrap tests here (Plan 0022 Phase 4).
 
 import "./UnivocityTestHelper.sol";
-import {Univocity} from "@univocity/contracts/Univocity.sol";
+import {ImutableUnivocity} from "@univocity/contracts/ImutableUnivocity.sol";
 import {IUnivocity} from "@univocity/interfaces/IUnivocity.sol";
 import {
     ConsistencyReceipt,

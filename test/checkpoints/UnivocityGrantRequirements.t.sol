@@ -5,7 +5,7 @@ pragma solidity ^0.8.24;
 ///   Univocity.t.sol per test/checkpoints/README.md.
 
 import "./UnivocityTestHelper.sol";
-import {Univocity} from "@univocity/contracts/Univocity.sol";
+import {ImutableUnivocity} from "@univocity/contracts/ImutableUnivocity.sol";
 import {IUnivocity} from "@univocity/interfaces/IUnivocity.sol";
 import {
     GC_AUTH_LOG,
@@ -30,8 +30,8 @@ contract UnivocityGrantRequirementsTest is UnivocityTestHelper {
     /// @notice First checkpoint (root) with GF_EXTEND instead of GF_CREATE
     ///    reverts GrantRequirement(GF_CREATE | GF_AUTH_LOG, GC_AUTH_LOG).
     function test_firstCheckpoint_grantRequirement_wrongCode_reverts() public {
-        Univocity fresh =
-            new Univocity(ALG_KS256, abi.encodePacked(KS256_SIGNER));
+        ImutableUnivocity fresh =
+            new ImutableUnivocity(ALG_KS256, abi.encodePacked(KS256_SIGNER));
         PublishGrant memory g = _publishGrant(
             AUTHORITY_LOG_ID,
             GF_EXTEND,
@@ -61,8 +61,8 @@ contract UnivocityGrantRequirementsTest is UnivocityTestHelper {
     function test_firstCheckpoint_emptyGrantData_missingSignerKey_reverts()
         public
     {
-        Univocity fresh =
-            new Univocity(ALG_KS256, abi.encodePacked(KS256_SIGNER));
+        ImutableUnivocity fresh =
+            new ImutableUnivocity(ALG_KS256, abi.encodePacked(KS256_SIGNER));
         PublishGrant memory g = _publishGrant(
             AUTHORITY_LOG_ID, GF_CREATE | GF_AUTH, 0, 0, 0, bytes32(0), ""
         );
@@ -84,8 +84,9 @@ contract UnivocityGrantRequirementsTest is UnivocityTestHelper {
     function test_firstCheckpoint_grantRequirement_dataFlagSet_reverts()
         public
     {
-        Univocity fresh =
-            new Univocity(ALG_KS256, abi.encodePacked(KS256_SIGNER));
+        ImutableUnivocity fresh = new ImutableUnivocity(
+            ALG_KS256, abi.encodePacked(KS256_SIGNER)
+        );
         PublishGrant memory g = _publishGrant(
             AUTHORITY_LOG_ID,
             GF_CREATE | GF_DATA,
@@ -113,8 +114,8 @@ contract UnivocityGrantRequirementsTest is UnivocityTestHelper {
     /// @notice Extend (second checkpoint to authority) with GC_CREATE
     ///    reverts GrantRequirement(GC_EXTEND_LOG, 0).
     function test_extendGrant_wrongCode_reverts() public {
-        Univocity fresh =
-            new Univocity(ALG_KS256, abi.encodePacked(KS256_SIGNER));
+        ImutableUnivocity fresh =
+            new ImutableUnivocity(ALG_KS256, abi.encodePacked(KS256_SIGNER));
         PublishGrant memory g0 = _publishGrant(
             AUTHORITY_LOG_ID,
             GRANT_ROOT,
@@ -201,8 +202,8 @@ contract UnivocityGrantRequirementsTest is UnivocityTestHelper {
     /// @notice Extend without GF_EXTEND (only GF_CREATE | GC_AUTH_LOG) reverts
     ///    GrantRequirement(GF_EXTEND).
     function test_extendGrant_GF_EXTEND_required_reverts() public {
-        Univocity fresh =
-            new Univocity(ALG_KS256, abi.encodePacked(KS256_SIGNER));
+        ImutableUnivocity fresh =
+            new ImutableUnivocity(ALG_KS256, abi.encodePacked(KS256_SIGNER));
         PublishGrant memory g0 = _publishGrant(
             AUTHORITY_LOG_ID,
             GRANT_ROOT,

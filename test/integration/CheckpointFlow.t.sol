@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
-import {Univocity} from "@univocity/contracts/Univocity.sol";
+import {ImutableUnivocity} from "@univocity/contracts/ImutableUnivocity.sol";
 import {ALG_KS256} from "@univocity/cosecbor/constants.sol";
 import {buildSigStructure} from "@univocity/cosecbor/cosecbor.sol";
 import {IUnivocity} from "@univocity/interfaces/IUnivocity.sol";
@@ -60,7 +60,7 @@ contract ConsistencyCommitmentHarness {
 /// @notice Integration tests: full bootstrap, grant inclusion proof,
 ///    permissionless submission.
 contract CheckpointFlowTest is Test, IUnivocityEvents {
-    Univocity internal univocity;
+    ImutableUnivocity internal univocity;
     IncludedRootHarness internal includedRootHarness;
     ConsistencyCommitmentHarness internal commitmentHarness;
 
@@ -78,7 +78,8 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
         commitmentHarness = new ConsistencyCommitmentHarness();
 
         vm.prank(BOOTSTRAP);
-        univocity = new Univocity(ALG_KS256, abi.encodePacked(ks256Signer));
+        univocity =
+            new ImutableUnivocity(ALG_KS256, abi.encodePacked(ks256Signer));
         // Authority log is established by first bootstrap publishCheckpoint in
         // tests that need it
     }
@@ -90,8 +91,8 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
     ///    authority accumulator
     ///    commits to that leaf.
     function test_fullFlow_bootstrapInitializesAndPublishesAuthority() public {
-        Univocity fresh =
-            new Univocity(ALG_KS256, abi.encodePacked(ks256Signer));
+        ImutableUnivocity fresh =
+            new ImutableUnivocity(ALG_KS256, abi.encodePacked(ks256Signer));
         PublishGrant memory g = _publishGrant(
             rootLogId,
             GRANT_ROOT,

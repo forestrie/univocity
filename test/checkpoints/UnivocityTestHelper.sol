@@ -24,7 +24,7 @@ pragma solidity ^0.8.24;
 ///   - UnivocityMisc.t.sol: error coverage matrix, idtimestamp, etc.
 
 import {Test} from "forge-std/Test.sol";
-import {Univocity} from "@univocity/contracts/Univocity.sol";
+import {ImutableUnivocity} from "@univocity/contracts/ImutableUnivocity.sol";
 import {hashPosPair64} from "@univocity/algorithms/binUtils.sol";
 import {includedRoot} from "@univocity/algorithms/includedRoot.sol";
 import {ALG_ES256, ALG_KS256} from "@univocity/cosecbor/constants.sol";
@@ -268,7 +268,7 @@ contract ConsistencyCommitmentHarness {
 }
 
 abstract contract UnivocityTestHelper is Test {
-    Univocity internal univocity;
+    ImutableUnivocity internal univocity;
     ConsistencyCommitmentHarness internal commitmentHarness;
     IncludedRootHarness internal includedRootHarness;
 
@@ -300,10 +300,10 @@ abstract contract UnivocityTestHelper is Test {
         commitmentHarness = new ConsistencyCommitmentHarness();
     }
 
-    /// @notice Deploy Univocity with KS256 bootstrap key (no checkpoints).
-    function _deployUnivocityKS256() internal returns (Univocity) {
+    /// @notice Deploy ImutableUnivocity with KS256 bootstrap key (no checkpoints).
+    function _deployUnivocityKS256() internal returns (ImutableUnivocity) {
         vm.prank(BOOTSTRAP);
-        return new Univocity(ALG_KS256, abi.encodePacked(KS256_SIGNER));
+        return new ImutableUnivocity(ALG_KS256, abi.encodePacked(KS256_SIGNER));
     }
 
     /// @notice Publish bootstrap (first) checkpoint and second checkpoint on
@@ -799,7 +799,7 @@ abstract contract UnivocityTestHelper is Test {
     /// @notice Publish first checkpoint to TEST_LOG (RoI at index 1 in
     ///    authority). Caller supplies onePeak, authorityLeaf0, grantTestLog.
     function _publishFirstToTestLog(
-        Univocity u,
+        ImutableUnivocity u,
         bytes32 onePeak,
         bytes32 authorityLeaf0Val,
         PublishGrant memory grantTestLogVal
@@ -818,7 +818,7 @@ abstract contract UnivocityTestHelper is Test {
     /// @notice Publish first checkpoint to a target log with a specific grant
     ///    (used by bounds tests). Caller supplies onePeak, grant, inclusionPath.
     function _publishFirstToTestLogWithGrant(
-        Univocity u,
+        ImutableUnivocity u,
         bytes32 onePeak,
         bytes32, /* logId */
         PublishGrant memory grant,

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
-import {Univocity} from "@univocity/contracts/Univocity.sol";
+import {ImutableUnivocity} from "@univocity/contracts/ImutableUnivocity.sol";
 import {ALG_KS256} from "@univocity/cosecbor/constants.sol";
 import {buildSigStructure} from "@univocity/cosecbor/cosecbor.sol";
 import {IUnivocity} from "@univocity/interfaces/IUnivocity.sol";
@@ -20,7 +20,7 @@ import {peaks} from "@univocity/algorithms/peaks.sol";
 /// @notice Handler for invariant tests:
 ///    only bootstrap actions with valid accumulators
 contract UnivocityHandler is Test {
-    Univocity public univocity;
+    ImutableUnivocity public univocity;
 
     address public bootstrap;
     address public ks256Signer;
@@ -36,7 +36,8 @@ contract UnivocityHandler is Test {
         ks256Signer = vm.addr(SIGNER_PK);
         rootLogId = keccak256("authority");
         vm.prank(bootstrap);
-        univocity = new Univocity(ALG_KS256, abi.encodePacked(ks256Signer));
+        univocity =
+            new ImutableUnivocity(ALG_KS256, abi.encodePacked(ks256Signer));
     }
 
     function initialize() external {
@@ -297,7 +298,7 @@ contract UnivocityHandler is Test {
     }
 }
 
-/// @notice Invariant tests for Univocity
+/// @notice Invariant tests for Univocity (ImutableUnivocity implementation).
 contract UnivocityInvariantTest is Test {
     UnivocityHandler public handler;
 

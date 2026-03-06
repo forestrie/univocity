@@ -5,7 +5,7 @@ pragma solidity ^0.8.24;
 ///   per test/checkpoints/README.md.
 
 import "./UnivocityTestHelper.sol";
-import {Univocity} from "@univocity/contracts/Univocity.sol";
+import {ImutableUnivocity} from "@univocity/contracts/ImutableUnivocity.sol";
 import {IUnivocity} from "@univocity/interfaces/IUnivocity.sol";
 import {IUnivocityEvents} from "@univocity/interfaces/IUnivocityEvents.sol";
 import {LogConfig, LogKind, LogState} from "@univocity/interfaces/types.sol";

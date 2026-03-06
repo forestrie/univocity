@@ -5,7 +5,7 @@ pragma solidity ^0.8.24;
 ///   Univocity.t.sol per test/checkpoints/README.md.
 
 import "./UnivocityTestHelper.sol";
-import {Univocity} from "@univocity/contracts/Univocity.sol";
+import {ImutableUnivocity} from "@univocity/contracts/ImutableUnivocity.sol";
 import {IUnivocity} from "@univocity/interfaces/IUnivocity.sol";
 import {
     ConsistencyReceipt,
@@ -25,8 +25,8 @@ contract UnivocityBoundsTest is UnivocityTestHelper {
     function test_publishCheckpoint_revertsWhenSizeWouldExceedMaxHeight()
         public
     {
-        Univocity fresh =
-            new Univocity(ALG_KS256, abi.encodePacked(KS256_SIGNER));
+        ImutableUnivocity fresh =
+            new ImutableUnivocity(ALG_KS256, abi.encodePacked(KS256_SIGNER));
         bytes32 logId = keccak256("other-target");
         PublishGrant memory g0 = _publishGrant(
             AUTHORITY_LOG_ID,
@@ -109,8 +109,8 @@ contract UnivocityBoundsTest is UnivocityTestHelper {
     function test_publishCheckpoint_revertsWhenSizeExceedsReceiptMaxHeight()
         public
     {
-        Univocity fresh =
-            new Univocity(ALG_KS256, abi.encodePacked(KS256_SIGNER));
+        ImutableUnivocity fresh =
+            new ImutableUnivocity(ALG_KS256, abi.encodePacked(KS256_SIGNER));
         PublishGrant memory g0 = _publishGrant(
             AUTHORITY_LOG_ID,
             GRANT_ROOT,
@@ -183,8 +183,8 @@ contract UnivocityBoundsTest is UnivocityTestHelper {
     /// @notice Rule 4 / grant exhaustion: Once log size reaches maxHeight,
     ///    grant is exhausted; next publish reverts.
     function test_rule4_grantExhausted_whenSizeReachesMaxHeight() public {
-        Univocity fresh =
-            new Univocity(ALG_KS256, abi.encodePacked(KS256_SIGNER));
+        ImutableUnivocity fresh =
+            new ImutableUnivocity(ALG_KS256, abi.encodePacked(KS256_SIGNER));
         PublishGrant memory g0 = _publishGrant(
             AUTHORITY_LOG_ID,
             GRANT_ROOT,

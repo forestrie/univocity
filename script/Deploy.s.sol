@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
-import {Univocity} from "@univocity/contracts/Univocity.sol";
+import {ImutableUnivocity} from "@univocity/contracts/ImutableUnivocity.sol";
 import {ALG_ES256, ALG_KS256} from "@univocity/cosecbor/constants.sol";
 
 contract DeployUnivocity is Script {
@@ -33,13 +33,14 @@ contract DeployUnivocity is Script {
 
         vm.startBroadcast();
 
-        Univocity univocity = new Univocity(bootstrapAlg, bootstrapKey);
+        ImutableUnivocity univocity =
+            new ImutableUnivocity(bootstrapAlg, bootstrapKey);
         // Authority log is set by first publishCheckpoint (signed by bootstrap
         // key) (same or separate tx).
 
         vm.stopBroadcast();
 
-        console.log("Univocity deployed at:", address(univocity));
+        console.log("ImutableUnivocity deployed at:", address(univocity));
         console.log("Bootstrap alg:", uint256(int256(bootstrapAlg)));
         console.log("KS256:", ks256Signer != address(0));
     }

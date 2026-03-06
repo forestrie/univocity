@@ -46,49 +46,36 @@ import {
 } from "@univocity/algorithms/lib/LibLogState.sol";
 import {peaks} from "@univocity/algorithms/peaks.sol";
 
-/// @title Univocity
-/// @notice Multi-log transparency contract with payment-bounded
-///    checkpoint authorization (grant inclusion proof + bounds).
-/// @dev Implements permissionless checkpoint submission with SCITT-format
-///    receipts.
-///
-/// ## Authorization model (enforced rules)
-/// 1. **First checkpoint ever (root):** The first checkpoint establishes the
-///    root authority log. Grant is self-inclusion (index 0; path length up to
-///    MAX_HEIGHT). The signer key is supplied in grantData (verify-only; no
-///    on-chain recovery). For the root's first checkpoint that key must match
-///    the bootstrap key and grantData must equal bootstrap key bytes (prevents
-///    front-running). Submission is permissionless; CheckpointPublished
-///    carries the sender.
-/// 2. **Grant = inclusion against owner:** To extend any other log, the caller
-///    must supply a grant evidenced by an inclusion proof in that log's
-///    *owner* (data log → owning authority log; child authority → parent log).
-/// 3. **Log creation requires ownerLogId:** The first checkpoint to a new log
-///    (data or child authority) requires publishGrant.ownerLogId and an
-///    inclusion proof against that owner. Log kind (Authority/Data) is set
-///    from request (GC_AUTH_LOG or GC_DATA_LOG); request must be allowed by
-///    grant flags (GF_AUTH_LOG, GF_DATA_LOG).
-/// 4. **Grant bounds:** Growth is bounded only by minGrowth and maxHeight
-///    (no checkpoint counter); size must satisfy currentSize + minGrowth <=
-///    size <= maxHeight (when maxHeight != 0).
-/// 5. **Consistency receipt:** Every checkpoint's consistency receipt must
-///    verify against the target log's root key (or bootstrap key for the
-///    root's first checkpoint).
-contract Univocity is IUnivocity, IUnivocityErrors {
+/// @title _Univocity
+/// @notice Abstract base for Univocity-style transparency contracts (plan 0027).
+///    Implementers supply the bootstrap key via internal getters so that
+///    bootstrap can be fixed at construction (immutable) or via an
+///    initializer (storage slot for upgradeability).
+/// @dev All bootstrap access goes through _bootstrapAlg(), _bootstrapKS256Signer(),
+///    _bootstrapES256X(), _bootstrapES256Y(). Concrete contracts implement these.
+///    Implementers may fix bootstrap at construction (immutable) or via an
+///    initializer (storage). Using storage for bootstrap (e.g. upgradeable path)
+///    costs more gas per publishCheckpoint than immutables. Upgradable
+///    implementations must set bootstrap before the root log is established and
+///    should use a one-shot or carefully guarded initializer.
+abstract contract _Univocity is IUnivocity, IUnivocityErrors {
     using LibLogState for LogState;
 
-    // === State ===
+    // === Bootstrap accessors (implemented by concrete contract) ===
 
-    /// @notice Ethereum address used to verify KS256 (secp256k1) signatures on
-    ///    COSE receipts.
-    address public immutable ks256Signer;
+    /// @notice COSE algorithm for the bootstrap key (ALG_KS256 or ALG_ES256).
+    function _bootstrapAlg() internal view virtual returns (int64);
 
-    /// @notice P-256 public key x-coordinate for ES256 (WebAuthn/passkey)
-    ///    receipt verification.
-    bytes32 public immutable es256X;
+    /// @notice Bootstrap key as KS256 signer address; address(0) when alg is ES256.
+    function _bootstrapKS256Signer() internal view virtual returns (address);
 
-    /// @notice P-256 public key y-coordinate for ES256 receipt verification.
-    bytes32 public immutable es256Y;
+    /// @notice Bootstrap key as ES256 P-256 x-coordinate; zero when alg is KS256.
+    function _bootstrapES256X() internal view virtual returns (bytes32);
+
+    /// @notice Bootstrap key as ES256 P-256 y-coordinate; zero when alg is KS256.
+    function _bootstrapES256Y() internal view virtual returns (bytes32);
+
+    // === State (no bootstrap storage on base) ===
 
     /// @notice The log ID of the root authority log. Set on the first
     ///    successful publishCheckpoint (signed by bootstrap key); zero until then.
@@ -97,59 +84,13 @@ contract Univocity is IUnivocity, IUnivocityErrors {
     mapping(bytes32 => LogState) private _logs;
     mapping(bytes32 => LogConfig) private _logConfigs;
 
-    // === Constructor ===
-
-    /// @notice Deploys the Univocity transparency contract with a single
-    ///    bootstrap key (alg + opaque bytes, same pattern as rootKey /
-    ///    delegationKey). Plan 0018.
-    /// @dev The bootstrap key (from _bootstrapAlg + _bootstrapKey) constrains
-    ///    the **signer** of the root's first checkpoint: the consistency receipt
-    ///    must be signed by that key (prevents front-running). Calling
-    ///    publishCheckpoint is always permissionless (anyone with a valid grant
-    ///    and validly signed checkpoint may submit; the caller pays gas).
-    /// @param _bootstrapAlg COSE algorithm: ALG_KS256 (-65799) or ALG_ES256
-    ///    (-7). Key format depends on alg.
-    /// @param _bootstrapKey Opaque key: KS256 = 20 bytes (Ethereum address);
-    ///    ES256 = 64 bytes (P-256 x || y).
-    /// @custom:throws InvalidBootstrapAlgorithm If alg is not KS256 or ES256.
-    /// @custom:throws InvalidBootstrapKeyLength If key length does not match
-    ///    alg (20 for KS256, 64 for ES256).
-    constructor(int64 _bootstrapAlg, bytes memory _bootstrapKey) {
-        if (_bootstrapAlg != ALG_KS256 && _bootstrapAlg != ALG_ES256) {
-            revert InvalidBootstrapAlgorithm(_bootstrapAlg);
+    /// @notice Bootstrap key bytes (same encoding as bootstrapConfig return).
+    ///    Used for grantData comparison so the base does not call external.
+    function _getBootstrapKeyBytes() internal view returns (bytes memory) {
+        if (_bootstrapKS256Signer() != address(0)) {
+            return abi.encodePacked(_bootstrapKS256Signer());
         }
-        if (_bootstrapAlg == ALG_KS256) {
-            if (_bootstrapKey.length != 20) {
-                revert InvalidBootstrapKeyLength(
-                    _bootstrapAlg, _bootstrapKey.length
-                );
-            }
-            address _ks;
-            assembly {
-                _ks := shr(96, mload(add(_bootstrapKey, 32)))
-            }
-            if (_ks == address(0)) {
-                revert InvalidBootstrapKeyLength(_bootstrapAlg, 0);
-            }
-            ks256Signer = _ks;
-            es256X = bytes32(0);
-            es256Y = bytes32(0);
-        } else {
-            if (_bootstrapKey.length != 64) {
-                revert InvalidBootstrapKeyLength(
-                    _bootstrapAlg, _bootstrapKey.length
-                );
-            }
-            bytes32 _ex;
-            bytes32 _ey;
-            assembly {
-                _ex := mload(add(_bootstrapKey, 32))
-                _ey := mload(add(_bootstrapKey, 64))
-            }
-            es256X = _ex;
-            es256Y = _ey;
-            ks256Signer = address(0);
-        }
+        return abi.encodePacked(_bootstrapES256X(), _bootstrapES256Y());
     }
 
     /// @notice Bootstrap key in opaque form (same as constructor). Plan 0018.
@@ -160,10 +101,8 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         view
         returns (int64 bootstrapAlg, bytes memory bootstrapKey)
     {
-        if (ks256Signer != address(0)) {
-            return (ALG_KS256, abi.encodePacked(ks256Signer));
-        }
-        return (ALG_ES256, abi.encodePacked(es256X, es256Y));
+        bootstrapAlg = _bootstrapAlg();
+        bootstrapKey = _getBootstrapKeyBytes();
     }
 
     // === View Functions ===
@@ -527,8 +466,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
                 if (!_es256KeyMatchesBootstrap(rootX, rootY)) {
                     revert RootSignerMustMatchBootstrap();
                 }
-                // slither-disable-next-line unused-return
-                (, bytes memory bootstrapKey) = this.bootstrapConfig();
+                bytes memory bootstrapKey = _getBootstrapKeyBytes();
                 if (grantData.length != bootstrapKey.length) {
                     revert GrantDataInvalidKeyLength(grantData.length);
                 }
@@ -560,7 +498,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
             revert DelegationUnsupportedForAlg(ALG_KS256);
         }
         address keyAddr = (rootLogId == bytes32(0) || logId == rootLogId)
-            ? ks256Signer
+            ? _bootstrapKS256Signer()
             : _decodeLogRootKeyKS256(logId);
         if (keyAddr == address(0)) {
             if (config.rootKey.length == 64) {
@@ -586,8 +524,7 @@ contract Univocity is IUnivocity, IUnivocityErrors {
         }
         if (config.initializedAt == 0) {
             if (rootLogId == bytes32(0)) {
-                // slither-disable-next-line unused-return
-                (, bytes memory bootstrapKey) = this.bootstrapConfig();
+                bytes memory bootstrapKey = _getBootstrapKeyBytes();
                 if (grantData.length != bootstrapKey.length) {
                     revert GrantDataInvalidKeyLength(grantData.length);
                 }
@@ -725,13 +662,13 @@ contract Univocity is IUnivocity, IUnivocityErrors {
 
     /// @dev True if (qx, qy) is the bootstrap ES256 key or its curve inverse.
     function _es256KeyMatchesBootstrap(bytes32 qx, bytes32 qy)
-        private
+        internal
         view
         returns (bool)
     {
-        if (qx != es256X) return false;
+        if (qx != _bootstrapES256X()) return false;
         uint256 qyU = uint256(qy);
-        uint256 eyU = uint256(es256Y);
+        uint256 eyU = uint256(_bootstrapES256Y());
         return qyU == eyU || qyU == P256_P - eyU;
     }
 

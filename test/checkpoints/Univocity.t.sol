@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "./UnivocityTestHelper.sol";
 import {console} from "forge-std/console.sol";
-import {Univocity} from "@univocity/contracts/Univocity.sol";
+import {ImutableUnivocity} from "@univocity/contracts/ImutableUnivocity.sol";
 import {IUnivocity} from "@univocity/interfaces/IUnivocity.sol";
 import {IUnivocityEvents} from "@univocity/interfaces/IUnivocityEvents.sol";
 import {
@@ -43,8 +43,8 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
     function test_firstCheckpoint_revertsIfReceiptMmrIndexNotZero() public {
         // New API has no receiptMmrIndex; first leaf must equal leafCommitment.
         // So we use wrong leaf in accumulator => InvalidReceiptInclusionProof.
-        Univocity fresh =
-            new Univocity(ALG_KS256, abi.encodePacked(KS256_SIGNER));
+        ImutableUnivocity fresh =
+            new ImutableUnivocity(ALG_KS256, abi.encodePacked(KS256_SIGNER));
         PublishGrant memory g = _publishGrant(
             AUTHORITY_LOG_ID,
             GRANT_ROOT,
@@ -68,8 +68,9 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
     function test_firstCheckpoint_revertsWhenPathEmptyAndIndexNonZero()
         public
     {
-        Univocity fresh =
-            new Univocity(ALG_KS256, abi.encodePacked(KS256_SIGNER));
+        ImutableUnivocity fresh = new ImutableUnivocity(
+            ALG_KS256, abi.encodePacked(KS256_SIGNER)
+        );
         PublishGrant memory g = _publishGrant(
             AUTHORITY_LOG_ID,
             GRANT_ROOT,
@@ -92,8 +93,8 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
 
     /// @notice First checkpoint (root) with empty path emits grantIndex 0.
     function test_firstCheckpoint_emitsPaymentIndexZeroWhenPathEmpty() public {
-        Univocity fresh =
-            new Univocity(ALG_KS256, abi.encodePacked(KS256_SIGNER));
+        ImutableUnivocity fresh =
+            new ImutableUnivocity(ALG_KS256, abi.encodePacked(KS256_SIGNER));
         PublishGrant memory g = _publishGrant(
             AUTHORITY_LOG_ID,
             GRANT_ROOT,
@@ -139,8 +140,8 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
 
     /// @notice Phase F D.5: Create child authority; config has kind=Authority, authLogId=parent.
     function test_hierarchy_createChildAuthority_setsConfig() public {
-        Univocity fresh =
-            new Univocity(ALG_KS256, abi.encodePacked(KS256_SIGNER));
+        ImutableUnivocity fresh =
+            new ImutableUnivocity(ALG_KS256, abi.encodePacked(KS256_SIGNER));
         bytes32 childId = keccak256("child-authority");
         PublishGrant memory g0 = _publishGrant(
             AUTHORITY_LOG_ID,
@@ -200,8 +201,8 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
     }
 
     function test_firstPublish_emitsInitialized() public {
-        Univocity newUnivocity =
-            new Univocity(ALG_KS256, abi.encodePacked(KS256_SIGNER));
+        ImutableUnivocity newUnivocity =
+            new ImutableUnivocity(ALG_KS256, abi.encodePacked(KS256_SIGNER));
         PublishGrant memory g = _publishGrant(
             AUTHORITY_LOG_ID,
             GRANT_ROOT,
@@ -228,8 +229,8 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
     }
 
     function test_firstPublish_revertsIfReceiptEmpty() public {
-        Univocity newUnivocity =
-            new Univocity(ALG_KS256, abi.encodePacked(KS256_SIGNER));
+        ImutableUnivocity newUnivocity =
+            new ImutableUnivocity(ALG_KS256, abi.encodePacked(KS256_SIGNER));
         ConsistencyReceipt memory consistency =
             _buildConsistencyReceipt(_toAcc(keccak256("peak")));
         PublishGrant memory g = _publishGrant(
@@ -259,8 +260,8 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
     {
         // Receipt built for authority log; grant targets other-log so
         // first leaf != leafCommitment(IDTIMESTAMP_AUTH, g) => inclusion fails.
-        Univocity fresh =
-            new Univocity(ALG_KS256, abi.encodePacked(KS256_SIGNER));
+        ImutableUnivocity fresh =
+            new ImutableUnivocity(ALG_KS256, abi.encodePacked(KS256_SIGNER));
         bytes32 otherLogId = keccak256("other-log");
         PublishGrant memory gAuthority = _publishGrant(
             AUTHORITY_LOG_ID,
@@ -294,8 +295,8 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
     function test_firstCheckpoint_revertsIfAccumulatorDoesNotContainReceipt()
         public
     {
-        Univocity fresh =
-            new Univocity(ALG_KS256, abi.encodePacked(KS256_SIGNER));
+        ImutableUnivocity fresh =
+            new ImutableUnivocity(ALG_KS256, abi.encodePacked(KS256_SIGNER));
         PublishGrant memory g = _publishGrant(
             AUTHORITY_LOG_ID,
             GRANT_ROOT,
@@ -315,8 +316,8 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
     }
 
     function test_firstCheckpoint_succeedsFromNonBootstrapSender() public {
-        Univocity fresh =
-            new Univocity(ALG_KS256, abi.encodePacked(KS256_SIGNER));
+        ImutableUnivocity fresh =
+            new ImutableUnivocity(ALG_KS256, abi.encodePacked(KS256_SIGNER));
         PublishGrant memory g = _publishGrant(
             AUTHORITY_LOG_ID,
             GRANT_ROOT,
@@ -342,8 +343,8 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
     function test_firstCheckpoint_authorityFirstLeafMatchesAdr0030Formula()
         public
     {
-        Univocity fresh =
-            new Univocity(ALG_KS256, abi.encodePacked(KS256_SIGNER));
+        ImutableUnivocity fresh =
+            new ImutableUnivocity(ALG_KS256, abi.encodePacked(KS256_SIGNER));
         PublishGrant memory g = _publishGrant(
             AUTHORITY_LOG_ID,
             GRANT_ROOT,
@@ -839,7 +840,7 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
         leaf0 = _leafCommitment(idtimestampBe, g);
         consistency = _buildConsistencyReceiptES256(_toAcc(leaf0), es256Pk);
         vm.prank(BOOTSTRAP);
-        univocity = new Univocity(ALG_ES256, abi.encodePacked(kx, ky));
+        univocity = new ImutableUnivocity(ALG_ES256, abi.encodePacked(kx, ky));
         univocity.publishCheckpoint(
             consistency, _emptyInclusionProof(), idtimestampBe, g
         );
@@ -909,7 +910,7 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
         leaf0 = _leafCommitment(idtimestampBe, g);
         consistency = _buildConsistencyReceiptES256(_toAcc(leaf0), es256Pk);
         vm.prank(BOOTSTRAP);
-        univocity = new Univocity(ALG_ES256, abi.encodePacked(kx, ky));
+        univocity = new ImutableUnivocity(ALG_ES256, abi.encodePacked(kx, ky));
         univocity.publishCheckpoint(
             consistency, _emptyInclusionProof(), idtimestampBe, g
         );
@@ -1254,8 +1255,8 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
         ConsistencyReceipt memory consistency =
             _buildConsistencyReceiptES256(_toAcc(leaf0), es256Pk);
         vm.prank(BOOTSTRAP);
-        Univocity es256Univocity =
-            new Univocity(ALG_ES256, abi.encodePacked(pubX, pubY));
+        ImutableUnivocity es256Univocity =
+            new ImutableUnivocity(ALG_ES256, abi.encodePacked(pubX, pubY));
         es256Univocity.publishCheckpoint(
             consistency, _emptyInclusionProof(), idtimestampBe, g
         );
@@ -1272,8 +1273,8 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
         uint256 bootstrapPk = 1;
         (uint256 pubX, uint256 pubY) = vm.publicKeyP256(bootstrapPk);
         vm.prank(BOOTSTRAP);
-        Univocity es256Univocity =
-            new Univocity(ALG_ES256, abi.encodePacked(pubX, pubY));
+        ImutableUnivocity es256Univocity =
+            new ImutableUnivocity(ALG_ES256, abi.encodePacked(pubX, pubY));
 
         bytes8 idtimestampBe = bytes8(0);
         PublishGrant memory g = _publishGrant(
@@ -1303,8 +1304,8 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
     function test_verifyCheckpoint_es256ReceiptOnKs256Log_revertsAlgorithmMismatch()
         public
     {
-        Univocity ks256Univocity =
-            new Univocity(ALG_KS256, abi.encodePacked(KS256_SIGNER));
+        ImutableUnivocity ks256Univocity =
+            new ImutableUnivocity(ALG_KS256, abi.encodePacked(KS256_SIGNER));
         PublishGrant memory g0 = _publishGrant(
             AUTHORITY_LOG_ID,
             GRANT_ROOT,
@@ -1367,8 +1368,8 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
         ConsistencyReceipt memory consistency0 =
             _buildConsistencyReceiptES256(accMem0, es256Pk);
         vm.prank(BOOTSTRAP);
-        Univocity es256Univocity =
-            new Univocity(ALG_ES256, abi.encodePacked(pubX, pubY));
+        ImutableUnivocity es256Univocity =
+            new ImutableUnivocity(ALG_ES256, abi.encodePacked(pubX, pubY));
         es256Univocity.publishCheckpoint(
             consistency0, _emptyInclusionProof(), idtimestampBe, g0
         );
