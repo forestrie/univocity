@@ -120,7 +120,7 @@ contract DeployProxyUUPSUnivocity is Script {
     ///    chars (64 bytes) after stripping.
     function _parseES256Pub(string memory pub)
         internal
-        pure
+        view
         returns (bytes memory)
     {
         bytes memory p = bytes(pub);
@@ -143,7 +143,7 @@ contract DeployProxyUUPSUnivocity is Script {
     /// @dev BOOTSTRAP_PUB for KS256: ethereum address, 40 hex chars (optional 0x).
     function _parseKS256Pub(string memory pub)
         internal
-        pure
+        view
         returns (bytes memory)
     {
         address ks256Signer = vm.parseAddress(pub);
@@ -158,7 +158,7 @@ contract DeployProxyUUPSUnivocity is Script {
         bytes memory hexBytes,
         uint256 offset,
         uint256 len
-    ) internal pure returns (bytes32) {
+    ) internal view returns (bytes32) {
         require(
             offset + len <= hexBytes.length && len == 64, "hex slice length"
         );
