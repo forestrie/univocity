@@ -1,3 +1,20 @@
+# =============================================================================
+# Foundry configuration for Univocity
+# =============================================================================
+#
+# Profile usage:
+#   - default: Protocol development and deployment (optimizer ON, via_ir ON)
+#   - factory:  CREATE3Factory bytecode settings only; main project is NOT built
+#               with this profile. Use script/create3-factory/ for factory build.
+#   - ci:       Same as default; used when FOUNDRY_PROFILE=ci in CI.
+#
+# Examples:
+#   forge build
+#   forge test
+#   forge build --config-path script/create3-factory/foundry.toml  # factory only
+#
+# =============================================================================
+
 [fmt]
 # Match standing formatting rules: soft 79, hard 100 for comments (.cursorrules)
 line_length = 79
@@ -22,7 +39,9 @@ evm_version = "cancun"
 optimizer = true
 optimizer_runs = 200
 
-# Required for publishCheckpoint stack depth (plan 0013)
+# Better optimizations and stack handling (community default for new projects).
+# UUPS proxy deployment address is stable: it is derived only from CREATE3
+# (factory + deployer + salt), not from implementation bytecode.
 via_ir = true
 
 # Metadata: Keep IPFS hash for Etherscan/Sourcify verification
@@ -54,6 +73,8 @@ ffi = true
 fs_permissions = [
   { access = "read", path = "./out" },
   { access = "read", path = "./cache" },
+  { access = "read", path = "./deployment.json" },
+  { access = "read", path = "./script/create3-factory/out" },
 ]
 
 # ---- Import Remappings ----
@@ -63,6 +84,7 @@ remappings = [
   "@univocity/=src/",
   "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
   "witnet-solidity-bridge/=lib/witnet-solidity-bridge/",
+  "solmate/=lib/solmate/src/",
 ]
 
 ignored_warnings_from = ["test/**", "script/**"]
@@ -92,6 +114,8 @@ ffi = true
 fs_permissions = [
   { access = "read", path = "./out" },
   { access = "read", path = "./cache" },
+  { access = "read", path = "./deployment.json" },
+  { access = "read", path = "./script/create3-factory/out" },
 ]
 remappings = [
   "forge-std/=lib/forge-std/src/",
@@ -99,23 +123,32 @@ remappings = [
   "@univocity/=src/",
   "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
   "witnet-solidity-bridge/=lib/witnet-solidity-bridge/",
+  "solmate/=lib/solmate/src/",
 ]
 ignored_warnings_from = ["test/**", "script/**"]
 
 # =============================================================================
-# Arachnid's method and CREATE3
+# Factory Profile: CREATE3Factory deployment (STABILITY-LOCKED)
+# =============================================================================
 #
-# This profile is used ONLY for deploying CREATE3Factory via Arachnid's CREATE2
-# proxy. The factory address is deterministic and identical across all chains.
+# CRITICAL: Settings in this profile affect factory deployment address.
+#
+# This profile defines the bytecode-control settings for deploying CREATE3Factory
+# via Arachnid's CREATE2 proxy. The main project uses via_ir = true; the factory
+# is built in isolation under script/create3-factory/ with via_ir = false for
+# deterministic factory bytecode (see that foundry.toml).
 #
 # RULES:
 #   1. NEVER change settings in this profile after first production deployment
 #   2. ANY change will result in a different factory address on all chains
-#   3. Use `forge script ... --profile factory` for factory deployment
+#   3. script/create3-factory/foundry.toml MUST mirror these settings exactly
 #   4. Regular protocol contracts use [profile.default] and are unaffected
 #
-# Current deterministic factory address: [To be calculated on first deployment]
+# Shared factory address (same salt as flip): 0x606A25c0432766B45ece27Dd4e2208A7cE14dC5b
+#
+# =============================================================================
 [profile.factory]
+
 # Inherit all settings from default, override only stability-critical settings
 
 # CRITICAL: Remove metadata hash to prevent compiler version from affecting bytecode
@@ -131,5 +164,6 @@ cbor_metadata = false
 optimizer = false
 optimizer_runs = 200 # Ignored when optimizer = false, but explicit for documentation
 
-# Explicitly confirm via_ir is disabled (inherits from default, but critical to document)
+# CRITICAL: via_ir must be false for deterministic factory bytecode (matches flip).
+# The main project is NOT built with this profile; only script/create3-factory/ is.
 via_ir = false

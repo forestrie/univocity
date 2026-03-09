@@ -1,4 +1,12 @@
 version: '3'
 
+# Default one-shot deploy: task deploy (or task deploy:deploy).
 includes:
   keys: taskfiles/keys.yml
+  deploy: taskfiles/deploy.yml
+
+tasks:
+  deploy:
+    desc: Deploy everything (CREATE3 factory if missing, then UUPSUnivocity proxy).
+    cmds:
+      - task: deploy:deploy

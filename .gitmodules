@@ -7,3 +7,6 @@
 [submodule "lib/witnet-solidity-bridge"]
 	path = lib/witnet-solidity-bridge
 	url = https://github.com/witnet/witnet-solidity-bridge
+[submodule "lib/solmate"]
+	path = lib/solmate
+	url = https://github.com/transmissions11/solmate

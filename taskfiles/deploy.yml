@@ -1,0 +1,158 @@
+# CREATE3 UUPS deployment (stable address). Secrets from env (e.g. doppler run,
+# or .env/.secret.env). Expected: RPC_URL, PRIVATE_KEY (or DEPLOY_KEY),
+# UPGRADE_ADMIN, and one of KS256_SIGNER or ES256_X/ES256_Y. Optional: SAFE_ADDRESS.
+# See deployment.json for salt and shared CREATE3 factory.
+#
+# Default: task deploy — runs create3-factory, uups:prepare, uups:execute.
+# Steps no-op when already done (factory deployed, proxy deployed).
+version: "3"
+
+tasks:
+  deploy:
+    desc: Deploy everything (CREATE3 factory if missing, then UUPSUnivocity proxy).
+    cmds:
+      - task: deploy:create3-factory
+      - task: deploy:uups:prepare
+      - task: deploy:uups:execute
+
+  create3-factory:
+    desc: Deploy the shared CREATE3 factory via Arachnid if not already deployed.
+    cmds:
+      - |
+        set -euo pipefail
+        [ -f .env ] && source .env
+        [ -f .secret.env ] && source .secret.env
+        if [ -n "${RPC_URL:-}" ]; then
+          FACTORY=$(jq -r '.shared.arachnid.create3Factory' deployment.json)
+          CODE=$(cast code "$FACTORY" --rpc-url "$RPC_URL" 2>/dev/null || true)
+          if [ -n "$CODE" ] && [ "$CODE" != "0x" ]; then
+            echo "CREATE3 factory already deployed at $FACTORY"
+            exit 0
+          fi
+        fi
+        forge build --config-path script/create3-factory/foundry.toml
+      - |
+        set -euo pipefail
+        [ -f .env ] && source .env
+        [ -f .secret.env ] && source .secret.env
+        export PRIVATE_KEY="${PRIVATE_KEY:-${DEPLOY_KEY:-}}"
+        FACTORY=$(jq -r '.shared.arachnid.create3Factory' deployment.json)
+        CODE=$(cast code "$FACTORY" --rpc-url "$RPC_URL" 2>/dev/null || true)
+        if [ -n "$CODE" ] && [ "$CODE" != "0x" ]; then
+          echo "CREATE3 factory already deployed at $FACTORY"
+          exit 0
+        fi
+        echo "Ensuring CREATE3 factory (deploy if missing)"
+        echo "RPC_URL: ${RPC_URL:-<not set>}"
+        forge script script/DeployCreate3Factory.s.sol:DeployCreate3Factory \
+          --rpc-url "$RPC_URL" \
+          --private-key "$PRIVATE_KEY" \
+          --broadcast
+
+  uups:
+    desc: Deploy UUPSUnivocity proxy via CREATE3 (ensure factory, prepare, execute).
+    cmds:
+      - task: deploy:create3-factory
+      - task: deploy:uups:prepare
+      - task: deploy:uups:execute
+
+  uups:prepare:
+    desc: Prepare UUPSUnivocity deployment (dry-run; writes broadcast artifact).
+    cmds:
+      - |
+        set -euo pipefail
+        [ -f .env ] && source .env
+        [ -f .secret.env ] && source .secret.env
+        export PRIVATE_KEY="${PRIVATE_KEY:-${DEPLOY_KEY:-}}"
+        echo "Preparing UUPSUnivocity CREATE3 deployment"
+        echo "RPC_URL: ${RPC_URL:-<not set>}"
+        forge script script/DeployProxyUUPSUnivocity.s.sol:DeployProxyUUPSUnivocity \
+          --rpc-url "$RPC_URL" \
+          --private-key "$PRIVATE_KEY"
+
+  uups:execute:
+    desc: Execute UUPSUnivocity deployment (broadcast --resume). No-op if proxy already deployed.
+    cmds:
+      - |
+        set -euo pipefail
+        [ -f .env ] && source .env
+        [ -f .secret.env ] && source .secret.env
+        export PRIVATE_KEY="${PRIVATE_KEY:-${DEPLOY_KEY:-}}"
+        PROXY=$(forge script script/DeployProxyUUPSUnivocity.s.sol:DeployProxyUUPSUnivocity \
+          --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" 2>/dev/null \
+          | grep -E '(Predicted proxy address|already deployed at):' \
+          | grep -oE '0x[a-fA-F0-9]{40}' | head -1)
+        if [ -z "$PROXY" ]; then
+          echo "Could not resolve proxy address." >&2
+          exit 1
+        fi
+        CODE=$(cast code "$PROXY" --rpc-url "$RPC_URL" 2>/dev/null || true)
+        if [ -n "$CODE" ] && [ "$CODE" != "0x" ]; then
+          echo "UUPSUnivocity already deployed at $PROXY"
+          exit 0
+        fi
+        CHAIN_ID="${CHAIN_ID:-$(cast chain-id --rpc-url "$RPC_URL")}"
+        DRYRUN="broadcast/DeployProxyUUPSUnivocity.s.sol/${CHAIN_ID}/dry-run/run-latest.json"
+        if [ ! -f "$DRYRUN" ]; then
+          echo "No dry-run at $DRYRUN; run deploy:uups:prepare first." >&2
+          exit 1
+        fi
+        echo "Executing UUPSUnivocity CREATE3 deployment"
+        forge script script/DeployProxyUUPSUnivocity.s.sol:DeployProxyUUPSUnivocity \
+          --rpc-url "$RPC_URL" \
+          --private-key "$PRIVATE_KEY" \
+          --broadcast \
+          --resume \
+          --skip-simulation
+
+  uups:predict:
+    desc: Print predicted UUPSUnivocity proxy address for current deployer.
+    cmds:
+      - |
+        set -euo pipefail
+        [ -f .env ] && source .env
+        [ -f .secret.env ] && source .secret.env
+        export PRIVATE_KEY="${PRIVATE_KEY:-${DEPLOY_KEY:-}}"
+        forge script script/DeployProxyUUPSUnivocity.s.sol:DeployProxyUUPSUnivocity \
+          --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" 2>/dev/null \
+          | grep -E '(Predicted proxy address|already deployed at):' \
+          | grep -oE '0x[a-fA-F0-9]{40}' | head -1
+
+  verify:
+    desc: Verify UUPSUnivocity implementation on the chain explorer. No-op if not deployed.
+    cmds:
+      - |
+        set -euo pipefail
+        [ -f .env ] && source .env
+        [ -f .secret.env ] && source .secret.env
+        export PRIVATE_KEY="${PRIVATE_KEY:-${DEPLOY_KEY:-}}"
+        PROXY=$(forge script script/DeployProxyUUPSUnivocity.s.sol:DeployProxyUUPSUnivocity \
+          --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" 2>/dev/null \
+          | grep -E '(Predicted proxy address|already deployed at):' \
+          | grep -oE '0x[a-fA-F0-9]{40}' | head -1)
+        if [ -z "$PROXY" ]; then
+          echo "Could not resolve proxy address." >&2
+          exit 1
+        fi
+        CODE=$(cast code "$PROXY" --rpc-url "$RPC_URL" 2>/dev/null || true)
+        if [ -z "$CODE" ] || [ "$CODE" = "0x" ]; then
+          echo "Proxy not deployed at $PROXY; nothing to verify."
+          exit 0
+        fi
+        ERC1967_IMPL_SLOT=0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc
+        IMPL_HEX=$(cast storage "$PROXY" "$ERC1967_IMPL_SLOT" --rpc-url "$RPC_URL" 2>/dev/null | tr -d '\n')
+        IMPL="0x$(echo "$IMPL_HEX" | rev | cut -c1-40 | rev)"
+        CHAIN_ID="${CHAIN_ID:-$(cast chain-id --rpc-url "$RPC_URL")}"
+        API_KEY="${ETHERSCAN_API_KEY:-${EXPLORER_API_KEY:-}}"
+        if [ -z "$API_KEY" ]; then
+          echo "Set ETHERSCAN_API_KEY (or EXPLORER_API_KEY) to verify." >&2
+          exit 1
+        fi
+        echo "Verifying implementation at $IMPL (proxy $PROXY) on chain $CHAIN_ID"
+        if [ -n "${VERIFIER_URL:-}" ]; then
+          forge verify-contract "$IMPL" "src/contracts/UUPSUnivocity.sol:UUPSUnivocity" \
+            --chain-id "$CHAIN_ID" --etherscan-api-key "$API_KEY" --verifier-url "$VERIFIER_URL"
+        else
+          forge verify-contract "$IMPL" "src/contracts/UUPSUnivocity.sol:UUPSUnivocity" \
+            --chain-id "$CHAIN_ID" --etherscan-api-key "$API_KEY"
+        fi

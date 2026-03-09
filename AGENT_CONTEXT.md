@@ -62,8 +62,15 @@ repository. **Read it first** before making code or doc changes.
 
 ## Deployment
 
-- Scripts in `script/` (e.g. `script/Deploy.s.sol`). Env: `BOOTSTRAP_AUTHORITY`,
-  `AUTHORITY_LOG_ID`, `KS256_SIGNER` or `ES256_X`/`ES256_Y`.
+- Scripts in `script/` (e.g. `script/Deploy.s.sol`, `script/DeployProxyUUPSUnivocity.s.sol`).
+  Env: `BOOTSTRAP_AUTHORITY`, `AUTHORITY_LOG_ID`, `KS256_SIGNER` or `ES256_X`/`ES256_Y`;
+  for CREATE3 UUPS: `UPGRADE_ADMIN`, `RPC_URL`, `PRIVATE_KEY`.
+- **Secrets:** Deploy tasks use **Doppler** for secrets (no `.env`/`.secret.env`);
+  run `doppler setup` or `doppler login`; Doppler CLI version pinned in `mise.toml`.
+- **CREATE3 stable address:** UUPSUnivocity can be deployed to a deterministic
+  address via the shared Arachnid CREATE3 factory. Config in `deployment.json`
+  (shared factory, salt); taskfile `taskfiles/deploy.yml`: `deploy:uups`,
+  `deploy:uups:prepare`, `deploy:uups:execute`, `deploy:uups:predict`.
 - Reusable deploy scripts live under `script/deploy/` for integration tests.
 
 ## More detail

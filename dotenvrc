@@ -9,3 +9,4 @@
 # but mise's python still wins because mise's PATH is prepended.
 source_up_if_exists
 use mise
+export DOPPLER_TOKEN=$DOPPLER_UNIVOCITY_SERVICE_TOKEN
