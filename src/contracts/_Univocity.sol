@@ -169,8 +169,9 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
         // before running the consistency proof chain.
         uint64 claimedSize =
             consistencyParts.consistencyProofs[
-                consistencyParts.consistencyProofs.length - 1
-            ].treeSize2;
+            consistencyParts.consistencyProofs.length - 1
+        ]
+        .treeSize2;
 
         // New log must have at least one leaf; reject claimed size 0.
         if (config.initializedAt == 0 && claimedSize == 0) {
