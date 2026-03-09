@@ -59,15 +59,34 @@ re-initialization.
 
 ## Deployment
 
-Set environment variables and run:
+**ImutableUnivocity (non-upgradeable):** Set `KS256_SIGNER` or `ES256_X`/`ES256_Y`,
+then `forge script script/Deploy.s.sol --rpc-url <RPC> --broadcast`.
+
+**UUPSUnivocity (CREATE3 stable address):** Deploys the UUPS proxy to a
+deterministic address using the shared Arachnid CREATE3 factory. Config in
+`deployment.json`. Secrets via **Doppler** (or `.env`): `RPC_URL`, `PRIVATE_KEY`,
+`UPGRADE_ADMIN`, `BOOTSTRAP_ALG`, `BOOTSTRAP_PUB`. Steps are idempotent (no-op
+when factory or proxy already deployed).
 
 ```shell
-export BOOTSTRAP_AUTHORITY=0x...
-export AUTHORITY_LOG_ID=0x...   # 32-byte hex
-export KS256_SIGNER=0x...       # optional; at least one of KS256_SIGNER or ES256_X/Y
-# optional: ES256_X=0x... ES256_Y=0x...
-forge script script/Deploy.s.sol --rpc-url <RPC> --broadcast
+task deploy                 # one-shot: factory (if missing), prepare, execute
+task deploy:uups            # same as deploy (ensure factory, prepare, execute)
+task deploy:uups:prepare    # dry-run only
+task deploy:uups:execute    # broadcast (no-op if proxy already deployed)
+task deploy:uups:predict    # print predicted proxy address
+task deploy:verify          # verify implementation on explorer (ETHERSCAN_API_KEY)
 ```
+
+Verification: set `ETHERSCAN_API_KEY` (or `EXPLORER_API_KEY`); for Basescan/Blockscout
+set `VERIFIER_URL` if needed. No-op if proxy is not deployed.
+
+Doppler CLI is pinned in `mise.toml`; run `mise install` to get it. **Getting
+doppler on your PATH:** mise only adds tools to PATH when it is activated. (1)
+In this repo, `.envrc` runs `use mise` — run `direnv allow` and `cd` into the
+repo so `doppler` and other tools are on PATH. (2) Or add
+`eval "$(mise activate bash)"` (or `zsh`) to your shell profile so mise tools
+are available in any directory. (3) Or run via mise:
+`mise exec -- doppler run -- task deploy:uups:prepare`.
 
 ## Usage
 

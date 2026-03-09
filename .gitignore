@@ -1,7 +1,10 @@
+# Agent files
+.cursor/
+
 # Compiler files
 cache/
 out/
-
+*.key
 # Ignores development broadcast logs
 !/broadcast
 /broadcast/*/31337/
@@ -12,10 +15,10 @@ docs/book/
 
 # Dotenv file
 .env
+.envrc
 
 # Python
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
-.cursor/

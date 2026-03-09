@@ -6,6 +6,8 @@
 python = "3.12"
 # go-task (binary: task) for Taskfile.dist.yml / taskfiles/slither.yml
 task = "latest"
+# Doppler CLI for secrets (deploy tasks use doppler run; run doppler setup or doppler login).
+doppler = "3.75.3"
 # uv for venv and pip (taskfile uses uv venv + uv pip install slither-analyzer)
 uv = "latest"
 # Foundry: forge, cast, anvil, chisel
