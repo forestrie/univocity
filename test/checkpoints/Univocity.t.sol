@@ -1155,7 +1155,7 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
 
     /// @notice LibLeafEncoding.leafCommitment must match _leafCommitment for the
     ///    same grant (canonical encoding for off-chain and tests).
-    function test_leafEncoding_matchesLeafCommitment() public {
+    function test_leafEncoding_matchesLeafCommitment() public view {
         PublishGrant memory g = _publishGrant(
             AUTHORITY_LOG_ID,
             GRANT_ROOT,
@@ -1167,7 +1167,9 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
         );
         bytes32 leafLib = LibLeafEncoding.leafCommitment(IDTIMESTAMP_AUTH, g);
         bytes32 leafHelper = _leafCommitment(IDTIMESTAMP_AUTH, g);
-        assertEq(leafLib, leafHelper, "LibLeafEncoding must match _leafCommitment");
+        assertEq(
+            leafLib, leafHelper, "LibLeafEncoding must match _leafCommitment"
+        );
     }
 
     /// @notice Reproduce exact failing scenario: after fixed-point iteration we
