@@ -10,8 +10,8 @@ task = "latest"
 doppler = "3.75.3"
 # uv for venv and pip (taskfile uses uv venv + uv pip install slither-analyzer)
 uv = "latest"
-# Foundry: forge, cast, anvil, chisel
-foundry = "latest"
+# Foundry: forge, cast, anvil, chisel (pin to match CI .github/workflows/test.yml)
+foundry = "1.4.3"
 # Slither static analyzer (pipx install; use: slither --fail-low src or mise run slither-check)
 "pipx:slither-analyzer" = "latest"
 
