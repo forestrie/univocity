@@ -4,6 +4,7 @@ version: '3'
 includes:
   keys: taskfiles/keys.yml
   deploy: taskfiles/deploy.yml
+  anvil: taskfiles/anvil.yml
 
 tasks:
   deploy:

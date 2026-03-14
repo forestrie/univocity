@@ -1,0 +1,310 @@
+# Included by ../Taskfile.yml to add workflow support for working with anvil based integration tests
+# See https://taskfile.dev/docs/installation
+---
+version: "3"
+
+vars:
+  ANVIL_PID_FILE: ".anvil.pid"
+  ANVIL_LOG_FILE: "anvil.log"
+  LAUNCH_DIR: "{{.ROOT_DIR}}"
+
+# env vars are sourced by the including Taskfile from .env.{{.CHAIN_NAME}} and .secret.env.{{CHAIN_NAME}}
+# running different chains concurrently is not supported
+tasks:
+  preflight:
+    desc: "stop, clean any local state, and start again"
+    run: always
+    cmds:
+      - task: stop
+      - task: clean
+      - task: start
+      - |
+        task -s anvil:get:env >> .env.anvil
+        cp .env.anvil .env.deploy
+
+  clean:
+    desc: "clean local state files and logs"
+    cmds:
+      - rm -f {{.ANVIL_PID_FILE}} {{.ANVIL_LOG_FILE}}
+      - rm -rf cache
+      - rm -f .env.test
+
+  # start:local = fresh chain 31337 (no fork). Use for deploying to anvil (task deploy).
+  # start = fork from RPC_URL in .env. Use for integration tests against forked mainnet/testnet.
+  start:local:
+    desc: "start anvil without fork (fresh chain 31337 for local deploy)"
+    cmds:
+      - |
+        if [ -f "{{.ANVIL_PID_FILE}}" ] && kill -0 $(cat {{.ANVIL_PID_FILE}}) 2>/dev/null; then
+          echo "✅ Anvil already running (PID: $(cat {{.ANVIL_PID_FILE}}))"
+          exit 0
+        fi
+        echo "🚀 Starting Anvil (no fork, chain 31337)..."
+        anvil \
+          --host 127.0.0.1 \
+          --port 8545 \
+          --accounts 10 \
+          --balance 10000 \
+          > {{.ANVIL_LOG_FILE}} 2>&1 &
+        sleep 1
+        ANVIL_PID=$(pgrep -f "anvil.*--port 8545" | head -1)
+        if [ -z "$ANVIL_PID" ]; then
+          echo "❌ Failed to find Anvil process"
+          exit 1
+        fi
+        echo "$ANVIL_PID" > {{.ANVIL_PID_FILE}}
+        echo "⏳ Waiting for Anvil to start..."
+        for i in {1..10}; do
+          if curl -s -X POST -H "Content-Type: application/json" \
+             --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
+             http://127.0.0.1:8545 > /dev/null 2>&1; then
+            echo "✅ Anvil started (PID: $ANVIL_PID)"
+            exit 0
+          fi
+          sleep 1
+        done
+        echo "❌ Failed to start Anvil"
+        exit 1
+
+  start:
+    desc: "start anvil (fork of RPC_URL from .env)"
+    cmds:
+      - |
+        source {{.LAUNCH_DIR}}/.env
+
+        [ -f {{.LAUNCH_DIR}}/.secret.env ] && source {{.LAUNCH_DIR}}/.secret.env
+
+        if [ -f "{{.ANVIL_PID_FILE}}" ] && kill -0 $(cat {{.ANVIL_PID_FILE}}) 2>/dev/null; then
+          echo "✅ Anvil already running (PID: $(cat {{.ANVIL_PID_FILE}}))"
+          exit 0
+        fi
+
+        echo "🚀 Starting Anvil fork of Chain: $CHAIN_ID, RPC: $RPC_URL"
+
+        # Start anvil in background
+        anvil \
+          --host 127.0.0.1 \
+          --port 8545 \
+          --fork-url "$RPC_URL" \
+          --accounts 10 \
+          --balance 10000 \
+          > {{.ANVIL_LOG_FILE}} 2>&1 &
+
+        sleep 1
+        ANVIL_PID=$(pgrep -f "anvil.*--port 8545" | head -1)
+        if [ -z "$ANVIL_PID" ]; then
+          echo "❌ Failed to find Anvil process"
+          exit 1
+        fi
+        echo "$ANVIL_PID" > {{.ANVIL_PID_FILE}}
+
+        echo "⏳ Waiting for Anvil to start..."
+        for i in {1..10}; do
+          if curl -s -X POST -H "Content-Type: application/json" \
+             --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
+             http://127.0.0.1:8545 > /dev/null 2>&1; then
+            echo "✅ Anvil started (PID: $ANVIL_PID)"
+            echo "📡 Forking: $RPC_URL (Chain ID: $CHAIN_ID)"
+            exit 0
+          fi
+          sleep 1
+        done
+
+        echo "❌ Failed to start Anvil"
+        exit 1
+
+  status:
+    desc: "check if anvil is running"
+    cmds:
+      - |
+        # Check if PID file exists and process is running
+        if [ -f "{{.ANVIL_PID_FILE}}" ]; then
+          PID=$(cat {{.ANVIL_PID_FILE}})
+          if kill -0 $PID 2>/dev/null; then
+            echo "🔍 Anvil process found (PID: $PID)"
+          else
+            echo "⚠️  PID file stale; checking port..."
+            rm -f {{.ANVIL_PID_FILE}}
+          fi
+        else
+          echo "🔍 No PID file; checking port..."
+        fi
+
+        echo "🌐 Checking if Anvil is responding on port 8545..."
+        if curl -s -X POST -H "Content-Type: application/json" \
+           --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
+           http://127.0.0.1:8545 > /dev/null 2>&1; then
+          FOUND=$(pgrep -f "anvil.*--port 8545" | head -1)
+          [ -n "$FOUND" ] && echo "$FOUND" > {{.ANVIL_PID_FILE}}
+          echo "✅ Anvil is running and responding"
+
+          # Get current block number for additional info
+          BLOCK_NUMBER=$(curl -s -X POST -H "Content-Type: application/json" \
+            --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
+            http://127.0.0.1:8545 | jq -r '.result' 2>/dev/null || echo "unknown")
+
+          if [ "$BLOCK_NUMBER" != "unknown" ] && [ "$BLOCK_NUMBER" != "null" ]; then
+            BLOCK_DECIMAL=$((16#${BLOCK_NUMBER#0x}))
+            echo "📊 Current block: $BLOCK_DECIMAL ($BLOCK_NUMBER)"
+          fi
+
+          exit 0
+        else
+          echo "❌ Anvil is not responding on port 8545"
+          exit 1
+        fi
+
+  stop:
+    desc: "stop anvil"
+    cmds:
+      - |
+        [ ! -f "{{.ANVIL_PID_FILE}}" ] && exit 0
+        PID=$(cat {{.ANVIL_PID_FILE}})
+        if kill -0 $PID 2>/dev/null; then
+          echo "🛑 Stopping Anvil (PID: $PID)"
+          kill $PID
+          # Wait for graceful shutdown
+          for i in {1..10}; do
+            if ! kill -0 $PID 2>/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          # Force kill if still running
+          if kill -0 $PID 2>/dev/null; then
+            echo "🔨 Force killing Anvil"
+            kill -9 $PID
+          fi
+        fi
+        rm -f {{.ANVIL_PID_FILE}}
+
+        # Also kill any anvil processes on port 8545
+        pkill -f "anvil.*8545" || true
+        echo "✅ Anvil stopped"
+
+  get:env:
+    desc: generate the anvil deploy env
+    cmds:
+      #- task: env:check
+      - |
+        source {{.LAUNCH_DIR}}/.env
+        # Canonical shared config comes from deployment.json (version-controlled) at LAUNCH_DIR.
+        [ -f {{.LAUNCH_DIR}}/.secret.env ] && source {{.LAUNCH_DIR}}/.secret.env
+
+        ORIGIN_RPC_URL=$RPC_URL
+        unset RPC_URL
+
+        [ -n "$CHAIN_ID" ] || { echo "Error: CHAIN_ID is required" >&2; exit 1; }
+
+
+        RPC_URL=http://127.0.0.1:8545
+
+        ORIGIN_CHAIN_ID=$CHAIN_ID
+
+        # Get predicted addresses
+        #
+        cat <<EOF
+        # Chain: ID: $CHAIN_ID
+        # Generated at: $(date)
+
+        # --network/chain
+        export RPC_URL=${RPC_URL}
+        export ORIGIN_RPC_URL=${ORIGIN_RPC_URL}
+        export CHAIN_ID=${CHAIN_ID}
+
+        # This is the address for wellknown anvil key 0
+        export DEFAULT_ADMIN=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+        # WELL KNOWN PRIVATE KEY: (Anvil account 0)
+        export PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+        EOF
+
+  seed:usdc:*:
+    desc: "seed LiquidityPool with USDC using Anvil-specific minting approach"
+    vars:
+      ADDRESS: "{{index .MATCH 0}}"
+    cmds:
+      - |
+        source {{.LAUNCH_DIR}}/.env
+        [ -f {{.LAUNCH_DIR}}/.secret.env ] && source {{.LAUNCH_DIR}}/.secret.env
+        [ -f {{.LAUNCH_DIR}}/.env.deploy ] && source {{.LAUNCH_DIR}}/.env.deploy
+
+        # Set anvil defaults if not already set (for local testing)
+        export DEFAULT_ADMIN=${DEFAULT_ADMIN:-0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266}
+        export PRIVATE_KEY=${PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}
+
+        # Ensure CHAIN_ID is set (get from RPC if not set)
+        if [ -z "$CHAIN_ID" ] || [ "$CHAIN_ID" = "" ]; then
+          CHAIN_ID=$(cast chain-id --rpc-url http://localhost:8545 2>/dev/null || echo "")
+          if [ -z "$CHAIN_ID" ] || [ "$CHAIN_ID" = "" ]; then
+            echo "WARNING: CHAIN_ID not set and could not be determined from RPC"
+            exit 1
+          fi
+        fi
+        export CHAIN_ID=$CHAIN_ID
+
+        # Seed LiquidityPool with USDC using minting approach
+        echo "💰 Seeding LiquidityPool with USDC from whale account..."
+
+        # Get USDC address from environment (sourced from .env.deploy, which reads deployment.json)
+        USDC_ADDRESS="${USDC_TOKEN:-}"
+        USDC_WHALE="0x55FE002aefF02F77364de339a1292923A15844B8" # Circle treasury
+
+        if [ -z "$USDC_ADDRESS" ] || [ "$USDC_ADDRESS" = "0x0000000000000000000000000000000000000000" ]; then
+          echo "❌ USDC_TOKEN not set in environment (check .env.deploy)"
+          exit 1
+        fi
+
+        echo "   USDC Address: $USDC_ADDRESS"
+        echo "   USDC Whale  : $USDC_WHALE"
+        echo "   BENEFICIARY : {{.ADDRESS}}"
+
+        # Step 1: Get USDC master minter address
+        echo "   Step 1: Getting USDC master minter address..."
+        MASTER_MINTER_RAW=$(cast call $USDC_ADDRESS "masterMinter()" --rpc-url http://localhost:8545)
+        MASTER_MINTER="0x$(echo $MASTER_MINTER_RAW | cut -c27-66)"
+        echo "   Master minter: $MASTER_MINTER"
+
+        # Step 2: Impersonate the master minter and configure ourselves as a minter
+        echo "   Step 2: Impersonating master minter and configuring minter role..."
+        cast rpc anvil_impersonateAccount $MASTER_MINTER --rpc-url http://localhost:8545
+        cast rpc anvil_setBalance $MASTER_MINTER 0x1000000000000000000 --rpc-url http://localhost:8545
+
+        # Configure our deployer account as a minter
+        cast send $USDC_ADDRESS \
+          "configureMinter(address,uint256)" \
+          $DEFAULT_ADMIN 1000000000000000 \
+          --from $MASTER_MINTER \
+          --unlocked \
+          --rpc-url http://localhost:8545
+
+        # Step 3: Stop impersonating master minter
+        echo "   Step 3: Stopping master minter impersonation..."
+        cast rpc anvil_stopImpersonatingAccount $MASTER_MINTER --rpc-url http://localhost:8545
+
+        # Step 4: Mint USDC directly to ADDRESS
+        echo "   Step 4: Minting 40M USDC to LiquidityPool..."
+        # 40M USDC = 40000000000000 (6 decimals)
+        SEED_AMOUNT="40000000000000"
+        cast send $USDC_ADDRESS \
+          "mint(address,uint256)" \
+          {{.ADDRESS}} $SEED_AMOUNT \
+          --from $DEFAULT_ADMIN \
+          --private-key $PRIVATE_KEY \
+          --rpc-url http://localhost:8545
+
+        BALANCE=$(cast call $USDC_ADDRESS \
+          "balanceOf(address)" \
+          {{.ADDRESS}} \
+          --rpc-url http://localhost:8545)
+        echo "   USDC balance: $BALANCE"
+
+  logtail:
+    desc: "follow the anvil node logs, Ctrl-C exits"
+    cmds:
+      - |
+        if [ ! -f "{{.ANVIL_LOG_FILE}}" ]; then
+          echo "❌ Log file not found. Is Anvil running?"
+          exit 1
+        fi
+        echo "📋 Following Anvil logs ({{.ANVIL_LOG_FILE}})..."
+        tail -f {{.ANVIL_LOG_FILE}}

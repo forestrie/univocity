@@ -19,6 +19,7 @@ import {IUnivocityErrors} from "@univocity/interfaces/IUnivocityErrors.sol";
 import {
     buildDetachedPayloadCommitment
 } from "@univocity/checkpoints/lib/consistencyReceipt.sol";
+import {LibLeafEncoding} from "@univocity/algorithms/lib/LibLeafEncoding.sol";
 import {ALG_ES256, ALG_KS256} from "@univocity/cosecbor/constants.sol";
 import {buildSigStructure} from "@univocity/cosecbor/cosecbor.sol";
 
@@ -1150,6 +1151,23 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
             leafTest,
             "helper getLeafCommitment must equal test _leafCommitment"
         );
+    }
+
+    /// @notice LibLeafEncoding.leafCommitment must match _leafCommitment for the
+    ///    same grant (canonical encoding for off-chain and tests).
+    function test_leafEncoding_matchesLeafCommitment() public {
+        PublishGrant memory g = _publishGrant(
+            AUTHORITY_LOG_ID,
+            GRANT_ROOT,
+            GC_AUTH_LOG,
+            0,
+            0,
+            bytes32(0),
+            abi.encodePacked(KS256_SIGNER)
+        );
+        bytes32 leafLib = LibLeafEncoding.leafCommitment(IDTIMESTAMP_AUTH, g);
+        bytes32 leafHelper = _leafCommitment(IDTIMESTAMP_AUTH, g);
+        assertEq(leafLib, leafHelper, "LibLeafEncoding must match _leafCommitment");
     }
 
     /// @notice Reproduce exact failing scenario: after fixed-point iteration we
