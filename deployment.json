@@ -1,6 +1,6 @@
 {
-    "schemaVersion": "v1",
-    "shared": {
+  "schemaVersion": "v1",
+  "shared": {
     "arachnid": {
       "proxy": "0x4e59b44847b379578588920cA78FbF26c0B4956C",
       "deploymentSigner": "0x3fAB184622Dc19b6109349B94811493BF2a45362",
@@ -8,27 +8,27 @@
       "create3FactorySalt": "justgames.io/flip-protocol/CREATE3Factory/0",
       "create3Factory": "0x606A25c0432766B45ece27Dd4e2208A7cE14dC5b"
     },
-        "uupsProxies": {
-            "UUPSUnivocity": {
-                "salt": "forestrie.eth/univocity/UUPSUnivocity/0",
-                "artifact": "UUPSUnivocity.sol:UUPSUnivocity"
-            }
-        }
-    },
-    "environments": {
-        "ephemeral": {
-            "description": "Local / CI (e.g. Anvil). Deployer and predicted address are deterministic for default key.",
-            "deployerAddress": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-            "contracts": {
-                "UUPSUnivocity": ""
-            }
-        },
-        "dev": {
-            "description": "Long-lived dev. Set deployerAddress to your dev key; UUPSUnivocity filled after first deploy or predict.",
-            "deployerAddress": "0x0C2864AA25E3Bf806E75F3D26BAfc50D288Df857",
-            "contracts": {
-                "UUPSUnivocity": ""
-            }
-        }
+    "uupsProxies": {
+      "UUPSUnivocity": {
+        "salt": "forestrie.eth/univocity/UUPSUnivocity/0",
+        "artifact": "UUPSUnivocity.sol:UUPSUnivocity"
+      }
     }
+  },
+  "environments": {
+    "ephemeral": {
+      "description": "Local / CI (e.g. Anvil). Deployer and predicted address are deterministic for default key.",
+      "deployerAddress": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+      "contracts": {
+        "UUPSUnivocity": ""
+      }
+    },
+    "dev": {
+      "description": "Long-lived dev. Set deployerAddress to your dev key; UUPSUnivocity filled after first deploy or predict.",
+      "deployerAddress": "0x0C2864AA25E3Bf806E75F3D26BAfc50D288Df857",
+      "contracts": {
+        "UUPSUnivocity": ""
+      }
+    }
+  }
 }

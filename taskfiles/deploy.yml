@@ -11,9 +11,9 @@ tasks:
   deploy:
     desc: Deploy everything (CREATE3 factory if missing, then UUPSUnivocity proxy).
     cmds:
-      - task: deploy:create3-factory
-      - task: deploy:uups:prepare
-      - task: deploy:uups:execute
+      - task: create3-factory
+      - task: uups:prepare
+      - task: uups:execute
 
   create3-factory:
     desc: Deploy the shared CREATE3 factory via Arachnid if not already deployed.
@@ -21,7 +21,7 @@ tasks:
       - |
         set -euo pipefail
         [ -f .env ] && source .env
-        [ -f .secret.env ] && source .secret.env
+        [ -f .secret.env ] && set -a && source .secret.env && set +a
         if [ -n "${RPC_URL:-}" ]; then
           FACTORY=$(jq -r '.shared.arachnid.create3Factory' deployment.json)
           CODE=$(cast code "$FACTORY" --rpc-url "$RPC_URL" 2>/dev/null || true)
@@ -34,13 +34,21 @@ tasks:
       - |
         set -euo pipefail
         [ -f .env ] && source .env
-        [ -f .secret.env ] && source .secret.env
+        [ -f .secret.env ] && set -a && source .secret.env && set +a
         export PRIVATE_KEY="${PRIVATE_KEY:-${DEPLOY_KEY:-}}"
         FACTORY=$(jq -r '.shared.arachnid.create3Factory' deployment.json)
         CODE=$(cast code "$FACTORY" --rpc-url "$RPC_URL" 2>/dev/null || true)
         if [ -n "$CODE" ] && [ "$CODE" != "0x" ]; then
           echo "CREATE3 factory already deployed at $FACTORY"
           exit 0
+        fi
+        ARACHNID=$(jq -r '.shared.arachnid.proxy' deployment.json)
+        ARACHNID_CODE=$(cast code "$ARACHNID" --rpc-url "$RPC_URL" 2>/dev/null || true)
+        if [ -z "$ARACHNID_CODE" ] || [ "$ARACHNID_CODE" = "0x" ]; then
+          echo "Deploying Arachnid proxy..."
+          cast rpc eth_sendRawTransaction \
+            "$(jq -r '.shared.arachnid.deploymentTx' deployment.json)" \
+            --rpc-url "$RPC_URL"
         fi
         echo "Ensuring CREATE3 factory (deploy if missing)"
         echo "RPC_URL: ${RPC_URL:-<not set>}"
@@ -52,9 +60,9 @@ tasks:
   uups:
     desc: Deploy UUPSUnivocity proxy via CREATE3 (ensure factory, prepare, execute).
     cmds:
-      - task: deploy:create3-factory
-      - task: deploy:uups:prepare
-      - task: deploy:uups:execute
+      - task: create3-factory
+      - task: uups:prepare
+      - task: uups:execute
 
   uups:prepare:
     desc: Prepare UUPSUnivocity deployment (dry-run; writes broadcast artifact).
@@ -62,7 +70,7 @@ tasks:
       - |
         set -euo pipefail
         [ -f .env ] && source .env
-        [ -f .secret.env ] && source .secret.env
+        [ -f .secret.env ] && set -a && source .secret.env && set +a
         export PRIVATE_KEY="${PRIVATE_KEY:-${DEPLOY_KEY:-}}"
         echo "Preparing UUPSUnivocity CREATE3 deployment"
         echo "RPC_URL: ${RPC_URL:-<not set>}"
@@ -76,7 +84,7 @@ tasks:
       - |
         set -euo pipefail
         [ -f .env ] && source .env
-        [ -f .secret.env ] && source .secret.env
+        [ -f .secret.env ] && set -a && source .secret.env && set +a
         export PRIVATE_KEY="${PRIVATE_KEY:-${DEPLOY_KEY:-}}"
         PROXY=$(forge script script/DeployProxyUUPSUnivocity.s.sol:DeployProxyUUPSUnivocity \
           --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" 2>/dev/null \
@@ -111,7 +119,7 @@ tasks:
       - |
         set -euo pipefail
         [ -f .env ] && source .env
-        [ -f .secret.env ] && source .secret.env
+        [ -f .secret.env ] && set -a && source .secret.env && set +a
         export PRIVATE_KEY="${PRIVATE_KEY:-${DEPLOY_KEY:-}}"
         forge script script/DeployProxyUUPSUnivocity.s.sol:DeployProxyUUPSUnivocity \
           --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" 2>/dev/null \
@@ -124,8 +132,9 @@ tasks:
       - |
         set -euo pipefail
         [ -f .env ] && source .env
-        [ -f .secret.env ] && source .secret.env
+        [ -f .secret.env ] && set -a && source .secret.env && set +a
         export PRIVATE_KEY="${PRIVATE_KEY:-${DEPLOY_KEY:-}}"
+        CHAIN_ID=$(cast chain-id --rpc-url "$RPC_URL" 2>/dev/null || true)
         PROXY=$(forge script script/DeployProxyUUPSUnivocity.s.sol:DeployProxyUUPSUnivocity \
           --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" 2>/dev/null \
           | grep -E '(Predicted proxy address|already deployed at):' \
