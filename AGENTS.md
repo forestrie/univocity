@@ -27,8 +27,10 @@ source layout, and conventions.
   `~/.foundry/bin`; ensure this is on `PATH`.
 - **Git submodules** supply all Solidity library dependencies
   (`lib/forge-std`, `lib/openzeppelin-contracts`, `lib/solmate`,
-  `lib/witnet-solidity-bridge`). Run
-  `git submodule update --init --recursive` if `lib/` dirs are empty.
+  `lib/witnet-solidity-bridge`). Submodules are managed exclusively
+  by Foundry — any `forge build` or `forge test` invocation will
+  resolve and update them automatically. Do not run
+  `git submodule update` manually.
 - The build uses `via_ir = true` and optimizer (200 runs), so initial
   compilation takes ~40 s. Incremental builds are fast.
 - `forge fmt` is authoritative — never re-wrap output after running it.
