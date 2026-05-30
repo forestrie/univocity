@@ -106,8 +106,13 @@ web server or backend service to run — all development tasks are
 ### Environment notes
 
 - **Foundry v1.5.1** is pinned (must match CI). Install via
-  `foundryup --install v1.5.1`. The binaries live in
-  `~/.foundry/bin`; ensure this is on `PATH`.
+ `foundryup --install v1.5.1`. The binaries live in
+ `~/.foundry/bin`; ensure this is on `PATH` (Cloud VMs: add to
+ `~/.bashrc` if not already present).
+- **Go 1.24.4+** is required only for the separate `go-univocity`
+ repo; set `GOTOOLCHAIN=go1.24.4` (or install via
+ `go install golang.org/dl/go1.24.4@latest && go1.24.4 download`).
+ This Solidity repo does not need Go for `forge test`.
 - **Git submodules** supply all Solidity library dependencies
   (`lib/forge-std`, `lib/openzeppelin-contracts`, `lib/solmate`,
   `lib/witnet-solidity-bridge`). Submodules are managed exclusively
