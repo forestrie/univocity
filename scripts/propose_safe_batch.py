@@ -3,125 +3,85 @@
 
 from __future__ import annotations
 
-import json
 import os
 import sys
 from pathlib import Path
 
-from eth_account import Account
 from eth_utils import to_checksum_address
-from safe_eth.eth import EthereumClient, EthereumNetwork
-from safe_eth.eth.constants import NULL_ADDRESS
-from safe_eth.safe import Safe, SafeTx
-from safe_eth.safe.api import TransactionServiceApi
-from safe_eth.safe.api.base_api import SafeAPIException
-from safe_eth.safe.enums import SafeOperationEnum
 
-ROOT = Path(__file__).resolve().parents[1]
-CHAIN_ID = 84532
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from safe_eth.eth import EthereumClient
 
-def _load_batch(path: Path) -> dict:
-    return json.loads(path.read_text())
+from safe_propose_common import (
+    CHAIN_ID,
+    ROOT,
+    assert_immutable_univocity_deployed,
+    assert_safe_deployed,
+    fetch_safe_nonce,
+    load_batch,
+    post_proposed_tx,
+    proposer_address,
+    require_rpc_and_deploy_key,
+    resolve_safe_address,
+    safe_tx_from_builder_entry,
+    transaction_service_api,
+    validate_bootstrap_batch,
+)
 
-
-def _safe_tx_from_builder_entry(
-    client: EthereumClient,
-    safe: str,
-    entry: dict,
-    nonce: int,
-    chain_id: int,
-) -> SafeTx:
-    operation = (
-        SafeOperationEnum.DELEGATE_CALL.value
-        if int(entry["operation"]) == 1
-        else SafeOperationEnum.CALL.value
-    )
-    data_hex = entry["data"]
-    data = bytes.fromhex(data_hex[2:] if data_hex.startswith("0x") else data_hex)
-    return SafeTx(
-        client,
-        to_checksum_address(safe),
-        to_checksum_address(entry["to"]),
-        int(entry.get("value", 0)),
-        data,
-        operation,
-        int(entry.get("safeTxGas", 0)),
-        int(entry.get("baseGas", 0)),
-        int(entry.get("gasPrice", 0)),
-        to_checksum_address(entry.get("gasToken", NULL_ADDRESS)),
-        to_checksum_address(entry.get("refundReceiver", NULL_ADDRESS)),
-        safe_nonce=nonce,
-        safe_version="1.4.1",
-        chain_id=chain_id,
-    )
+DEFAULT_BATCH = (
+    ROOT
+    / "deployments/safe"
+    / "imutable-univocity-bootstrap-84532-safe-0x1528b86ff561f617602356efdbD05908a07AA788.json"
+)
 
 
 def main() -> int:
-    rpc = os.environ.get("RPC_URL")
-    pk = os.environ.get("DEPLOY_KEY")
-    batch_path = Path(
-        os.environ.get(
-            "SAFE_BATCH_JSON",
-            ROOT
-            / "deployments/safe/imutable-univocity-bootstrap-84532-safe-0x1528b86ff561f617602356efdbD05908a07AA788.json",
-        )
-    )
-    if not rpc or not pk:
-        print("RPC_URL and DEPLOY_KEY are required", file=sys.stderr)
-        return 1
-    if not pk.startswith("0x"):
-        pk = "0x" + pk
+    rpc, pk = require_rpc_and_deploy_key()
+    batch_path = Path(os.environ.get("SAFE_BATCH_JSON", DEFAULT_BATCH))
+    batch = load_batch(batch_path)
+    validate_bootstrap_batch(batch)
 
-    batch = _load_batch(batch_path)
-    safe = to_checksum_address(
-        os.environ.get("SAFE_ADDRESS", batch["meta"]["createdFromSafeAddress"])
-    )
+    safe = resolve_safe_address(batch_meta=batch.get("meta"))
+    safe_version = os.environ.get("SAFE_VERSION", "1.4.1")
     client = EthereumClient(rpc)
-    code = client.w3.eth.get_code(safe)
-    if code in (b"", b"0x"):
-        print(f"Safe {safe} is not deployed", file=sys.stderr)
-        return 2
+    assert_safe_deployed(client, safe)
 
-    safe_contract = Safe(safe, client)
-    start_nonce = safe_contract.retrieve_nonce()
-    proposer = Account.from_key(pk).address
-    api = TransactionServiceApi(network=EthereumNetwork.BASE_SEPOLIA_TESTNET)
+    univocity = os.environ.get("IMUTABLE_UNIVOCITY_ADDRESS") or to_checksum_address(
+        batch["transactions"][1]["to"]
+    )
+    assert_immutable_univocity_deployed(client, univocity)
 
-    proposed = []
-    for i, entry in enumerate(batch["transactions"]):
-        nonce = start_nonce + i
-        safe_tx = _safe_tx_from_builder_entry(client, safe, entry, nonce, CHAIN_ID)
-        safe_tx.sign(pk)
-        try:
-            api.post_transaction(safe_tx)
-        except SafeAPIException as exc:
-            print(f"Failed tx index {i} nonce {nonce}: {exc}", file=sys.stderr)
-            return 3
-        proposed.append(
-            {
-                "index": i,
-                "nonce": nonce,
-                "to": entry["to"],
-                "operation": entry["operation"],
-                "safeTxHash": safe_tx.safe_tx_hash.hex(),
-            }
-        )
+    start_nonce = fetch_safe_nonce(client, safe)
+    proposer = proposer_address(pk)
+    api = transaction_service_api()
 
-    print("Proposed Safe transactions")
+    print("Proposing bootstrap Safe transactions")
     print(f"  safe:     {safe}")
     print(f"  proposer: {proposer}")
     print(f"  batch:    {batch_path}")
-    for row in proposed:
-        h = row["safeTxHash"]
-        print(
-            f"  [{row['index']}] nonce={row['nonce']} to={row['to']} "
-            f"op={row['operation']}"
+    print(f"  start_nonce: {start_nonce}")
+
+    for i, entry in enumerate(batch["transactions"]):
+        nonce = start_nonce + i
+        safe_tx = safe_tx_from_builder_entry(
+            client,
+            safe,
+            entry,
+            nonce,
+            CHAIN_ID,
+            safe_version=safe_version,
         )
-        print(
-            "      dashboard: "
-            f"https://app.safe.global/transactions/tx?safe=basesep:{safe}&id=multisig_{h}"
+        post_proposed_tx(
+            api,
+            safe_tx,
+            pk,
+            safe,
+            proposer,
+            label=f"bootstrap tx[{i}]",
+            nonce=nonce,
         )
+
     return 0
 
 

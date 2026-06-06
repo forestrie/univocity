@@ -54,18 +54,19 @@ KS256 consistency receipts non-delegatable.
 ## 4. Deploy (Workstream A gate for e2e)
 
 Fresh deploy required — existing `0x611dd70B…` is immutable and lacks
-`verifyDelegationProofKS256`:
+`verifyDelegationProofKS256`.
 
-```sh
-cd univocity
-doppler run -- forge script script/Deploy.s.sol --rpc-url "$RPC_URL" --broadcast
-# or GenerateSafeImutableUnivocityBatch.s.sol for Safe KS256 bootstrap
-```
+**Deployed (Base Sepolia Safe KS256 bootstrap):**
+`0x7A4E8ad88D6Df29FEBEc0d546d148Ed4bea8Cb94` (ImutableUnivocity). Root Safe:
+`0x1528b86ff561f617602356efdbD05908a07AA788`. Authority logId:
+`keccak256("authority-log")`.
 
-Set `E2E_UNIVOCITY_CONTRACT_ADDR` to the new address. The default Base Sepolia
-Safe deployment (`0x611dd70B…`) works for **KS256 genesis v2** e2e without
-redeploy once stack changes land; redeploy is required for **on-chain KS256
-delegation** proofs.
+Set **`E2E_UNIVOCITY_ADDRESS_KS256_BOOTSTRAP`** in Doppler **`canopy/dev`** and
+GitHub CI vars. ES256 deployment: **`E2E_UNIVOCITY_ADDRESS_ES256_BOOTSTRAP`**
+(see [plan-0032](plan-0032-es256-immutable-deploy.md)).
+**`univocity/dev`** (sync to GitHub **`dev`** vars for CI). Canopy e2e static
+forest log id: `7a4e8ad8-8d6d-429f-8bec-0d546d148edb` (see
+`canopy/packages/tests/canopy-api/tests/utils/e2e-static-log-ids.ts`).
 
 ## 5. Verification
 

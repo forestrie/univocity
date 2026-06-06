@@ -1,0 +1,7 @@
+# Requires Python >=3.10 (use: mise exec -- uv venv --python 3.12 .venv)
+safe-eth-py>=7.0.0
+eth-account>=0.13.0
+eth-utils>=5.0.0
+eth-abi>=5.0.0
+cryptography>=43.0.0
+web3>=7.0.0

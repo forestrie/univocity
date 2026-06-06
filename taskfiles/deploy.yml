@@ -126,6 +126,13 @@ tasks:
           | grep -E '(Predicted proxy address|already deployed at):' \
           | grep -oE '0x[a-fA-F0-9]{40}' | head -1
 
+  imutable:es256:
+    desc: Deploy ImutableUnivocity (ES256 bootstrap) and bootstrap root authority log.
+    cmds:
+      - |
+        set -euo pipefail
+        python3 scripts/deploy_and_bootstrap_es256.py
+
   verify:
     desc: Verify UUPSUnivocity implementation on the chain explorer. No-op if not deployed.
     cmds:

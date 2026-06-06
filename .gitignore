@@ -25,3 +25,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.so
+.venv/
+
+# Node (e.g. stale scripts/safe-propose tooling)
+node_modules/

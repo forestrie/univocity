@@ -1,0 +1,26 @@
+{
+  "[solidity]": {
+    "editor.defaultFormatter": "NomicFoundation.hardhat-solidity",
+    "editor.formatOnSave": true
+  },
+  "solidity.formatter": "forge",
+  "solidity.packageDefaultDependenciesContractsDirectory": "src",
+  "solidity.packageDefaultDependenciesDirectory": "lib",
+  "solidity.compileUsingRemoteVersion": "v0.8.30",
+  "solidity.remappings": [
+    "@univocity/=src/",
+    "forge-std/=lib/forge-std/src/",
+    "@forge-std/=lib/forge-std/src/",
+    "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+    "witnet-solidity-bridge/=lib/witnet-solidity-bridge/",
+    "solmate/=lib/solmate/src/",
+    "ds-test/=lib/solmate/lib/ds-test/src/",
+    "erc4626-tests/=lib/openzeppelin-contracts/lib/erc4626-tests/",
+    "halmos-cheatcodes/=lib/openzeppelin-contracts/lib/halmos-cheatcodes/src/",
+    "openzeppelin-contracts/=lib/openzeppelin-contracts/"
+  ],
+  "markdownlint.config": {
+    "MD013": false,
+    "MD060": false
+  }
+}

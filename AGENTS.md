@@ -100,6 +100,7 @@ web server or backend service to run — all development tasks are
 | Format check | `forge fmt --check` |
 | Auto-format | `forge fmt` |
 | Build with sizes | `forge build --sizes` |
+| ES256 Imutable deploy + bootstrap | `doppler run --project univocity --config dev -- task deploy:imutable:es256` |
 
 ### Environment notes
 
