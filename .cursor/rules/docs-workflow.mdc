@@ -1,0 +1,31 @@
+---
+description: Document naming, numbering, ownership, and cross-referencing
+alwaysApply: false
+---
+
+# Document workflow
+
+## Ownership
+
+| Content | Home | This repo keeps |
+|---------|------|-----------------|
+| Cross-repo ADR/ARC | [devdocs](../devdocs/) | contract-specific arc/adr |
+| Platform ops | devdocs/ops | — |
+| Domain glossary | [devdocs/glossary.md](../devdocs/glossary.md) | — |
+| Contract plans/ADRs | `docs/{plans,adr,arc}/` | full doc |
+
+## Layout
+
+- `docs/arc/arc-NNNN-*.md`
+- `docs/adr/adr-NNNN-*.md`
+- `docs/plans/plan-NNNN-*.md`
+- `docs/history/plans/` — superseded plans
+
+## Numbering
+
+Sequential NNNN per type under `docs/**`.
+
+## Cross-referencing
+
+Reference related documents in markdown. Platform docs in
+[devdocs](../devdocs/) — see [docs/plans/README.md](../docs/plans/README.md).

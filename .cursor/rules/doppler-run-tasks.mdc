@@ -1,0 +1,17 @@
+---
+description: Use Doppler when running tasks that need secrets in this repository
+alwaysApply: true
+---
+
+# Running tasks with secrets
+
+When running Taskfile tasks in this repository that require secrets (e.g. deploy
+tasks), use **doppler run** explicitly so secrets are injected from Doppler:
+
+```sh
+doppler run -- task deploy:uups:prepare
+doppler run -- task deploy:uups:execute
+```
+
+Do not rely on `.env` or `.secret.env` in automation; prefer Doppler and document
+that callers should run tasks via `doppler run -- task ...` when secrets are needed.
