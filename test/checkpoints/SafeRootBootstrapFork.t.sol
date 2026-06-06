@@ -3,7 +3,9 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 import {ImutableUnivocity} from "@univocity/contracts/ImutableUnivocity.sol";
-import {BuildSafeRootBootstrap} from "../../script/BuildSafeRootBootstrap.s.sol";
+import {
+    BuildSafeRootBootstrap
+} from "../../script/BuildSafeRootBootstrap.s.sol";
 import {ISignMessageLib} from "../../script/BuildSafeRootBootstrap.s.sol";
 
 interface ISafeFork {
@@ -53,22 +55,22 @@ contract SafeRootBootstrapForkTest is Test {
         0xd53cd0aB83D845Ac265BE939c57F53AD838012c9;
 
     function test_fork_signMessageThenPublishRootCheckpoint() public {
-        string memory rpc = vm.envString("RPC_URL");
+        string memory rpc = vm.envOr("RPC_URL", string(""));
+        uint256 ownerPk = vm.envOr("SAFE_OWNER_PRIVATE_KEY", uint256(0));
+        if (bytes(rpc).length == 0 || ownerPk == 0) {
+            vm.skip(true);
+        }
+
         vm.createSelectFork(rpc);
 
         BuildSafeRootBootstrap builder = new BuildSafeRootBootstrap();
-        (
-            ,
-            ,
-            bytes32 receiptHash,
-            bytes memory publishCalldata
-        ) = builder._buildBootstrapPayload(SAFE);
+        (,, bytes32 receiptHash, bytes memory publishCalldata) =
+            builder._buildBootstrapPayload(SAFE);
 
         bytes memory signData = abi.encode(receiptHash);
         bytes memory signMessageCalldata =
             abi.encodeCall(ISignMessageLib.signMessage, (signData));
 
-        uint256 ownerPk = vm.envUint("SAFE_OWNER_PRIVATE_KEY");
         assertEq(vm.addr(ownerPk), OWNER);
 
         bytes memory ownerSig = _signSafeExecTransaction(
@@ -82,18 +84,19 @@ contract SafeRootBootstrapForkTest is Test {
 
         vm.prank(OWNER);
         vm.deal(OWNER, 1 ether);
-        ISafeFork(SAFE).execTransaction(
-            SIGN_MESSAGE_LIB,
-            0,
-            signMessageCalldata,
-            ISafeFork.Operation.DelegateCall,
-            0,
-            0,
-            0,
-            address(0),
-            payable(address(0)),
-            ownerSig
-        );
+        ISafeFork(SAFE)
+            .execTransaction(
+                SIGN_MESSAGE_LIB,
+                0,
+                signMessageCalldata,
+                ISafeFork.Operation.DelegateCall,
+                0,
+                0,
+                0,
+                address(0),
+                payable(address(0)),
+                ownerSig
+            );
 
         (bool ok, bytes memory ret) = UNIVOCITY.call(publishCalldata);
         if (!ok) {
@@ -114,18 +117,19 @@ contract SafeRootBootstrapForkTest is Test {
         ISafeFork.Operation operation,
         uint256 signerPk
     ) internal view returns (bytes memory) {
-        bytes32 txHash = ISafeFork(safe).getTransactionHash(
-            to,
-            value,
-            data,
-            operation,
-            0,
-            0,
-            0,
-            address(0),
-            address(0),
-            ISafeFork(safe).nonce()
-        );
+        bytes32 txHash = ISafeFork(safe)
+            .getTransactionHash(
+                to,
+                value,
+                data,
+                operation,
+                0,
+                0,
+                0,
+                address(0),
+                address(0),
+                ISafeFork(safe).nonce()
+            );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPk, txHash);
         return abi.encodePacked(r, s, v);
     }

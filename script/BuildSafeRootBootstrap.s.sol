@@ -31,19 +31,19 @@ contract BuildSafeRootBootstrap is Script {
     address internal constant SIGN_MESSAGE_LIB =
         0xd53cd0aB83D845Ac265BE939c57F53AD838012c9;
 
-    bytes32 internal constant AUTHORITY_LOG_ID =
-        keccak256("authority-log");
+    bytes32 internal constant AUTHORITY_LOG_ID = keccak256("authority-log");
     bytes8 internal constant IDTIMESTAMP_AUTH = bytes8(0);
     bytes internal constant PROTECTED_HEADER = hex"a1013a00010106";
     uint256 internal constant GRANT_ROOT = GF_CREATE | GF_EXTEND | GF_AUTH_LOG;
 
     function run() external {
         address safe = vm.envOr("SAFE_ADDRESS", DEFAULT_SAFE);
-        address univocity = vm.envOr("IMUTABLE_UNIVOCITY_ADDRESS", DEFAULT_UNIVOCITY);
+        address univocity =
+            vm.envOr("IMUTABLE_UNIVOCITY_ADDRESS", DEFAULT_UNIVOCITY);
         address signMessageLib =
             vm.envOr("SIGN_MESSAGE_LIB_ADDRESS", SIGN_MESSAGE_LIB);
 
-        (, , bytes32 receiptHash, bytes memory publishCalldata) =
+        (,, bytes32 receiptHash, bytes memory publishCalldata) =
             _buildBootstrapPayload(safe);
 
         bytes memory signMessageData = abi.encode(receiptHash);
@@ -75,9 +75,13 @@ contract BuildSafeRootBootstrap is Script {
         console.log("Safe:", safe);
         console.log("ImutableUnivocity:", univocity);
         console.log("Authority logId:", vm.toString(AUTHORITY_LOG_ID));
-        console.log("Receipt hash (KS256 / ERC-1271):", vm.toString(receiptHash));
+        console.log(
+            "Receipt hash (KS256 / ERC-1271):", vm.toString(receiptHash)
+        );
         console.log("SignMessageLib:", signMessageLib);
-        console.log("publishCheckpoint calldata length:", publishCalldata.length);
+        console.log(
+            "publishCheckpoint calldata length:", publishCalldata.length
+        );
         console.log("Payload JSON:");
         console.log(payloadJson);
         console.log("Safe batch JSON:");
@@ -140,9 +144,8 @@ contract BuildSafeRootBootstrap is Script {
         });
 
         bytes32 commitment = sha256(abi.encodePacked(accMem));
-        bytes memory sigStruct = buildSigStructure(
-            PROTECTED_HEADER, abi.encodePacked(commitment)
-        );
+        bytes memory sigStruct =
+            buildSigStructure(PROTECTED_HEADER, abi.encodePacked(commitment));
         receiptHash = keccak256(sigStruct);
 
         receipt = ConsistencyReceipt({
@@ -266,7 +269,9 @@ contract BuildSafeRootBootstrap is Script {
             '    "checksum": ""\n',
             "  },\n",
             '  "transactions": [\n',
-            _transactionJson(signMessageLib, signMessageCalldata, signMessageOperation),
+            _transactionJson(
+                signMessageLib, signMessageCalldata, signMessageOperation
+            ),
             ",\n",
             _transactionJson(univocity, publishCalldata, publishOperation),
             "\n  ]\n",
