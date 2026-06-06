@@ -18,9 +18,8 @@
 
 ## Repository rules (always apply)
 
-- **`.cursorrules`** — Solidity: explicit named imports only; comment
-  wrapping (soft 79, hard 100 chars); run `forge fmt` last. Apply in
-  `src/**/*.sol`, `script/**/*.sol`, `test/**/*.sol`.
+- **`.cursorrules`** — Solidity imports and comment wrapping; see
+  [docs/agents/solidity.md](docs/agents/solidity.md) for layout.
 
 ## Source layout
 
@@ -51,13 +50,12 @@
 
 ## Documentation
 
-- **`docs/arc/`** — Architecture (e.g. ARC-0017 log hierarchy and
-  auth).
-- **`docs/adr/`** — Architecture decision records.
-- **`docs/plans/`** — Implementation plans; historical in
-  `docs/history/plans/`.
-- When adding or changing design, create or update arc/adr/plan docs;
-  use the next free NNNN for that type.
+- **`docs/arc/`** — Contract architecture (ARC-0016, ARC-0017, etc.).
+- **`docs/adr/`** — Contract decision records.
+- **`docs/plans/`** — Implementation plans; historical in `docs/history/plans/`.
+- **Platform** ADRs/ARCs/glossary: [devdocs](../../devdocs/), [glossary.md](../../devdocs/glossary.md).
+- **Agent index**: [docs/agents/README.md](docs/agents/README.md).
+- When adding design docs, use next free NNNN; see `.cursor/rules/docs-workflow.mdc`.
 
 ## Deployment
 
@@ -81,10 +79,10 @@ when the trigger conditions apply rather than on every task.
 
 | File | Read when |
 |------|-----------|
-| `WARP.md` | Modifying or adding Solidity source (`src/`, `script/`, `test/`). Contains detailed module/library naming conventions, commit message rules, NatSpec and comment requirements, and module-specific agent guidance for `checkpoints` and `cose`. |
-| `docs/arc/arc-0017-auth-overview.md` | Working on authorization, grant verification, or checkpoint signing logic. |
-| `docs/arc/arc-0017-log-hierarchy-and-authority.md` | Working on log hierarchy, authority log relationships, or multi-log features. |
-| `README.md` | Deployment workflows, contract architecture overview, or security model. |
+| `docs/agents/solidity.md` | Modifying Solidity (`src/`, `script/`, `test/`). |
+| `docs/arc/arc-0017-auth-overview.md` | Authorization, grant verification, checkpoint signing. |
+| `docs/arc/arc-0017-log-hierarchy-and-authority.md` | Log hierarchy and multi-log features. |
+| `README.md` | Deployment, contract architecture, security model. |
 
 ## Cursor Cloud specific instructions
 
