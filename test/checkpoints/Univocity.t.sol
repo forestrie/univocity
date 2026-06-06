@@ -443,10 +443,10 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
             authorityLeaf0, authorityLeaf1, keccak256("third")
         );
         consistency.delegationProof = DelegationProof({
+            protectedHeader: hex"a10126",
             delegationKey: new bytes(64),
             mmrStart: 0,
             mmrEnd: 1,
-            alg: 0,
             signature: new bytes(64)
         });
         PublishGrant memory g = _publishGrant(
@@ -1453,10 +1453,10 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
             signature: abi.encodePacked(r, s, v),
             consistencyProofs: proofs,
             delegationProof: DelegationProof({
+                protectedHeader: "",
                 delegationKey: "",
                 mmrStart: 0,
                 mmrEnd: 0,
-                alg: 0,
                 signature: ""
             })
         });

@@ -13,6 +13,9 @@ import {
 } from "@univocity/cosecbor/constants.sol";
 import {P256} from "@openzeppelin/contracts/utils/cryptography/P256.sol";
 import {
+    SignatureChecker
+} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
+import {
     WitnetBuffer
 } from "witnet-solidity-bridge/contracts/libs/WitnetBuffer.sol";
 
@@ -186,7 +189,7 @@ function verifyKS256(
     bytes memory payload,
     bytes memory signature,
     address expectedSigner
-) pure returns (bool) {
+) view returns (bool) {
     bytes memory sigStructure = buildSigStructure(protectedHeader, payload);
     return verifyKS256Raw(sigStructure, signature, expectedSigner);
 }
@@ -208,7 +211,7 @@ function verifyKS256DetachedPayload(
     bytes memory signature,
     bytes memory detachedPayload,
     address expectedSigner
-) pure returns (bool) {
+) view returns (bool) {
     bytes memory sigStructure = buildSigStructure(
         protectedHeader, detachedPayload
     );
@@ -238,8 +241,14 @@ function verifyKS256Raw(
     bytes memory message,
     bytes memory signature,
     address expectedSigner
-) pure returns (bool) {
+) view returns (bool) {
     bytes32 hash = keccak256(message);
+    if (expectedSigner.code.length != 0) {
+        return SignatureChecker.isValidERC1271SignatureNow(
+            expectedSigner, hash, signature
+        );
+    }
+
     if (signature.length != 65) {
         revert InvalidSignatureLength(65, signature.length);
     }

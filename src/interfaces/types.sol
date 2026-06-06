@@ -38,14 +38,15 @@ struct InclusionProof {
     bytes32[] path;
 }
 
-/// @notice Minimal delegation proof (plan 0016). No cert decode.
+/// @notice COSE-shaped delegation proof (ADR-0006). No cert decode.
 ///    delegationKey is alg-specific opaque bytes; for P-256/ES256 it is
-///    64 bytes (x || y). Decoding requires alg == P-256/ES256.
+///    64 bytes (x || y). The signature is over a COSE Sign1 Sig_structure
+///    with a contract-derived canonical delegation payload.
 struct DelegationProof {
+    bytes protectedHeader;
     bytes delegationKey;
     uint64 mmrStart;
     uint64 mmrEnd;
-    uint64 alg;
     bytes signature;
 }
 

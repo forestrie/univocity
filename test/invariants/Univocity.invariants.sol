@@ -120,7 +120,11 @@ contract UnivocityHandler is Test {
         returns (DelegationProof memory)
     {
         return DelegationProof({
-            delegationKey: "", mmrStart: 0, mmrEnd: 0, alg: 0, signature: ""
+            protectedHeader: "",
+            delegationKey: "",
+            mmrStart: 0,
+            mmrEnd: 0,
+            signature: ""
         });
     }
 

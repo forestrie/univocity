@@ -3,6 +3,7 @@
 **Status:** DRAFT  
 **Date:** 2026-02-23  
 **Related:** [ARC-0017 (log hierarchy)](arc-0017-log-hierarchy-and-authority.md),
+[Canopy — Grants (Forestrie-Grant wire, API verification vs sequencing)](https://github.com/forestrie/canopy/blob/main/docs/grants.md),
 [ARC-0016](arc-0016-checkpoint-incentivisation-implementation.md),
 [ADR-0004](../adr/adr-0004-root-log-self-grant-extension.md)
 
@@ -137,10 +138,17 @@ with delegation, the stored root must match the key used to verify the
 delegation (and the delegate signs the receipt). Allowed algorithms and
 delegation support:
 
-| Algorithm | Description        | Delegation |
-|-----------|--------------------|------------|
-| **ES256** | P-256 + SHA-256    | Yes        |
-| **KS256** | secp256k1 + Keccak-256 | No     |
+| Algorithm | Description                      | Delegation |
+|-----------|----------------------------------|------------|
+| **ES256** | P-256 + SHA-256                  | Yes        |
+| **KS256** | Ethereum address + Keccak-256    | No         |
+
+For **KS256**, the signer identity is a 20-byte Ethereum address. The
+address may be an EOA, verified with `ecrecover`, or an ERC-1271 contract
+account, verified with `isValidSignature(bytes32,bytes)`. In both cases the
+signed hash is `keccak256(COSE_Sign1 Sig_structure)`. The root key bytes in
+`grantData`, bootstrap config, and stored log config remain
+`abi.encodePacked(address)`.
 
 ---
 
@@ -193,6 +201,24 @@ signed by the correct key**.
 
 ---
 
+## 5.1 Off-chain ingress vs this contract (Forestrie / Canopy)
+
+**Sequencing throughput:** Off-chain **sequencers** and **log builders** (for
+example Cloudflare Workers enqueueing by `logId` and content hash) are **not**
+required to re-classify each UUID as “authority” vs “data” before append.
+That keeps ingestion cheap.
+
+**This contract is still the verifier:** `publishCheckpoint` enforces **both**
+checks in §2 (grant inclusion in the target’s **owner**, receipt signed per
+rules §3–4). A checkpoint that fails those checks **does not** extend the
+**single** **split-view–protected** accumulator state the contract maintains
+for each log — i.e. it does not advance **univocal** on-chain history for that
+tree. Forestrie **Canopy** spells out the same split for **Forestrie-Grant**
+HTTP paths: verification procedures vs enqueue-only paths; see
+[Canopy grants — Takeaways](https://github.com/forestrie/canopy/blob/main/docs/grants.md#takeaways).
+
+---
+
 ## 6. Grant vs request (first-checkpoint log kind)
 
 - **Grant** (in the leaf commitment): flags GF_CREATE, GF_EXTEND, GF_AUTH_LOG,
@@ -233,6 +259,13 @@ sequenceDiagram
     C->>C: Verify self-inclusion and signer and grantData equals bootstrap key
     C-->>Op: Root created rootLogId set, Initialized emitted
 ```
+
+For a Safe or other ERC-1271 bootstrap signer, deploy with
+`ALG_KS256` and `bootstrapKey = abi.encodePacked(safeAddress)`. The root
+grant's `grantData` is the same 20-byte Safe address. The receipt signature
+is whatever bytes the Safe validates for
+`keccak256(COSE_Sign1 Sig_structure)` via ERC-1271; the transaction sender is
+still irrelevant.
 
 ### 7.2 Bootstrap log operator: creating grants
 

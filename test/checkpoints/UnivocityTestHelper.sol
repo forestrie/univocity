@@ -417,7 +417,138 @@ abstract contract UnivocityTestHelper is Test {
         returns (DelegationProof memory)
     {
         return DelegationProof({
-            delegationKey: "", mmrStart: 0, mmrEnd: 0, alg: 0, signature: ""
+            protectedHeader: "",
+            delegationKey: "",
+            mmrStart: 0,
+            mmrEnd: 0,
+            signature: ""
+        });
+    }
+
+    function _buildDelegationPayloadES256(
+        bytes32 logId,
+        uint64 mmrStart,
+        uint64 mmrEnd,
+        bytes32 delegatedKeyX,
+        bytes32 delegatedKeyY
+    ) internal pure returns (bytes memory) {
+        return abi.encodePacked(
+            "forestrie.univocity.delegation.v1",
+            logId,
+            mmrStart,
+            mmrEnd,
+            delegatedKeyX,
+            delegatedKeyY
+        );
+    }
+
+    function _buildDelegationProofES256(
+        bytes32 logId,
+        uint64 mmrStart,
+        uint64 mmrEnd,
+        uint256 rootPk,
+        bytes32 delegatedKeyX,
+        bytes32 delegatedKeyY
+    ) internal pure returns (DelegationProof memory) {
+        return _buildDelegationProofES256WithProtected(
+                hex"a10126",
+                logId,
+                mmrStart,
+                mmrEnd,
+                rootPk,
+                delegatedKeyX,
+                delegatedKeyY
+            );
+    }
+
+    function _buildDelegationProofKS256(
+        bytes32 logId,
+        uint64 mmrStart,
+        uint64 mmrEnd,
+        uint256 rootPk,
+        bytes32 delegatedKeyX,
+        bytes32 delegatedKeyY
+    ) internal pure returns (DelegationProof memory) {
+        return _buildDelegationProofKS256WithProtected(
+                hex"a1013a00010106",
+                logId,
+                mmrStart,
+                mmrEnd,
+                rootPk,
+                delegatedKeyX,
+                delegatedKeyY
+            );
+    }
+
+    function _buildDelegationProofKS256WithProtected(
+        bytes memory protected,
+        bytes32 logId,
+        uint64 mmrStart,
+        uint64 mmrEnd,
+        uint256 rootPk,
+        bytes32 delegatedKeyX,
+        bytes32 delegatedKeyY
+    ) internal pure returns (DelegationProof memory) {
+        bytes memory payload = _buildDelegationPayloadES256(
+                logId, mmrStart, mmrEnd, delegatedKeyX, delegatedKeyY
+            );
+        bytes memory sigStruct = buildSigStructure(protected, payload);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(rootPk, keccak256(sigStruct));
+        return DelegationProof({
+            protectedHeader: protected,
+            delegationKey: abi.encodePacked(delegatedKeyX, delegatedKeyY),
+            mmrStart: mmrStart,
+            mmrEnd: mmrEnd,
+            signature: abi.encodePacked(r, s, v)
+        });
+    }
+
+    function _buildDelegationProofES256WithProtected(
+        bytes memory protected,
+        bytes32 logId,
+        uint64 mmrStart,
+        uint64 mmrEnd,
+        uint256 rootPk,
+        bytes32 delegatedKeyX,
+        bytes32 delegatedKeyY
+    ) internal pure returns (DelegationProof memory) {
+        bytes memory payload = _buildDelegationPayloadES256(
+                logId, mmrStart, mmrEnd, delegatedKeyX, delegatedKeyY
+            );
+        bytes memory sigStruct = buildSigStructure(protected, payload);
+        bytes32 hash = sha256(sigStruct);
+        (bytes32 r, bytes32 s) = vm.signP256(rootPk, hash);
+        s = _ensureP256LowerS(s);
+        return DelegationProof({
+            protectedHeader: protected,
+            delegationKey: abi.encodePacked(delegatedKeyX, delegatedKeyY),
+            mmrStart: mmrStart,
+            mmrEnd: mmrEnd,
+            signature: abi.encodePacked(r, s)
+        });
+    }
+
+    function _buildRawHashDelegationProofES256(
+        bytes32 logId,
+        uint64 mmrStart,
+        uint64 mmrEnd,
+        uint256 rootPk,
+        bytes32 delegatedKeyX,
+        bytes32 delegatedKeyY
+    ) internal pure returns (DelegationProof memory) {
+        bytes32 hash = sha256(
+            abi.encodePacked(
+                logId, mmrStart, mmrEnd, delegatedKeyX, delegatedKeyY
+            )
+        );
+        (bytes32 r, bytes32 s) = vm.signP256(rootPk, hash);
+        s = _ensureP256LowerS(s);
+        return DelegationProof({
+            protectedHeader: hex"a10126",
+            delegationKey: abi.encodePacked(delegatedKeyX, delegatedKeyY),
+            mmrStart: mmrStart,
+            mmrEnd: mmrEnd,
+            signature: abi.encodePacked(r, s)
         });
     }
 

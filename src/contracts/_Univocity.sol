@@ -32,7 +32,8 @@ import {
 } from "@univocity/cosecbor/cosecbor.sol";
 import {
     decodeDelegationKeyES256,
-    verifyDelegationProofES256
+    verifyDelegationProofES256,
+    verifyDelegationProofKS256
 } from "@univocity/checkpoints/lib/delegationVerifier.sol";
 import {
     verifyConsistencyProofChain,
@@ -281,6 +282,7 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
             config.initializedAt = block.number;
             config.kind = LogKind.Authority;
             config.authLogId = logId;
+            // rootKey is opaque: 64 bytes (ES256) or 20 bytes (KS256 address).
             if (rootKeyToSet.length == 64 || rootKeyToSet.length == 20) {
                 config.rootKey = rootKeyToSet;
             }
@@ -341,6 +343,7 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
 
             config.initializedAt = block.number;
             config.authLogId = authLogId;
+            // Same opaque rootKey encoding as root authority log (20 | 64).
             if (rootKeyToSet.length == 64 || rootKeyToSet.length == 20) {
                 config.rootKey = rootKeyToSet;
             }
@@ -390,8 +393,13 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
         // We distinguish (1) the log root key — from grantData (first checkpoint,
         // verify-only) or from storage — and (2) the verifier key — the key that
         // must have signed the consistency receipt.
-        // When there is no delegation, the root signs the receipt (verifier == root). When there is
-        // delegation, the root signs the delegation; the delegate signs the receipt (verifier == delegate).
+        // When there is no delegation, the root signs the receipt (verifier == root).
+        // When there is delegation, the root signs the delegation; the delegate
+        // signs the receipt (verifier == delegate).
+        //
+        // Dispatch is by **receipt** alg, not root alg: a KS256-root forest still
+        // publishes ES256 consistency receipts signed by an ephemeral delegate once
+        // the root has authorized that key via a KS256 delegation proof (BYOK).
         int64 alg = extractAlgorithm(consistencyParts.protectedHeader);
 
         // NOTICE: verification failures always revert
@@ -435,8 +443,12 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
         bytes calldata grantData
     ) internal view returns (bytes memory initialRoot) {
         // --- Verifier key: the key that must have signed the consistency receipt. ---
-        // With delegation: delegate signed the receipt. Without: root signed the receipt.
-        (bytes32 rootX, bytes32 rootY, bytes32 verifierX, bytes32 verifierY) = _checkpointSignersES256(
+        // With delegation: delegate signed the receipt. Without: root signed it.
+        //
+        // Root key bytes returned here are **opaque** (20-byte KS256 address or
+        // 64-byte ES256 x||y). They are persisted on the first checkpoint only;
+        // later checkpoints read rootKey from storage via _checkpointSignersES256.
+        (bytes memory rootKey, bytes32 verifierX, bytes32 verifierY) = _checkpointSignersES256(
             logId,
             claimedSize,
             consistencyParts,
@@ -456,15 +468,14 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
             revert ConsistencyReceiptSignatureInvalid();
         }
         // Persist the log root key for new logs so future checkpoints can
-        // verify against it. First checkpoint always uses grantData as signer key (verify-only).
+        // verify delegation against the stored authority. First checkpoint
+        // always derives rootKey from grantData + delegation path (verify-only).
         if (config.initializedAt == 0) {
             if (rootLogId == bytes32(0)) {
-                // Root's first checkpoint: signer must match bootstrap key
-                // (allows curve inverse (x, P-y)); grantData must be exact
-                // bootstrap bytes (same representation as deployment).
-                if (!_es256KeyMatchesBootstrap(rootX, rootY)) {
-                    revert RootSignerMustMatchBootstrap();
-                }
+                // Root authority log: grantData must carry the same bootstrap
+                // identity as deployment (opaque bytes; length discriminates alg).
+                // Receipt signer match is checked separately in
+                // _checkpointSignersES256 (ES256) or via delegation proof (KS256).
                 bytes memory bootstrapKey = _getBootstrapKeyBytes();
                 if (grantData.length != bootstrapKey.length) {
                     revert GrantDataInvalidKeyLength(grantData.length);
@@ -472,9 +483,29 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
                 if (keccak256(grantData) != keccak256(bootstrapKey)) {
                     revert GrantDataMustMatchBootstrap();
                 }
+                if (grantData.length == 20) {
+                    // KS256 bootstrap (Safe/EOA): rootKey is the 20-byte address.
+                    // Do not use _es256KeyMatchesBootstrap — ES256 getters are
+                    // zeroed on KS256 deployments and (0,0) would false-match.
+                    return rootKey;
+                }
+                // ES256 bootstrap: root must match bootstrap P-256 key
+                // (allows curve inverse (x, P-y)); grantData already equals
+                // bootstrap bytes from the keccak check above.
+                bytes memory gd = grantData;
+                bytes32 rootX;
+                bytes32 rootY;
+                assembly {
+                    rootX := mload(add(gd, 32))
+                    rootY := mload(add(gd, 64))
+                }
+                if (!_es256KeyMatchesBootstrap(rootX, rootY)) {
+                    revert RootSignerMustMatchBootstrap();
+                }
             }
-            // Non-root: rootX, rootY already from grantData and verified.
-            return abi.encodePacked(rootX, rootY);
+            // Child log first checkpoint: rootKey already resolved from grantData
+            // and delegation in _checkpointSignersES256; no bootstrap binding.
+            return rootKey;
         }
         return new bytes(0);
     }
@@ -491,8 +522,10 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
         /* grant */
         bytes calldata grantData
     ) internal view returns (bytes memory initialRoot) {
-        // KS256: no delegation support. Verifier key is root (bootstrap for
-        // root log) or stored log key; first checkpoint uses key from grantData.
+        // KS256 **receipts** (consistency Sign1 alg == KS256) never carry
+        // delegation: the root must sign each receipt directly. BYOK forests
+        // instead keep the root on KS256 for grants/delegation only and publish
+        // ES256 receipts via _verifyCheckpointSignatureES256 above.
         if (delegationProof.signature.length > 0) {
             revert DelegationUnsupportedForAlg(ALG_KS256);
         }
@@ -501,10 +534,11 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
             : _decodeLogRootKeyKS256(logId);
         if (keyAddr == address(0)) {
             if (config.rootKey.length == 64) {
+                // Receipt is KS256 but log root is ES256 — wrong alg for this log.
                 revert InconsistentReceiptSignature(ALG_KS256, ALG_ES256);
             }
             if (config.initializedAt != 0) revert LogRootKeyNotSet();
-            // First checkpoint: key from grantData; verify-only.
+            // First checkpoint: verifier key from grantData (verify-only).
             if (grantData.length != 20) {
                 revert GrantDataInvalidKeyLength(grantData.length);
             }
@@ -536,9 +570,12 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
         return new bytes(0);
     }
 
-    /// @notice Resolve log root key and receipt verifier key for ES256 (Rule 5).
-    /// @return rootX Log root x (authority); stored for new logs.
-    /// @return rootY Log root y.
+    /// @notice Resolve log root key and receipt verifier key for ES256 receipts
+    ///    (Rule 5). Root key may be ES256 (64 bytes) or KS256 (20 bytes).
+    /// @dev Called for every ES256 consistency receipt, including when the log
+    ///    root is a KS256 address (BYOK): stored rootKey.length == 20 while
+    ///    the receipt and delegate remain ES256.
+    /// @return rootKey Opaque root key bytes (64-byte ES256 or 20-byte KS256).
     /// @return verifierX Key that must have signed the receipt (x).
     /// @return verifierY Key that must have signed the receipt (y).
     function _checkpointSignersES256(
@@ -552,27 +589,68 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
     )
         internal
         view
-        returns (
-            bytes32 rootX,
-            bytes32 rootY,
-            bytes32 verifierX,
-            bytes32 verifierY
-        )
+        returns (bytes memory rootKey, bytes32 verifierX, bytes32 verifierY)
     {
         // Root key from storage, or from grantData on first checkpoint
-        // (verify-only; no on-chain recovery). For root's first checkpoint the
-        // signer key (from grantData) must match the bootstrap key.
-        (rootX, rootY) = _decodeLogRootKeyES256(logId);
+        // (verify-only; no on-chain recovery). For the root authority log's
+        // first checkpoint, grantData must match bootstrap (checked later in
+        // _verifyCheckpointSignatureES256).
+        (bytes32 rootX, bytes32 rootY) = _decodeLogRootKeyES256(logId);
 
         if (rootX == bytes32(0) && rootY == bytes32(0)) {
-            // Distinguish unset key from key-type mismatch (log created under
-            // KS256 has rootKey.length == 20): receipt is ES256, log is KS256.
+            // ES256 decode returned (0,0): either no rootKey yet, or the log
+            // root is KS256 (rootKey.length == 20). An ES256 receipt without
+            // delegation on a KS256 log is always inconsistent — BYOK requires
+            // a delegation proof binding the ephemeral ES256 delegate.
             if (config.rootKey.length == 20) {
-                revert InconsistentReceiptSignature(ALG_ES256, ALG_KS256);
+                if (delegationProof.signature.length == 0) {
+                    revert InconsistentReceiptSignature(ALG_ES256, ALG_KS256);
+                }
+                address ksRoot = _decodeLogRootKeyKS256(logId);
+                (verifierX, verifierY) =
+                    decodeDelegationKeyES256(delegationProof.delegationKey);
+                verifyDelegationProofKS256(
+                    delegationProof.protectedHeader,
+                    delegationProof.mmrStart,
+                    delegationProof.mmrEnd,
+                    delegationProof.signature,
+                    logId,
+                    claimedSize > 0 ? claimedSize - 1 : 0,
+                    ksRoot,
+                    verifierX,
+                    verifierY
+                );
+                return (config.rootKey, verifierX, verifierY);
             }
             if (config.initializedAt != 0) revert LogRootKeyNotSet();
 
             // First checkpoint: root key from grantData; verify-only (no recovery).
+            if (grantData.length == 20) {
+                // KS256 root's first checkpoint: root signs delegation (Keccak +
+                // ecrecover/ERC-1271), not the receipt. Enables Safe/EOA BYOK
+                // from checkpoint 1 without the root ever signing a receipt.
+                if (delegationProof.signature.length == 0) {
+                    revert InconsistentReceiptSignature(ALG_ES256, ALG_KS256);
+                }
+                address ksRoot;
+                assembly {
+                    ksRoot := shr(96, calldataload(grantData.offset))
+                }
+                (verifierX, verifierY) =
+                    decodeDelegationKeyES256(delegationProof.delegationKey);
+                verifyDelegationProofKS256(
+                    delegationProof.protectedHeader,
+                    delegationProof.mmrStart,
+                    delegationProof.mmrEnd,
+                    delegationProof.signature,
+                    logId,
+                    claimedSize > 0 ? claimedSize - 1 : 0,
+                    ksRoot,
+                    verifierX,
+                    verifierY
+                );
+                return (abi.encodePacked(ksRoot), verifierX, verifierY);
+            }
             if (grantData.length != 64) {
                 revert GrantDataInvalidKeyLength(grantData.length);
             }
@@ -583,6 +661,7 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
             }
 
             if (delegationProof.signature.length == 0) {
+                // No delegation: root must have signed the receipt directly.
                 if (!verifyES256DetachedPayload(
                         consistencyParts.protectedHeader,
                         consistencyParts.signature,
@@ -592,13 +671,15 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
                     )) {
                     revert ConsistencyReceiptSignatureInvalid();
                 }
-                return (rootX, rootY, rootX, rootY);
+                return (abi.encodePacked(rootX, rootY), rootX, rootY);
             }
 
-            // Delegation present: verify delegation with root from grantData.
+            // Delegation present: root from grantData authorizes delegate;
+            // delegate must have signed the receipt (verified below).
             (verifierX, verifierY) =
                 decodeDelegationKeyES256(delegationProof.delegationKey);
             verifyDelegationProofES256(
+                delegationProof.protectedHeader,
                 delegationProof.mmrStart,
                 delegationProof.mmrEnd,
                 delegationProof.signature,
@@ -609,17 +690,19 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
                 verifierX,
                 verifierY
             );
-            return (rootX, rootY, verifierX, verifierY);
+            return (abi.encodePacked(rootX, rootY), verifierX, verifierY);
         }
 
-        // Root key present (from storage or from grantData on first checkpoint). Verifier is
-        // delegate if delegation, else root.
+        // ES256 root key in storage (64-byte rootKey). Verifier is delegate if
+        // delegation present, else root signs the receipt directly.
+        rootKey = abi.encodePacked(rootX, rootY);
         if (delegationProof.signature.length > 0) {
-            // Note: We do this twice for the very first checkpoint (root auth log),
-            // but that is harmless and cheap.
+            // Note: delegation is verified again on the root auth log's first
+            // checkpoint in _verifyCheckpointSignatureES256; harmless duplicate.
             (verifierX, verifierY) =
                 decodeDelegationKeyES256(delegationProof.delegationKey);
             verifyDelegationProofES256(
+                delegationProof.protectedHeader,
                 delegationProof.mmrStart,
                 delegationProof.mmrEnd,
                 delegationProof.signature,
@@ -634,7 +717,7 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
             verifierX = rootX;
             verifierY = rootY;
         }
-        return (rootX, rootY, verifierX, verifierY);
+        return (rootKey, verifierX, verifierY);
     }
 
     /// @notice Revert if any consistency proof payload array length exceeds
@@ -660,6 +743,8 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
     }
 
     /// @dev True if (qx, qy) is the bootstrap ES256 key or its curve inverse.
+    ///    Only valid when _bootstrapAlg() == ALG_ES256; on KS256 deployments
+    ///    the ES256 bootstrap getters are zero — never use this for KS256 roots.
     function _es256KeyMatchesBootstrap(bytes32 qx, bytes32 qy)
         internal
         view
@@ -672,6 +757,8 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
     }
 
     /// @notice Decode stored root key for ES256 (64 bytes = P-256 x || y).
+    ///    Returns (0,0) when rootKey is absent or KS256 (20 bytes); callers
+    ///    must branch on rootKey.length before treating (0,0) as unset.
     function _decodeLogRootKeyES256(bytes32 logId)
         private
         view

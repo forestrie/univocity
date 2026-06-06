@@ -3,7 +3,8 @@
 **Status:** DRAFT  
 **Date:** 2026-02-23  
 **Overview:** [ARC-0017 authorization model (diagrams)](arc-0017-auth-overview.md)  
-**Related:** [ADR-0004](../adr/adr-0004-root-log-self-grant-extension.md),
+**Related:** [Canopy — Grants (off-chain Forestrie-_grant, verification vs ingestion)](https://github.com/forestrie/canopy/blob/main/docs/grants.md),
+[ADR-0004](../adr/adr-0004-root-log-self-grant-extension.md),
 [ARC-0016](arc-0016-checkpoint-incentivisation-implementation.md),
 [ARC-0001](arc-0001-grant-minimum-range.md),
 [plan-0012](../history/plans/plan-0012-arc-0016-implementation-review.md) (historical),
@@ -44,10 +45,12 @@ We need a clear model for:
 - **Extending data logs:** how the right to publish checkpoints to a data
   log is tied to a grant from its owning authority log.
 
-The current implementation has a **single** authority log and no explicit
-hierarchy in the data model. This ARC aligns the target hierarchy with
-current behaviour and specifies the minimal data structures (Phase 0) needed
-to support it and any future multi-authority design.
+The contract keeps a **unique bootstrap root** (`rootLogId`). The hierarchy is
+explicit in **LogConfig**: each log has **kind** (`Authority` | `Data`) and
+**authLogId** (parent for authority logs, owning authority for data logs). **Child
+authority logs** (new `logId` with `kind = Authority`, parent issued the create
+grant) are supported; see §4.3 and Appendix A. This ARC aligns naming and rules
+with that model and records Phase 0 state plus later work.
 
 ---
 
@@ -203,26 +206,22 @@ authLogId is the **parent** authority log (root has self = rootLogId).
 grant** from a parent log (today: the root authority log). The new authority
 log **remains related** to that parent (e.g. for lifecycle or governance).
 
-**Current limitation:** We do not yet support “create a new authority log.”
-Only one authority log exists, created implicitly by the first bootstrap
-checkpoint. So “creating an authority log” is out of scope for the current
-implementation; Phase 0 only **defines the data structures** that would
-support it.
+**Implemented:** Creating a **child** authority log via a grant from a parent
+is supported: the first checkpoint to the new `logId` carries an inclusion proof
+in the **parent** authority log, **request** selects `GC_AUTH_LOG`, and
+**grantData** supplies the child’s initial **rootKey** (see [auth overview §7.5](arc-0017-auth-overview.md#75-subsequent-log-operator-first-checkpoint-create-log)).
+The root remains the only log whose **first checkpoint ever** uses the
+**bootstrap** key.
 
-**Proposed (for the data model):**
+**Data model (parent relation):**
 
 - **Parent authority:** For an **authority** log, the single **authLogId**
   field is interpreted as **parent**: the authority log that issued the
   “create child authority” grant. Root has authLogId = rootLogId (self). (For data logs, authLogId is
   owning; see 4.2.)
-- **Grant type in leaf:** The authority log’s leaf commitment schema must
-  support a **grant type** (or equivalent) so that a leaf can mean “you may
-  create a new authority log” vs “you may publish checkpoints to data log X.”
-  Today the leaf binds (logId, payer, range, bounds); for “create authority”
-  we might bind (parentLogId, “new_authority”, delegatee or new log id, …).
-  Phase 0 can restrict to **data structures** only: store authLogId on logs;
-  the actual grant format and verification for “create authority” is a later
-  phase.
+- **Leaf / grant shape:** **GF\_\*** / **GC\_\*** (and **ownerLogId**) distinguish
+  “create child authority” vs “create / extend data log” at the **first**
+  checkpoint; see §2 and [auth overview §6](arc-0017-auth-overview.md#6-grant-vs-request-first-checkpoint-log-kind).
 - **Permanent relation:** Once an authority log is created, its authLogId
   (as parent) never changes. So the hierarchy is immutable from the
   contract’s perspective.
@@ -246,9 +245,9 @@ For payment evidence (path length, bootstrap signer) see
   == rootLogId` and the contract verifies inclusion against the root's
   accumulator. **No** caller check; submission
   is permissionless (anyone with a valid grant in the root may extend).
-- **Child authority extension (future):** Governed by §2: grant in the
-  **parent** log; receipt verifiable against the child's rootKey. Phase 0
-  adds authLogId (as parent); child authority creation is a later phase.
+- **Child authority extension:** Governed by §2: grant (inclusion proof) in the
+  **parent** log; consistency receipt verifiable against the child’s stored
+  **rootKey** (or delegate).
 - **Root key updates:** Via rollover (internal `setLogRoot`), not by
   exposing setLogRoot externally.
 
@@ -266,13 +265,13 @@ in that authority log).
 
 **Current behaviour:**
 
-- There is one authority log. Every non-authority log is implicitly
-  “owned” by it. The right to extend a data log is evidenced by an
-  **inclusion proof** (index, path) against that authority log’s
-  accumulator: the leaf in the proof is the commitment (publishGrant +
-  paymentIDTimestampBe). So “grant from the authority log” = “leaf
-  committed in the authority log”; the contract verifies inclusion and
-  bounds (checkpoint range, min_growth, max_height).
+- Each log’s **config.authLogId** selects the accumulator used for **grant**
+  verification: for a **data** log, the **owning** authority log; for an
+  **authority** log (including the root), the **parent** (root uses **self**).
+  The right to extend a data log is an **inclusion proof** against **that**
+  authority log’s accumulator. Deployments may have only **root + data** logs,
+  or **root + child authorities + data** under them; the same rule applies per
+  `authLogId`.
 
 **Proposed (consistent and extensible):**
 
@@ -365,52 +364,43 @@ identity. So every extension (including root) has on-chain grant evidence.
 
 ## 10. Later phases (out of scope for this ARC)
 
-- **Multiple authority logs:** Creating a new authority log via a “create
-  authority” grant from a parent; no per–authority bootstrap required; grant hierarchy and
-  first-checkpoint signer establish identity.
-- **Grant type / schema:** Extending the leaf commitment or proof format to
-  distinguish “create authority” vs “publish to data log” grants.
+- **Multiple global roots / disjoint forests in one contract:** Today a single
+  `rootLogId` anchors the deployment; child authorities extend **that** tree.
+- **Grant type / schema:** Further refinement of leaf commitment or proof format
+  beyond current **GF\_\*** / **GC\_\*** / **PublishGrant** (e.g. richer grant types).
 - **Lifecycle / revocation:** Explicit revocation of grants (grants are
   already growth-bounded; see §9 for consumption and freezing authority).
 
 ---
 
-## Appendix A: Features not yet implemented (post–Phase 0)
+## Appendix A: Implementation status (post–Phase 0)
 
 Phase 0 is **implemented**: LogConfig (kind, authLogId, rootKey,
-initializedAt), grant verification against the owner (authLogId or
-ownerLogId for first checkpoint), root key from first checkpoint (including
-bootstrap signer check for root). The following are **still not**
-implemented and would need new work.
+initializedAt), grant verification against the owner (**authLogId** /
+**ownerLogId** for first checkpoint), root key from first checkpoint
+(including bootstrap signer check for the **root’s** first checkpoint only).
 
-1. **Multiple authority logs**  
-   Single `rootLogId` only. Adding a second authority log would require new
-   state and logic. Current `authLogId` and `kind` support the data model
-   but only one authority log exists.
+**Implemented — hierarchy**
 
-2. **Creating an authority log via a grant**  
-   Child authority creation **is** implemented: a grant/request to create a
-   new log, with the appropriate GF_* flag(s) and GC_* code selecting
-   “authority log” as the log kind, sets `kind = Authority` and
-   `authLogId = parent`; the first checkpoint's signer becomes the child's
-   `rootKey`. No per–authority bootstrap is required — the grant hierarchy
-   (via GF_* / GC_* selection) establishes the namespace and the signer
-   establishes the log's key.
+- **Child authority logs:** A “create authority” grant from a parent, with the
+  appropriate **GF\_\*** / **GC\_\*** pairing, sets `kind = Authority` and
+  `authLogId = parent`; the first checkpoint’s signer (from **grantData**)
+  becomes the child’s **rootKey**. No per-authority bootstrap key — only the
+  deployment root uses the constructor bootstrap key once.
+- **Ownership-based routing:** Inclusion proofs for extending a log are verified
+  against the accumulator for that log’s **authLogId** (owning vs parent per
+  §4.2). **Kind** and **authLogId** are exposed via `getLogConfig`; enumerating
+  “all authority logs” remains an **off-chain indexer** concern (§3).
 
-3. **Per–authority log bootstrap (not required)**  
-   The design does not require a bootstrap identity per authority log.
-   Only the root's first checkpoint is gated by the bootstrap key. Child
-   authorities and data logs are created by grant (inclusion in parent or
-   owner) plus the first checkpoint's signer, which is stored as rootKey.
+**Not implemented (or deferred)**
 
-4. **Explicit revocation of grants**  
-   Grants are growth-bounded (max_size, min_range); once a leaf is in the
-   tree it is valid until consumed. There is no revocation list or
-   explicit invalidation. See **§9** for how stopping extension grants to a
-   child authority ultimately makes its data logs unextendable.
+1. **Multiple disjoint bootstrap roots** in one contract (second `rootLogId` / forest).
+2. **On-chain COSE / rich receipt objects** as grant evidence — **grant evidence**
+   today uses pre-decoded inclusion proof (index, path); see §3 table.
+3. **Explicit revocation list** for grants — growth-bounded consumption only; see **§9**.
 
-**Implemented (Phase 0):** Ownership-based routing of grants (authLogId
-stored and used for inclusion verification). Kind and authLogId in
-getLogConfig (listing / “data logs under X” remains off-chain by design).
-Hierarchy data (parent/owning) in authLogId for visualization and
-governance tooling.
+**By design:** **msg.sender** is not used for checkpoint authorization; valid
+grant + valid receipt signature suffice ([auth overview §5](arc-0017-auth-overview.md#5-what-is-not-in-the-model)).
+Off-chain Forestrie workers may ingest by **logId** and content hash only; the
+**contract remains the verifier** for what extends shared history (see
+[Canopy grants — Takeaways](https://github.com/forestrie/canopy/blob/main/docs/grants.md#takeaways) — verification vs ingestion).

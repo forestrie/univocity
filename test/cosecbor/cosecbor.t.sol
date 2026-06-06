@@ -57,7 +57,7 @@ contract CoseCborTest is Test {
 
     // ---------- verifyKS256 (COSE) ----------
 
-    function test_verifySignature_ks256_valid() public pure {
+    function test_verifySignature_ks256_valid() public view {
         uint256 pk =
             0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
         address signer = vm.addr(pk);
@@ -73,7 +73,7 @@ contract CoseCborTest is Test {
         assertTrue(verifyKS256(protected, payload, sig, signer));
     }
 
-    function test_verifySignature_ks256_wrongSigner() public pure {
+    function test_verifySignature_ks256_wrongSigner() public view {
         uint256 pk =
             0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
         bytes memory protected = hex"a1013a00010106";
