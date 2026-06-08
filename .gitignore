@@ -27,5 +27,9 @@ __pycache__/
 *.so
 .venv/
 
+# Deployer cache and ephemeral imutable manifests
+.cache/
+deployments/immutable/
+
 # Node (e.g. stale scripts/safe-propose tooling)
 node_modules/

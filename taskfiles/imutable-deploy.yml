@@ -1,0 +1,133 @@
+# ImutableUnivocity deploy via univocity-tools deployer (Safe CREATE2 path).
+# Secrets: DEPLOY_KEY, RPC_URL; ES256 also needs BOOTSTRAP_PEM_ES256.
+# Local: doppler run -- task deploy:imutable ALG=es256 SALT=0x…
+version: "3"
+
+vars:
+  UNIVOCITY_TOOLS_VERSION: '{{.UNIVOCITY_TOOLS_VERSION | default "v0.2.0"}}'
+  DEPLOYER_CACHE_DIR: "{{.ROOT_DIR}}/.cache/univocity-tools"
+  DEPLOYER_BIN: "{{.DEPLOYER_CACHE_DIR}}/deployer-linux-x64"
+  ALG: '{{.ALG | default "es256"}}'
+  SALT: "{{.SALT}}"
+  OWNER_ADDRESS: '{{.OWNER_ADDRESS | default "0x1528b86ff561f617602356efdbD05908a07AA788"}}'
+  PROPOSAL_DIR: "{{.ROOT_DIR}}/deployments/immutable"
+  MANIFEST_DIR: "{{.PROPOSAL_DIR}}"
+
+tasks:
+  deployer:ensure:
+    desc: Download deployer-linux-x64 from univocity-tools GitHub release and verify sha256.
+    vars:
+      RELEASE_BASE: https://github.com/forestrie/univocity-tools/releases/download/{{.UNIVOCITY_TOOLS_VERSION}}
+    cmds:
+      - mkdir -p "{{.DEPLOYER_CACHE_DIR}}"
+      - |
+        set -euo pipefail
+        BIN="{{.DEPLOYER_BIN}}"
+        if [ -x "$BIN" ]; then
+          echo "deployer already present at $BIN"
+          exit 0
+        fi
+        curl -fsSL "{{.RELEASE_BASE}}/deployer-linux-x64" -o "$BIN"
+        curl -fsSL "{{.RELEASE_BASE}}/deployer-linux-x64.sha256" -o "${BIN}.sha256"
+        (cd "{{.DEPLOYER_CACHE_DIR}}" && shasum -a 256 -c deployer-linux-x64.sha256)
+        chmod +x "$BIN"
+
+  propose:
+    desc: Propose ImutableUnivocity via Safe CREATE2 (writes proposal JSON).
+    deps: [deployer:ensure]
+    requires:
+      vars: [SALT]
+    cmds:
+      - mkdir -p "{{.PROPOSAL_DIR}}"
+      - |
+        set -euo pipefail
+        PROPOSAL="{{.PROPOSAL_DIR}}/proposal-{{.ALG}}-{{.SALT}}.json"
+        "{{.DEPLOYER_BIN}}" deploy propose imutable \
+          --univocity-root "{{.ROOT_DIR}}" \
+          --bootstrap-alg "{{.ALG}}" \
+          --safe-publish \
+          --owner-address "{{.OWNER_ADDRESS}}" \
+          --deploy-key "${DEPLOY_KEY:?DEPLOY_KEY is required}" \
+          --salt "{{.SALT}}" \
+          --rpc-url "${RPC_URL:?RPC_URL is required}" \
+          ${BOOTSTRAP_PEM_ES256:+--bootstrap-es256-pem "$BOOTSTRAP_PEM_ES256"} \
+          --out "$PROPOSAL"
+        echo "$PROPOSAL"
+
+  approve:
+    desc: Approve and execute a Safe proposal (sign + on-chain exec).
+    deps: [deployer:ensure]
+    requires:
+      vars: [SALT]
+    cmds:
+      - |
+        set -euo pipefail
+        PROPOSAL="{{.PROPOSAL_DIR}}/proposal-{{.ALG}}-{{.SALT}}.json"
+        if [ ! -f "$PROPOSAL" ]; then
+          echo "proposal not found: $PROPOSAL (run deploy:imutable:propose first)" >&2
+          exit 1
+        fi
+        "{{.DEPLOYER_BIN}}" deploy approve "$PROPOSAL" \
+          --univocity-root "{{.ROOT_DIR}}" \
+          --bootstrap-alg "{{.ALG}}" \
+          --deploy-key "${DEPLOY_KEY:?DEPLOY_KEY is required}" \
+          --rpc-url "${RPC_URL:?RPC_URL is required}"
+
+  verify:
+    desc: Smoke-check bootstrapConfig() on the deployed ImutableUnivocity.
+    requires:
+      vars: [MANIFEST]
+    cmds:
+      - |
+        set -euo pipefail
+        ADDR=$(jq -r '.imutableUnivocity' "{{.MANIFEST}}")
+        RPC="${RPC_URL:?RPC_URL is required}"
+        CODE=$(cast code "$ADDR" --rpc-url "$RPC")
+        if [ -z "$CODE" ] || [ "$CODE" = "0x" ]; then
+          echo "no contract code at $ADDR" >&2
+          exit 1
+        fi
+        cast call "$ADDR" "bootstrapConfig()(int64,bytes)" --rpc-url "$RPC" >/dev/null
+        echo "bootstrapConfig OK at $ADDR"
+
+  default:
+    desc: Propose, approve, and write deployment manifest (Safe path).
+    aliases: [deploy]
+    deps: [deployer:ensure]
+    requires:
+      vars: [SALT]
+    cmds:
+      - task: propose
+      - task: approve
+      - |
+        set -euo pipefail
+        PROPOSAL="{{.PROPOSAL_DIR}}/proposal-{{.ALG}}-{{.SALT}}.json"
+        CHAIN_ID=$(jq -r '.chainId' "$PROPOSAL")
+        ADDR=$(jq -r '.imutableUnivocity' "$PROPOSAL")
+        SHORT=$(echo "$ADDR" | tr 'A-Z' 'a-z' | sed 's/^0x//' | cut -c1-8)
+        MANIFEST="{{.MANIFEST_DIR}}/manifest-{{.ALG}}-${CHAIN_ID}-${SHORT}.json"
+        jq -n \
+          --arg kind "imutable-deployment" \
+          --argjson version 1 \
+          --arg bootstrapAlg "{{.ALG}}" \
+          --argjson chainId "$CHAIN_ID" \
+          --arg imutableUnivocity "$ADDR" \
+          --arg publishMode "safe" \
+          --arg from "$(jq -r '.from' "$PROPOSAL")" \
+          --arg salt "$(jq -r '.safe.salt' "$PROPOSAL")" \
+          --arg safeTxHash "$(jq -r '.safe.safeTxHash' "$PROPOSAL")" \
+          --arg toolsVersion "{{.UNIVOCITY_TOOLS_VERSION}}" \
+          '{
+            kind: $kind,
+            version: $version,
+            bootstrapAlg: $bootstrapAlg,
+            chainId: $chainId,
+            imutableUnivocity: $imutableUnivocity,
+            publishMode: $publishMode,
+            from: $from,
+            salt: $salt,
+            safeTxHash: $safeTxHash,
+            toolsVersion: $toolsVersion
+          }' > "$MANIFEST"
+        echo "manifest: $MANIFEST"
+        cat "$MANIFEST"

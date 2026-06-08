@@ -24,6 +24,10 @@ Safe: `0x1528b86ff561f617602356efdbD05908a07AA788`
      doppler run --project univocity --config dev -- python3 scripts/execute_safe_tx.py
      ```
 
+     **New flows:** use `univocity-tools` `deployer deploy approve` (see
+     `task imutable-deploy:default` and `.github/workflows/deploy-imutable.yml`).
+     The Python script remains for legacy batches only.
+
      Optional env: `SAFE_TX_HASH` (defaults to deploy tx), `SAFE_TX_SOURCE=batch`
      (rebuild from batch instead of TX service), `DRY_RUN=1` (simulate only),
      `CONFIRM_ONLY=1` (post signature to TX service without executing).

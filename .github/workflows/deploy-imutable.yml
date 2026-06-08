@@ -1,0 +1,156 @@
+name: Deploy ImutableUnivocity
+
+on:
+  workflow_dispatch:
+    inputs:
+      bootstrap_alg:
+        description: "Bootstrap algorithm (es256 or ks256)"
+        required: true
+        type: choice
+        options:
+          - es256
+          - ks256
+      salt:
+        description: "CREATE2 salt (32-byte hex, 0x-prefixed)"
+        required: true
+        type: string
+      tools_version:
+        description: "univocity-tools release tag"
+        required: false
+        default: "v0.2.0"
+        type: string
+      owner_address:
+        description: "Safe owner address (default shared Base Sepolia Safe)"
+        required: false
+        default: "0x1528b86ff561f617602356efdbD05908a07AA788"
+        type: string
+      rpc_url:
+        description: "RPC URL (optional when RPC_URL secret is set)"
+        required: false
+        default: ""
+        type: string
+  workflow_call:
+    inputs:
+      bootstrap_alg:
+        required: true
+        type: string
+      salt:
+        required: true
+        type: string
+      tools_version:
+        required: false
+        type: string
+        default: "v0.2.0"
+      owner_address:
+        required: false
+        type: string
+        default: "0x1528b86ff561f617602356efdbD05908a07AA788"
+      rpc_url:
+        required: false
+        type: string
+        default: ""
+    outputs:
+      imutable_address:
+        description: "Deployed ImutableUnivocity address"
+        value: ${{ jobs.deploy.outputs.imutable_address }}
+      chain_id:
+        description: "EIP-155 chain id"
+        value: ${{ jobs.deploy.outputs.chain_id }}
+      bootstrap_alg:
+        description: "Bootstrap algorithm used"
+        value: ${{ jobs.deploy.outputs.bootstrap_alg }}
+      manifest_json:
+        description: "Deployment manifest JSON"
+        value: ${{ jobs.deploy.outputs.manifest_json }}
+    secrets:
+      DEPLOY_KEY:
+        required: true
+      RPC_URL:
+        required: false
+      BOOTSTRAP_PEM_ES256:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: deploy imutable (${{ inputs.bootstrap_alg }})
+    runs-on: ubuntu-latest
+    outputs:
+      imutable_address: ${{ steps.manifest.outputs.imutable_address }}
+      chain_id: ${{ steps.manifest.outputs.chain_id }}
+      bootstrap_alg: ${{ inputs.bootstrap_alg }}
+      manifest_json: ${{ steps.manifest.outputs.manifest_json }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Install go-task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate salt
+        run: |
+          set -euo pipefail
+          SALT="${{ inputs.salt }}"
+          if ! echo "$SALT" | grep -qE '^0x[0-9a-fA-F]{64}$'; then
+            echo "::error::salt must be 32-byte hex with 0x prefix"
+            exit 1
+          fi
+
+      - name: Deploy ImutableUnivocity (Safe path)
+        id: deploy
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+          RPC_URL: ${{ inputs.rpc_url != '' && inputs.rpc_url || secrets.RPC_URL }}
+          BOOTSTRAP_PEM_ES256: ${{ secrets.BOOTSTRAP_PEM_ES256 }}
+          ALG: ${{ inputs.bootstrap_alg }}
+          SALT: ${{ inputs.salt }}
+          OWNER_ADDRESS: ${{ inputs.owner_address }}
+          UNIVOCITY_TOOLS_VERSION: ${{ inputs.tools_version }}
+        run: |
+          set -euo pipefail
+          if [ "$ALG" = "es256" ] && [ -z "${BOOTSTRAP_PEM_ES256:-}" ]; then
+            echo "::error::BOOTSTRAP_PEM_ES256 secret required for es256 deploy"
+            exit 1
+          fi
+          if [ -z "${RPC_URL:-}" ]; then
+            echo "::error::RPC_URL or rpc_url input is required"
+            exit 1
+          fi
+          task imutable-deploy:default
+
+      - name: Read manifest
+        id: manifest
+        env:
+          ALG: ${{ inputs.bootstrap_alg }}
+          SALT: ${{ inputs.salt }}
+        run: |
+          set -euo pipefail
+          PROPOSAL="deployments/immutable/proposal-${ALG}-${SALT}.json"
+          CHAIN_ID=$(jq -r '.chainId' "$PROPOSAL")
+          ADDR=$(jq -r '.imutableUnivocity' "$PROPOSAL")
+          SHORT=$(echo "$ADDR" | tr 'A-Z' 'a-z' | sed 's/^0x//' | cut -c1-8)
+          MANIFEST="deployments/immutable/manifest-${ALG}-${CHAIN_ID}-${SHORT}.json"
+          echo "imutable_address=$ADDR" >> "$GITHUB_OUTPUT"
+          echo "chain_id=$CHAIN_ID" >> "$GITHUB_OUTPUT"
+          {
+            echo 'manifest_json<<EOF'
+            cat "$MANIFEST"
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload manifest artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: imutable-manifest-${{ inputs.bootstrap_alg }}-${{ github.run_id }}
+          path: deployments/immutable/manifest-*.json
+          if-no-files-found: error
