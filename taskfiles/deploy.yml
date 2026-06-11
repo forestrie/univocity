@@ -8,6 +8,10 @@
 version: "3"
 
 tasks:
+  build:create3-factory:
+    desc: Build the CREATE3 factory.
+    cmds:
+      - forge build --config-path script/create3-factory/foundry.toml
   deploy:
     desc: Deploy everything (CREATE3 factory if missing, then UUPSUnivocity proxy).
     cmds:

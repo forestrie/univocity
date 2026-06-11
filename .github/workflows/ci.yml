@@ -1,0 +1,47 @@
+name: CI (reusable)
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Foundry project
+    runs-on: ubuntu-latest
+    env:
+      FOUNDRY_PROFILE: ci
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: "v1.5.1"
+
+      - name: Show Forge version
+        run: forge --version
+
+      - name: Run Forge fmt
+        run: forge fmt --check
+
+      - name: Build CREATE3 factory
+        run: forge build --config-path script/create3-factory/foundry.toml
+
+      - name: Run Forge build
+        run: forge build --sizes
+
+      - name: Run Forge tests
+        run: forge test -vvv
+
+      - name: Install mise
+        uses: jdx/mise-action@v3
+        with:
+          install: true
+
+      - name: Run slither
+        run: mise run slither-check

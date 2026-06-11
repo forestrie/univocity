@@ -44,9 +44,14 @@
   `forge test --match-contract UnivocityInvariantTest`.
 - **Format:** `forge fmt` (line length 79 in `foundry.toml`). Run
   after edits; do not re-wrap after fmt.
-- **CI** (`.github/workflows/test.yml`): `forge fmt --check`,
-  `forge build --sizes`, `forge test -vvv`, then
-  `mise run slither-check`. CI uses `FOUNDRY_PROFILE=ci`.
+- **CI** (`.github/workflows/ci.yml`, invoked by `test.yml`): `forge fmt
+  --check`, CREATE3 factory build, protocol `forge build --sizes`,
+  `forge test -vvv`, `mise run slither-check`. Uses `FOUNDRY_PROFILE=ci`.
+- **Contracts release** (`release.yml` on `v*` tags): gated on the same CI
+  job, then `task contract-artefacts-release:release` publishes
+  `univocity.tar.gz` and `create3-factory.tar.gz`. See
+  [ADR-0007](docs/adr/adr-0007-contract-release-build-archives.md) and
+  [CONTEXT.md](CONTEXT.md).
 
 ## Documentation
 
@@ -101,6 +106,7 @@ web server or backend service to run — all development tasks are
 | Auto-format | `forge fmt` |
 | Build with sizes | `forge build --sizes` |
 | ES256 Imutable deploy + bootstrap | `doppler run --project univocity --config dev -- task deploy:imutable:es256` |
+| Contracts release dry-run | `UNIVOCITY_TOOLS_VERSION=v0.3.0 task contract-artefacts-release:release` |
 
 ### Environment notes
 

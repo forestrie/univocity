@@ -4,7 +4,7 @@
 version: "3"
 
 vars:
-  UNIVOCITY_TOOLS_VERSION: '{{.UNIVOCITY_TOOLS_VERSION | default "v0.2.0"}}'
+  UNIVOCITY_TOOLS_VERSION: '{{.UNIVOCITY_TOOLS_VERSION | default "v0.3.0"}}'
   DEPLOYER_CACHE_DIR: "{{.ROOT_DIR}}/.cache/univocity-tools"
   DEPLOYER_BIN: "{{.DEPLOYER_CACHE_DIR}}/deployer-linux-x64"
   ALG: '{{.ALG | default "es256"}}'
@@ -43,7 +43,7 @@ tasks:
         set -euo pipefail
         PROPOSAL="{{.PROPOSAL_DIR}}/proposal-{{.ALG}}-{{.SALT}}.json"
         "{{.DEPLOYER_BIN}}" deploy propose imutable \
-          --univocity-root "{{.ROOT_DIR}}" \
+          --source-root "{{.ROOT_DIR}}" \
           --bootstrap-alg "{{.ALG}}" \
           --safe-publish \
           --owner-address "{{.OWNER_ADDRESS}}" \
@@ -68,7 +68,7 @@ tasks:
           exit 1
         fi
         "{{.DEPLOYER_BIN}}" deploy approve "$PROPOSAL" \
-          --univocity-root "{{.ROOT_DIR}}" \
+          --source-root "{{.ROOT_DIR}}" \
           --bootstrap-alg "{{.ALG}}" \
           --deploy-key "${DEPLOY_KEY:?DEPLOY_KEY is required}" \
           --rpc-url "${RPC_URL:?RPC_URL is required}"

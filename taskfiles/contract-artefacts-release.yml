@@ -1,0 +1,96 @@
+# Build archives for contracts release via univocity-tools contract-artefacts.
+# Local: UNIVOCITY_TOOLS_VERSION=v0.3.0 task contract-artefacts-release:release
+version: "3"
+
+vars:
+  UNIVOCITY_TOOLS_VERSION: '{{.UNIVOCITY_TOOLS_VERSION | default "v0.3.0"}}'
+  TOOLS_CACHE_DIR: "{{.ROOT_DIR}}/.cache/univocity-tools"
+  CART_BIN: "{{.TOOLS_CACHE_DIR}}/contract-artefacts-linux-x64"
+  WORK_DIR: "{{.ROOT_DIR}}/.work"
+  VALIDATE_SCRIPT: "{{.ROOT_DIR}}/scripts/validate-build-archive.sh"
+
+tasks:
+  cart:ensure:
+    desc: Download contract-artefacts-linux-x64 from univocity-tools release.
+    vars:
+      RELEASE_BASE: https://github.com/forestrie/univocity-tools/releases/download/{{.UNIVOCITY_TOOLS_VERSION}}
+    cmds:
+      - mkdir -p "{{.TOOLS_CACHE_DIR}}"
+      - |
+        set -euo pipefail
+        BIN="{{.CART_BIN}}"
+        if [ -x "$BIN" ]; then
+          echo "contract-artefacts already present at $BIN"
+          exit 0
+        fi
+        curl -fsSL "{{.RELEASE_BASE}}/contract-artefacts-linux-x64" -o "$BIN"
+        curl -fsSL "{{.RELEASE_BASE}}/contract-artefacts-linux-x64.sha256" \
+          -o "${BIN}.sha256"
+        (cd "{{.TOOLS_CACHE_DIR}}" && shasum -a 256 -c contract-artefacts-linux-x64.sha256)
+        chmod +x "$BIN"
+
+  build:create3-factory:
+    desc: Build the isolated CREATE3 factory project.
+    cmds:
+      - forge build --config-path script/create3-factory/foundry.toml
+
+  build:univocity:
+    desc: Build the main protocol project (CI profile).
+    env:
+      FOUNDRY_PROFILE: ci
+    cmds:
+      - forge build --sizes
+
+  archive:create3-factory:
+    desc: Package CREATE3 factory build outputs into create3-factory.tar.gz.
+    deps: [cart:ensure, build:create3-factory]
+    cmds:
+      - |
+        set -euo pipefail
+        "{{.CART_BIN}}" archive \
+          --source-root "{{.ROOT_DIR}}" \
+          --forge-config script/create3-factory/foundry.toml \
+          --archive-name create3-factory
+
+  archive:univocity:
+    desc: Package protocol build outputs into univocity.tar.gz.
+    deps: [cart:ensure, build:univocity]
+    cmds:
+      - |
+        set -euo pipefail
+        "{{.CART_BIN}}" archive \
+          --source-root "{{.ROOT_DIR}}" \
+          --archive-name univocity
+
+  validate:create3-factory:
+    desc: Round-trip validate the CREATE3 factory build archive.
+    deps: [archive:create3-factory]
+    cmds:
+      - |
+        set -euo pipefail
+        bash "{{.VALIDATE_SCRIPT}}" create3-factory \
+          "{{.ROOT_DIR}}/script/create3-factory/out" \
+          "{{.ROOT_DIR}}/script/create3-factory/cache/solidity-files-cache.json" \
+          "{{.CART_BIN}}" \
+          "{{.ROOT_DIR}}"
+
+  validate:univocity:
+    desc: Round-trip validate the protocol build archive.
+    deps: [archive:univocity]
+    cmds:
+      - |
+        set -euo pipefail
+        bash "{{.VALIDATE_SCRIPT}}" univocity \
+          "{{.ROOT_DIR}}/out" \
+          "{{.ROOT_DIR}}/cache/solidity-files-cache.json" \
+          "{{.CART_BIN}}" \
+          "{{.ROOT_DIR}}"
+
+  release:
+    desc: Build, archive, and validate both protocol and CREATE3 factory.
+    cmds:
+      - task: validate:create3-factory
+      - task: validate:univocity
+      - |
+        set -euo pipefail
+        ls -la "{{.WORK_DIR}}/univocity.tar.gz" "{{.WORK_DIR}}/create3-factory.tar.gz"

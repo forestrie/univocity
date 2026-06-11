@@ -88,6 +88,32 @@ repo so `doppler` and other tools are on PATH. (2) Or add
 are available in any directory. (3) Or run via mise:
 `mise exec -- doppler run -- task deploy:uups:prepare`.
 
+## Contracts release
+
+Pushing a `v*` tag runs [`.github/workflows/release.yml`](.github/workflows/release.yml).
+Release is gated on the shared CI check (same steps as PR CI via
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml)): fmt, both forge
+builds, tests, and slither.
+
+Published **build archives** (see [ADR-0007](docs/adr/adr-0007-contract-release-build-archives.md)):
+
+| Asset | Forge project |
+|-------|---------------|
+| `univocity.tar.gz` | Protocol build (repo root) |
+| `create3-factory.tar.gz` | CREATE3 factory build (`script/create3-factory/`) |
+
+Each archive is round-trip validated with `contract-artefacts archive-extract`
+before publish. Requires [univocity-tools](https://github.com/forestrie/univocity-tools)
+`v0.3.0+` (`contract-artefacts` binary).
+
+Local dry-run (downloads Linux `contract-artefacts` on CI; on macOS use a local
+Cart build or `workflow_dispatch`):
+
+```shell
+UNIVOCITY_TOOLS_VERSION=v0.3.0 task contract-artefacts-release:release
+ls -la .work/univocity.tar.gz .work/create3-factory.tar.gz
+```
+
 ## Usage
 
 ```shell

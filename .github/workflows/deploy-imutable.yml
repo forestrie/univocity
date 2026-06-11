@@ -17,7 +17,7 @@ on:
       tools_version:
         description: "univocity-tools release tag"
         required: false
-        default: "v0.2.0"
+        default: "v0.3.0"
         type: string
       owner_address:
         description: "Safe owner address (default shared Base Sepolia Safe)"
@@ -40,7 +40,7 @@ on:
       tools_version:
         required: false
         type: string
-        default: "v0.2.0"
+        default: "v0.3.0"
       owner_address:
         required: false
         type: string

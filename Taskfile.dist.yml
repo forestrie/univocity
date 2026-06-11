@@ -5,6 +5,7 @@ includes:
   keys: taskfiles/keys.yml
   deploy: taskfiles/deploy.yml
   imutable-deploy: taskfiles/imutable-deploy.yml
+  contract-artefacts-release: taskfiles/contract-artefacts-release.yml
   anvil: taskfiles/anvil.yml
 
 tasks:
