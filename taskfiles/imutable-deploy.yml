@@ -29,7 +29,12 @@ tasks:
         fi
         curl -fsSL "{{.RELEASE_BASE}}/deployer-linux-x64" -o "$BIN"
         curl -fsSL "{{.RELEASE_BASE}}/deployer-linux-x64.sha256" -o "${BIN}.sha256"
-        (cd "{{.DEPLOYER_CACHE_DIR}}" && shasum -a 256 -c deployer-linux-x64.sha256)
+        EXPECTED=$(awk '{print $1}' "${BIN}.sha256")
+        ACTUAL=$(shasum -a 256 "$BIN" | awk '{print $1}')
+        if [ "$EXPECTED" != "$ACTUAL" ]; then
+          echo "deployer sha256 mismatch" >&2
+          exit 1
+        fi
         chmod +x "$BIN"
 
   propose:

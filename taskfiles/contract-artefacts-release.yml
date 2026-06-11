@@ -26,7 +26,12 @@ tasks:
         curl -fsSL "{{.RELEASE_BASE}}/contract-artefacts-linux-x64" -o "$BIN"
         curl -fsSL "{{.RELEASE_BASE}}/contract-artefacts-linux-x64.sha256" \
           -o "${BIN}.sha256"
-        (cd "{{.TOOLS_CACHE_DIR}}" && shasum -a 256 -c contract-artefacts-linux-x64.sha256)
+        EXPECTED=$(awk '{print $1}' "${BIN}.sha256")
+        ACTUAL=$(shasum -a 256 "$BIN" | awk '{print $1}')
+        if [ "$EXPECTED" != "$ACTUAL" ]; then
+          echo "contract-artefacts sha256 mismatch" >&2
+          exit 1
+        fi
         chmod +x "$BIN"
 
   build:create3-factory:
