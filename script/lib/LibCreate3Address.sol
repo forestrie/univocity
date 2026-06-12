@@ -7,7 +7,7 @@ pragma solidity ^0.8.24;
 /// @dev Formula matches solmate CREATE3.getDeployed(hashedSalt, creator): proxy
 ///    = create2(creator, salt'), child = address from proxy's first CREATE (nonce 1).
 library LibCreate3Address {
-    /// @dev Solmate CREATE3 proxy bytecode hash (same as flip-contracts / solmate).
+    /// @dev Solmate CREATE3 proxy bytecode hash (same as prototype / solmate).
     bytes32 internal constant PROXY_BYTECODE_HASH =
         keccak256(hex"67363d3d37363d34f03d5260086018f3");
 

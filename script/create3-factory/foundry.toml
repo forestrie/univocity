@@ -5,10 +5,10 @@
 # This config produces the deterministic factory bytecode used by
 # DeployCreate3Factory.s.sol (read from out/). All CREATE3 code is in-repo:
 #   - lib/solmate/src/utils/CREATE3.sol, Bytes32AddressLib.sol (duplicated from
-#     solmate for full bytecode control; same as flip-contracts)
-#   - CREATE3Factory.sol, ICREATE3Factory.sol (same logic as flip-contracts)
+#     solmate for full bytecode control; same as prototype contracts)
+#   - CREATE3Factory.sol, ICREATE3Factory.sol (same logic as prototype)
 # Settings here MUST match the main repo's [profile.factory] so that the
-# shared factory address 0x606A25c0432766B45ece27Dd4e2208A7cE14dC5b is
+# shared factory address 0x988e1Ef32F200E84197266eC0Fd36cC9a1d849dF is
 # preserved when using the same Arachnid salt.
 #
 # RULES (same as main [profile.factory]):

@@ -146,7 +146,8 @@ ignored_warnings_from = ["test/**", "script/**"]
 #   3. script/create3-factory/foundry.toml MUST mirror these settings exactly
 #   4. Regular protocol contracts use [profile.default] and are unaffected
 #
-# Shared factory address (same salt as flip): 0x606A25c0432766B45ece27Dd4e2208A7cE14dC5b
+# Shared factory address (forestrie.eth/univocity/CREATE3Factory/0 salt):
+# 0x988e1Ef32F200E84197266eC0Fd36cC9a1d849dF
 #
 # =============================================================================
 [profile.factory]
@@ -166,6 +167,6 @@ cbor_metadata = false
 optimizer = false
 optimizer_runs = 200 # Ignored when optimizer = false, but explicit for documentation
 
-# CRITICAL: via_ir must be false for deterministic factory bytecode (matches flip).
+# CRITICAL: via_ir must be false for deterministic factory bytecode (matches prototype).
 # The main project is NOT built with this profile; only script/create3-factory/ is.
 via_ir = false
