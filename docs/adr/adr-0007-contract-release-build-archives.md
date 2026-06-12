@@ -8,7 +8,9 @@ those archives on **contracts release** (`v*` tags).
 We publish two separate archives — **protocol build** (`univocity.tar.gz`)
 and **CREATE3 factory build** (`create3-factory.tar.gz`) — because the
 projects use different `foundry.toml` configs and stability profiles. A
-single monolithic tarball would mix unrelated forge roots.
+single monolithic tarball would mix unrelated forge roots. On GitHub Release,
+assets are named `<name>-<tag>.tar.gz` (e.g. `univocity-v0.1.1.tar.gz`);
+archive base names (`univocity`, `create3-factory`) are unchanged.
 
 Release is gated on the reusable `ci.yml` `check` job (`needs: ci` in
 `release.yml`) so tags cannot ship when PR CI would fail. Packaging uses

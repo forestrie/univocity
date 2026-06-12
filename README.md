@@ -95,12 +95,13 @@ Release is gated on the shared CI check (same steps as PR CI via
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml)): fmt, both forge
 builds, tests, and slither.
 
-Published **build archives** (see [ADR-0007](docs/adr/adr-0007-contract-release-build-archives.md)):
+Published **build archives** (see [ADR-0007](docs/adr/adr-0007-contract-release-build-archives.md)).
+`<tag>` is the release tag (e.g. `v0.1.1`):
 
 | Asset | Forge project |
 |-------|---------------|
-| `univocity.tar.gz` | Protocol build (repo root) |
-| `create3-factory.tar.gz` | CREATE3 factory build (`script/create3-factory/`) |
+| `univocity-<tag>.tar.gz` | Protocol build (repo root) |
+| `create3-factory-<tag>.tar.gz` | CREATE3 factory build (`script/create3-factory/`) |
 
 Each archive is round-trip validated with `contract-artefacts archive-extract`
 before publish. Requires [univocity-tools](https://github.com/forestrie/univocity-tools)

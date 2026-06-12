@@ -49,7 +49,7 @@
   `forge test -vvv`, `mise run slither-check`. Uses `FOUNDRY_PROFILE=ci`.
 - **Contracts release** (`release.yml` on `v*` tags): gated on the same CI
   job, then `task contract-artefacts-release:release` publishes
-  `univocity.tar.gz` and `create3-factory.tar.gz`. See
+  `univocity-<tag>.tar.gz` and `create3-factory-<tag>.tar.gz`. See
   [ADR-0007](docs/adr/adr-0007-contract-release-build-archives.md) and
   [CONTEXT.md](CONTEXT.md).
 

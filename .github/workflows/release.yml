@@ -46,12 +46,15 @@ jobs:
         run: task contract-artefacts-release:release
 
       - name: Prepare release assets
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
           mkdir -p release
           for name in univocity create3-factory; do
-            cp ".work/${name}.tar.gz" "release/${name}.tar.gz"
-            shasum -a 256 "release/${name}.tar.gz" > "release/${name}.tar.gz.sha256"
+            asset="${name}-${RELEASE_TAG}.tar.gz"
+            cp ".work/${name}.tar.gz" "release/${asset}"
+            ( cd release && shasum -a 256 "${asset}" > "${asset}.sha256" )
           done
 
       - name: Create GitHub Release
@@ -59,7 +62,5 @@ jobs:
         with:
           generate_release_notes: true
           files: |
-            release/univocity.tar.gz
-            release/univocity.tar.gz.sha256
-            release/create3-factory.tar.gz
-            release/create3-factory.tar.gz.sha256
+            release/*.tar.gz
+            release/*.tar.gz.sha256
