@@ -96,23 +96,25 @@ Release is gated on the shared CI check (same steps as PR CI via
 builds, tests, and slither.
 
 Published **build archives** (see [ADR-0007](docs/adr/adr-0007-contract-release-build-archives.md)).
-`<tag>` is the release tag (e.g. `v0.1.1`):
+`<release-id>` is `vX.Y.Z+YYMMDD-shortCommit` (e.g.
+`v0.1.3+260613-04279cb`):
 
 | Asset | Forge project |
 |-------|---------------|
-| `univocity-<tag>.tar.gz` | Protocol build (repo root) |
-| `create3-factory-<tag>.tar.gz` | CREATE3 factory build (`script/create3-factory/`) |
+| `univocity-<release-id>.tar.gz` | Protocol build (repo root) |
+| `create3-factory-<release-id>.tar.gz` | CREATE3 factory build (`script/create3-factory/`) |
 
 Each archive is round-trip validated with `contract-artefacts archive-extract`
-before publish. Requires [univocity-tools](https://github.com/forestrie/univocity-tools)
-`v0.3.0+` (`contract-artefacts` binary).
+and `archive-validate` before publish. Requires
+[univocity-tools](https://github.com/forestrie/univocity-tools) `v0.4.0+`
+(`contract-artefacts` binary).
 
 Local dry-run (downloads Linux `contract-artefacts` on CI; on macOS use a local
 Cart build or `workflow_dispatch`):
 
 ```shell
-UNIVOCITY_TOOLS_VERSION=v0.3.0 task contract-artefacts-release:release
-ls -la .work/univocity.tar.gz .work/create3-factory.tar.gz
+UNIVOCITY_TOOLS_VERSION=v0.4.0 task contract-artefacts-release:release
+ls -la .work/univocity-*.tar.gz .work/create3-factory-*.tar.gz
 ```
 
 ## Usage

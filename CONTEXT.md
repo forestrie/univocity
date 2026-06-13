@@ -43,8 +43,8 @@ _Avoid_: work dir (`.work` under the contracts checkout root).
 **Dev:** We need the protocol build archive from the latest contracts release
 for verify-only on staging.
 
-**Ops:** Pull `univocity-<tag>.tar.gz` from the latest `v*` GitHub Release on
-`forestrie/univocity`, run `contract-artefacts archive-extract` into your
-**release root**, then point verify at `RELEASE_ROOT/out/`. For CREATE3
-factory bytecode use `create3-factory-<tag>.tar.gz` from the same release —
-that is the **CREATE3 factory build**, not the protocol build.
+**Ops:** Pull `univocity-<release-id>.tar.gz` from the latest `v*` GitHub
+Release on `forestrie/univocity`, run `contract-artefacts archive-extract`
+into your **release root**, then point verify at `RELEASE_ROOT/out/`. For
+CREATE3 factory bytecode use `create3-factory-<release-id>.tar.gz` from the
+same release — that is the **CREATE3 factory build**, not the protocol build.

@@ -1,13 +1,12 @@
 # Build archives for contracts release via univocity-tools contract-artefacts.
-# Local: UNIVOCITY_TOOLS_VERSION=v0.3.0 task contract-artefacts-release:release
+# Local: UNIVOCITY_TOOLS_VERSION=v0.4.0 task contract-artefacts-release:release
 version: "3"
 
 vars:
-  UNIVOCITY_TOOLS_VERSION: '{{.UNIVOCITY_TOOLS_VERSION | default "v0.3.0"}}'
+  UNIVOCITY_TOOLS_VERSION: '{{.UNIVOCITY_TOOLS_VERSION | default "v0.4.0"}}'
   TOOLS_CACHE_DIR: "{{.ROOT_DIR}}/.cache/univocity-tools"
   CART_BIN: "{{.TOOLS_CACHE_DIR}}/contract-artefacts-linux-x64"
   WORK_DIR: "{{.ROOT_DIR}}/.work"
-  VALIDATE_SCRIPT: "{{.ROOT_DIR}}/scripts/validate-build-archive.sh"
 
 tasks:
   cart:ensure:
@@ -47,7 +46,7 @@ tasks:
       - forge build --sizes
 
   archive:create3-factory:
-    desc: Package CREATE3 factory build outputs into create3-factory.tar.gz.
+    desc: Package CREATE3 factory build outputs into a release-id archive.
     deps: [cart:ensure, build:create3-factory]
     cmds:
       - |
@@ -55,17 +54,19 @@ tasks:
         "{{.CART_BIN}}" archive \
           --source-root "{{.ROOT_DIR}}" \
           --forge-config script/create3-factory/foundry.toml \
-          --archive-name create3-factory
+          --archive-name create3-factory \
+          --release-id ""
 
   archive:univocity:
-    desc: Package protocol build outputs into univocity.tar.gz.
+    desc: Package protocol build outputs into a release-id archive.
     deps: [cart:ensure, build:univocity]
     cmds:
       - |
         set -euo pipefail
         "{{.CART_BIN}}" archive \
           --source-root "{{.ROOT_DIR}}" \
-          --archive-name univocity
+          --archive-name univocity \
+          --release-id ""
 
   validate:create3-factory:
     desc: Round-trip validate the CREATE3 factory build archive.
@@ -73,11 +74,23 @@ tasks:
     cmds:
       - |
         set -euo pipefail
-        bash "{{.VALIDATE_SCRIPT}}" create3-factory \
-          "{{.ROOT_DIR}}/script/create3-factory/out" \
-          "{{.ROOT_DIR}}/script/create3-factory/cache/solidity-files-cache.json" \
-          "{{.CART_BIN}}" \
-          "{{.ROOT_DIR}}"
+        shopt -s nullglob
+        archives=("{{.WORK_DIR}}"/create3-factory-*.tar.gz)
+        if [ "${#archives[@]}" -ne 1 ]; then
+          echo "expected one create3-factory archive in {{.WORK_DIR}}" >&2
+          exit 1
+        fi
+        ARCHIVE_FILE=$(basename "${archives[0]}")
+        EXTRACT_DIR="{{.WORK_DIR}}/validate-extract-create3-factory"
+        rm -rf "$EXTRACT_DIR"
+        mkdir -p "$EXTRACT_DIR"
+        "{{.CART_BIN}}" archive-extract "$ARCHIVE_FILE" \
+          --source-root "{{.ROOT_DIR}}" \
+          --release-root "$EXTRACT_DIR"
+        "{{.CART_BIN}}" archive-validate \
+          --source-root "{{.ROOT_DIR}}" \
+          --forge-config script/create3-factory/foundry.toml \
+          --release-root "$EXTRACT_DIR"
 
   validate:univocity:
     desc: Round-trip validate the protocol build archive.
@@ -85,11 +98,22 @@ tasks:
     cmds:
       - |
         set -euo pipefail
-        bash "{{.VALIDATE_SCRIPT}}" univocity \
-          "{{.ROOT_DIR}}/out" \
-          "{{.ROOT_DIR}}/cache/solidity-files-cache.json" \
-          "{{.CART_BIN}}" \
-          "{{.ROOT_DIR}}"
+        shopt -s nullglob
+        archives=("{{.WORK_DIR}}"/univocity-*.tar.gz)
+        if [ "${#archives[@]}" -ne 1 ]; then
+          echo "expected one univocity archive in {{.WORK_DIR}}" >&2
+          exit 1
+        fi
+        ARCHIVE_FILE=$(basename "${archives[0]}")
+        EXTRACT_DIR="{{.WORK_DIR}}/validate-extract-univocity"
+        rm -rf "$EXTRACT_DIR"
+        mkdir -p "$EXTRACT_DIR"
+        "{{.CART_BIN}}" archive-extract "$ARCHIVE_FILE" \
+          --source-root "{{.ROOT_DIR}}" \
+          --release-root "$EXTRACT_DIR"
+        "{{.CART_BIN}}" archive-validate \
+          --source-root "{{.ROOT_DIR}}" \
+          --release-root "$EXTRACT_DIR"
 
   release:
     desc: Build, archive, and validate both protocol and CREATE3 factory.
@@ -98,4 +122,4 @@ tasks:
       - task: validate:univocity
       - |
         set -euo pipefail
-        ls -la "{{.WORK_DIR}}/univocity.tar.gz" "{{.WORK_DIR}}/create3-factory.tar.gz"
+        ls -la "{{.WORK_DIR}}"/univocity-*.tar.gz "{{.WORK_DIR}}"/create3-factory-*.tar.gz

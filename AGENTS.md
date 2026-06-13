@@ -49,8 +49,8 @@
   `forge test -vvv`, `mise run slither-check`. Uses `FOUNDRY_PROFILE=ci`.
 - **Contracts release** (`release.yml` on `v*` tags): gated on the same CI
   job, then `task contract-artefacts-release:release` publishes
-  `univocity-<tag>.tar.gz` and `create3-factory-<tag>.tar.gz`. See
-  [ADR-0007](docs/adr/adr-0007-contract-release-build-archives.md) and
+  `univocity-<release-id>.tar.gz` and `create3-factory-<release-id>.tar.gz`.
+  See [ADR-0007](docs/adr/adr-0007-contract-release-build-archives.md) and
   [CONTEXT.md](CONTEXT.md).
 
 ## Documentation
@@ -106,7 +106,7 @@ web server or backend service to run — all development tasks are
 | Auto-format | `forge fmt` |
 | Build with sizes | `forge build --sizes` |
 | ES256 Imutable deploy + bootstrap | `doppler run --project univocity --config dev -- task deploy:imutable:es256` |
-| Contracts release dry-run | `UNIVOCITY_TOOLS_VERSION=v0.3.0 task contract-artefacts-release:release` |
+| Contracts release dry-run | `UNIVOCITY_TOOLS_VERSION=v0.4.0 task contract-artefacts-release:release` |
 
 ### Environment notes
 

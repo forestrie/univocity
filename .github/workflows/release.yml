@@ -12,7 +12,7 @@ on:
       tools_version:
         description: "univocity-tools release tag"
         required: false
-        default: "v0.3.0"
+        default: "v0.4.0"
         type: string
 
 jobs:
@@ -43,26 +43,20 @@ jobs:
 
       - name: Build, archive, and validate
         env:
-          UNIVOCITY_TOOLS_VERSION: ${{ inputs.tools_version || 'v0.3.0' }}
+          UNIVOCITY_TOOLS_VERSION: ${{ inputs.tools_version || 'v0.4.0' }}
         run: task contract-artefacts-release:release
 
       - name: Prepare release assets
-        env:
-          CART_BIN: ${{ github.workspace }}/.cache/univocity-tools/contract-artefacts-linux-x64
         run: |
           set -euo pipefail
           mkdir -p release
-          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-            RELEASE_SUFFIX="${GITHUB_REF_NAME}"
-          else
-            RELEASE_SUFFIX="$("$CART_BIN" release-id --source-root "${GITHUB_WORKSPACE}")"
-          fi
+          cp .work/univocity-*.tar.gz .work/create3-factory-*.tar.gz release/
+          for asset in release/*.tar.gz; do
+            ( cd release && shasum -a 256 "$(basename "$asset")" > "$(basename "$asset").sha256" )
+          done
           for name in univocity create3-factory; do
-            asset="${name}-${RELEASE_SUFFIX}.tar.gz"
-            cp ".work/${name}.tar.gz" "release/${asset}"
-            ( cd release && shasum -a 256 "${asset}" > "${asset}.sha256" )
             mkdir -p "upload/${name}"
-            cp "release/${asset}" "upload/${name}/${asset}"
+            cp "release/${name}-"*.tar.gz "upload/${name}/"
           done
 
       - name: Upload workflow artefacts
