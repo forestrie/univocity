@@ -144,8 +144,9 @@ delegation support:
 | **KS256** | Ethereum address + Keccak-256    | No         |
 
 For **KS256**, the signer identity is a 20-byte Ethereum address. The
-address may be an EOA, verified with `ecrecover`, or an ERC-1271 contract
-account, verified with `isValidSignature(bytes32,bytes)`. In both cases the
+address may be an **ECDSA EOA**, verified with `ecrecover`, or an
+**ERC-1271 smart-account signer (e.g. a multisig)**, verified with
+`isValidSignature(bytes32,bytes)`. In both cases the
 signed hash is `keccak256(COSE_Sign1 Sig_structure)`. The root key bytes in
 `grantData`, bootstrap config, and stored log config remain
 `abi.encodePacked(address)`.
@@ -260,12 +261,12 @@ sequenceDiagram
     C-->>Op: Root created rootLogId set, Initialized emitted
 ```
 
-For a Safe or other ERC-1271 bootstrap signer, deploy with
-`ALG_KS256` and `bootstrapKey = abi.encodePacked(safeAddress)`. The root
-grant's `grantData` is the same 20-byte Safe address. The receipt signature
-is whatever bytes the Safe validates for
-`keccak256(COSE_Sign1 Sig_structure)` via ERC-1271; the transaction sender is
-still irrelevant.
+For an ERC-1271 smart-account bootstrap signer (e.g. a multisig), deploy
+with `ALG_KS256` and `bootstrapKey = abi.encodePacked(accountAddress)`.
+The root grant's `grantData` is the same 20-byte account address. The
+receipt signature is whatever bytes the account validates for
+`keccak256(COSE_Sign1 Sig_structure)` via ERC-1271 `isValidSignature`; the
+transaction sender is still irrelevant.
 
 ### 7.2 Bootstrap log operator: creating grants
 
@@ -337,13 +338,33 @@ N+1 exists before grant N is exhausted. The same principle applies to any
 log whose owner is itself (root): always add the next grant leaf while the
 current one is still valid.
 
-**Expected practice vs optional model.** In practice, the root operator
-typically sets an (effectively) **infinite** max_size on their initial
-self-grant and sets both GF_CREATE and GF_EXTEND, so the root does not need
-to refresh and lockout is not a practical concern. Some deployments may
-instead choose the **must-refresh** model (bounded max_size and periodic
-refresh) as a soft guarantee of liveness — e.g. to ensure the operator
-periodically proves control or to bound exposure.
+**Setting `max_size`: an active choice about forward authority.** The
+`max_size` bound on a grant (including the root's self-grant) is not a
+throwaway parameter; the choice **represents an active choice regarding the
+ability to revoke (withhold) authority going forward.** It is a deliberate
+trade-off between two ends, with no single universal default:
+
+- **Effectively-unbounded `max_size` (maximal finality / liveness).** The
+  owner sets an (effectively) **infinite** max_size and both GF_CREATE and
+  GF_EXTEND, so the grant never needs refreshing and lockout is not a
+  practical concern. This **deliberately relinquishes forward
+  authority-control** in favour of maximal finality and liveness: once the
+  grant is issued, the grantee can grow without any further owner action,
+  and the owner has given up the decline-to-renew lever for that grant.
+- **Bounded `max_size` (retains a forward soft-sunset lever).** The owner
+  chooses the **must-refresh** model (bounded max_size, periodic refresh) so
+  authority must be periodically re-extended. This **retains a forward
+  soft-sunset lever** — declining to issue the next grant freezes the
+  grantee going forward (see the revocation/consumption discussion in the
+  [log-hierarchy ARC §9](arc-0017-log-hierarchy-and-authority.md#9-revocation-and-grant-consumption-expiring-misbehaving-authority-and-their-data-logs))
+  — at the cost of refresh overhead and the lockout risk above (the owner
+  must refresh **before** the current grant is exhausted). It is a soft
+  guarantee of liveness and a bound on exposure.
+
+The bound is therefore the knob by which a deployment trades finality and
+liveness against retained forward control. For the **root**, the same choice
+applies to its self-grant; a bounded root grant requires the refresh
+discipline described in the lockout note above.
 
 ```mermaid
 sequenceDiagram
