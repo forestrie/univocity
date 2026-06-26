@@ -6,7 +6,6 @@ version: "3"
 vars:
   UNIVOCITY_TOOLS_VERSION: '{{.UNIVOCITY_TOOLS_VERSION | default "v0.3.0"}}'
   DEPLOYER_CACHE_DIR: "{{.ROOT_DIR}}/.cache/univocity-tools"
-  DEPLOYER_BIN: "{{.DEPLOYER_CACHE_DIR}}/deployer-linux-x64"
   ALG: '{{.ALG | default "es256"}}'
   SALT: "{{.SALT}}"
   OWNER_ADDRESS: '{{.OWNER_ADDRESS | default "0x1528b86ff561f617602356efdbD05908a07AA788"}}'
@@ -15,20 +14,31 @@ vars:
 
 tasks:
   deployer:ensure:
-    desc: Download deployer-linux-x64 from univocity-tools GitHub release and verify sha256.
+    desc: Download deployer binary for this OS/arch from univocity-tools release and verify sha256.
     vars:
       RELEASE_BASE: https://github.com/forestrie/univocity-tools/releases/download/{{.UNIVOCITY_TOOLS_VERSION}}
     cmds:
       - mkdir -p "{{.DEPLOYER_CACHE_DIR}}"
       - |
         set -euo pipefail
-        BIN="{{.DEPLOYER_BIN}}"
+        OS="$(uname -s)"
+        ARCH="$(uname -m)"
+        case "${OS}-${ARCH}" in
+          Darwin-arm64) PLATFORM="darwin-arm64" ;;
+          Linux-x86_64|Linux-amd64) PLATFORM="linux-x64" ;;
+          *)
+            echo "unsupported platform: ${OS}-${ARCH}" >&2
+            exit 1
+            ;;
+        esac
+        BIN="{{.DEPLOYER_CACHE_DIR}}/deployer-${PLATFORM}"
         if [ -x "$BIN" ]; then
           echo "deployer already present at $BIN"
+          echo "$BIN"
           exit 0
         fi
-        curl -fsSL "{{.RELEASE_BASE}}/deployer-linux-x64" -o "$BIN"
-        curl -fsSL "{{.RELEASE_BASE}}/deployer-linux-x64.sha256" -o "${BIN}.sha256"
+        curl -fsSL "{{.RELEASE_BASE}}/deployer-${PLATFORM}" -o "$BIN"
+        curl -fsSL "{{.RELEASE_BASE}}/deployer-${PLATFORM}.sha256" -o "${BIN}.sha256"
         EXPECTED=$(awk '{print $1}' "${BIN}.sha256")
         ACTUAL=$(shasum -a 256 "$BIN" | awk '{print $1}')
         if [ "$EXPECTED" != "$ACTUAL" ]; then
@@ -36,6 +46,7 @@ tasks:
           exit 1
         fi
         chmod +x "$BIN"
+        echo "$BIN"
 
   propose:
     desc: Propose ImutableUnivocity via Safe CREATE2 (writes proposal JSON).
@@ -46,8 +57,9 @@ tasks:
       - mkdir -p "{{.PROPOSAL_DIR}}"
       - |
         set -euo pipefail
+        DEPLOYER_BIN="$(task deploy:imutable:deployer:ensure | tail -1)"
         PROPOSAL="{{.PROPOSAL_DIR}}/proposal-{{.ALG}}-{{.SALT}}.json"
-        "{{.DEPLOYER_BIN}}" deploy propose imutable \
+        "${DEPLOYER_BIN}" deploy propose imutable \
           --source-root "{{.ROOT_DIR}}" \
           --bootstrap-alg "{{.ALG}}" \
           --safe-publish \
@@ -67,12 +79,13 @@ tasks:
     cmds:
       - |
         set -euo pipefail
+        DEPLOYER_BIN="$(task deploy:imutable:deployer:ensure | tail -1)"
         PROPOSAL="{{.PROPOSAL_DIR}}/proposal-{{.ALG}}-{{.SALT}}.json"
         if [ ! -f "$PROPOSAL" ]; then
           echo "proposal not found: $PROPOSAL (run deploy:imutable:propose first)" >&2
           exit 1
         fi
-        "{{.DEPLOYER_BIN}}" deploy approve "$PROPOSAL" \
+        "${DEPLOYER_BIN}" deploy approve "$PROPOSAL" \
           --source-root "{{.ROOT_DIR}}" \
           --bootstrap-alg "{{.ALG}}" \
           --deploy-key "${DEPLOY_KEY:?DEPLOY_KEY is required}" \

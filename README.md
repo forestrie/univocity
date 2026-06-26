@@ -59,6 +59,34 @@ re-initialization.
 
 ## Deployment
 
+### Consumer deploy (no Foundry required)
+
+Independent operators can deploy **ImutableUnivocity** from a published release
+using the prebuilt [univocity-tools deployer](https://github.com/forestrie/univocity-tools/releases)
+binary — no `forge`, `cast`, or clone of this repo.
+
+1. Download `deployer-linux-x64` or `deployer-darwin-arm64` (+ `.sha256`) from
+   an [univocity-tools release](https://github.com/forestrie/univocity-tools/releases).
+2. One-shot EOA deploy (uses `deploy-manifest-<tag>.json` when present):
+
+```shell
+./deployer-darwin-arm64 deploy imutable \
+  --from-release v0.4.0 \
+  --bootstrap-alg ks256 \
+  --bootstrap-ks256-signer 0xYourSigner \
+  --deploy-key "$DEPLOY_KEY" \
+  --rpc-url "$RPC_URL"
+```
+
+Multi-step flows (`deploy propose imutable --from-manifest`, `--release-root`,
+`deploy execute`) are documented in
+[univocity-tools CLI docs](https://github.com/forestrie/univocity-tools/blob/main/docs/agents/cli.md).
+
+Foundry remains required for **contract development** and for producing release
+archives in CI.
+
+### Developer deploy (from source)
+
 **ImutableUnivocity (non-upgradeable):** Set `KS256_SIGNER` or `ES256_X`/`ES256_Y`,
 then `forge script script/Deploy.s.sol --rpc-url <RPC> --broadcast`.
 
