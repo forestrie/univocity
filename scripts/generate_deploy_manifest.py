@@ -65,7 +65,7 @@ def contract_entry(path: Path) -> dict[str, Any]:
     return entry
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("release_id", help="Release tag, e.g. v0.4.0")
     parser.add_argument(
@@ -77,7 +77,7 @@ def main() -> int:
         "--output",
         help="Output path (default: deploy-manifest-<release_id>.json)",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     out_dir = Path(args.out_dir)
     imutable_path = out_dir / "ImutableUnivocity.sol" / "ImutableUnivocity.json"
