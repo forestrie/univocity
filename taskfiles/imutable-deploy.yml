@@ -1,12 +1,13 @@
 # ImutableUnivocity deploy via univocity-tools deployer (Safe CREATE2 path).
 # Secrets: DEPLOY_KEY, RPC_URL; ES256 also needs BOOTSTRAP_PEM_ES256.
-# Local: doppler run -- task deploy:imutable ALG=es256 SALT=0x…
+# Local: doppler run -- task imutable-deploy:default ALG=es256 SALT=0x…
 version: "3"
 
 vars:
-  UNIVOCITY_TOOLS_VERSION: '{{.UNIVOCITY_TOOLS_VERSION | default "v0.3.0"}}'
+  UNIVOCITY_VERSION: '{{.UNIVOCITY_VERSION | default "v0.4.0"}}'
+  UNIVOCITY_TOOLS_VERSION: '{{.UNIVOCITY_TOOLS_VERSION | default "v0.4.0"}}'
   DEPLOYER_CACHE_DIR: "{{.ROOT_DIR}}/.cache/univocity-tools"
-  DEPLOYER_BIN: "{{.DEPLOYER_CACHE_DIR}}/deployer-linux-x64"
+  MANIFEST_CACHE_DIR: "{{.ROOT_DIR}}/.cache/univocity-manifest"
   ALG: '{{.ALG | default "es256"}}'
   SALT: "{{.SALT}}"
   OWNER_ADDRESS: '{{.OWNER_ADDRESS | default "0x1528b86ff561f617602356efdbD05908a07AA788"}}'
@@ -15,20 +16,41 @@ vars:
 
 tasks:
   deployer:ensure:
-    desc: Download deployer-linux-x64 from univocity-tools GitHub release and verify sha256.
+    desc: Download deployer binary for this OS/arch from univocity-tools release and verify sha256.
     vars:
       RELEASE_BASE: https://github.com/forestrie/univocity-tools/releases/download/{{.UNIVOCITY_TOOLS_VERSION}}
     cmds:
       - mkdir -p "{{.DEPLOYER_CACHE_DIR}}"
       - |
         set -euo pipefail
-        BIN="{{.DEPLOYER_BIN}}"
+        OS="$(uname -s)"
+        ARCH="$(uname -m)"
+        case "${OS}-${ARCH}" in
+          Darwin-arm64) PLATFORM="darwin-arm64" ;;
+          Linux-x86_64|Linux-amd64) PLATFORM="linux-x64" ;;
+          *)
+            echo "unsupported platform: ${OS}-${ARCH}" >&2
+            exit 1
+            ;;
+        esac
+        BIN="{{.DEPLOYER_CACHE_DIR}}/deployer-${PLATFORM}"
+        SIDECAR="${BIN}.sha256"
         if [ -x "$BIN" ]; then
+          if [ ! -f "$SIDECAR" ]; then
+            curl -fsSL "{{.RELEASE_BASE}}/deployer-${PLATFORM}.sha256" -o "$SIDECAR"
+          fi
+          EXPECTED=$(awk '{print $1}' "$SIDECAR")
+          ACTUAL=$(shasum -a 256 "$BIN" | awk '{print $1}')
+          if [ "$EXPECTED" != "$ACTUAL" ]; then
+            echo "cached deployer sha256 mismatch" >&2
+            exit 1
+          fi
           echo "deployer already present at $BIN"
+          echo "$BIN"
           exit 0
         fi
-        curl -fsSL "{{.RELEASE_BASE}}/deployer-linux-x64" -o "$BIN"
-        curl -fsSL "{{.RELEASE_BASE}}/deployer-linux-x64.sha256" -o "${BIN}.sha256"
+        curl -fsSL "{{.RELEASE_BASE}}/deployer-${PLATFORM}" -o "$BIN"
+        curl -fsSL "{{.RELEASE_BASE}}/deployer-${PLATFORM}.sha256" -o "${BIN}.sha256"
         EXPECTED=$(awk '{print $1}' "${BIN}.sha256")
         ACTUAL=$(shasum -a 256 "$BIN" | awk '{print $1}')
         if [ "$EXPECTED" != "$ACTUAL" ]; then
@@ -36,20 +58,62 @@ tasks:
           exit 1
         fi
         chmod +x "$BIN"
+        echo "$BIN"
+
+  manifest:ensure:
+    desc: Download deploy-manifest for UNIVOCITY_VERSION and verify sha256 sidecar.
+    vars:
+      RELEASE_BASE: https://github.com/forestrie/univocity/releases/download/{{.UNIVOCITY_VERSION}}
+    cmds:
+      - mkdir -p "{{.MANIFEST_CACHE_DIR}}"
+      - |
+        set -euo pipefail
+        MANIFEST="{{.MANIFEST_CACHE_DIR}}/deploy-manifest-{{.UNIVOCITY_VERSION}}.json"
+        SIDECAR="${MANIFEST}.sha256"
+        verify_manifest() {
+          if [ ! -f "$SIDECAR" ]; then
+            curl -fsSL "{{.RELEASE_BASE}}/deploy-manifest-{{.UNIVOCITY_VERSION}}.json.sha256" -o "$SIDECAR"
+          fi
+          EXPECTED=$(awk '{print $1}' "$SIDECAR")
+          ACTUAL=$(shasum -a 256 "$MANIFEST" | awk '{print $1}')
+          if [ "$EXPECTED" != "$ACTUAL" ]; then
+            echo "deploy-manifest sha256 mismatch" >&2
+            exit 1
+          fi
+          RELEASE_ID=$(jq -r '.releaseId' "$MANIFEST")
+          if [ "$RELEASE_ID" != "{{.UNIVOCITY_VERSION}}" ]; then
+            echo "deploy-manifest releaseId mismatch: expected {{.UNIVOCITY_VERSION}}, got ${RELEASE_ID}" >&2
+            exit 1
+          fi
+        }
+        if [ -f "$MANIFEST" ]; then
+          verify_manifest
+          echo "deploy-manifest already present at $MANIFEST"
+          echo "$MANIFEST"
+          exit 0
+        fi
+        curl -fsSL "{{.RELEASE_BASE}}/deploy-manifest-{{.UNIVOCITY_VERSION}}.json" -o "$MANIFEST"
+        curl -fsSL "{{.RELEASE_BASE}}/deploy-manifest-{{.UNIVOCITY_VERSION}}.json.sha256" -o "$SIDECAR"
+        verify_manifest
+        echo "$MANIFEST"
 
   propose:
     desc: Propose ImutableUnivocity via Safe CREATE2 (writes proposal JSON).
-    deps: [deployer:ensure]
+    deps: [deployer:ensure, manifest:ensure]
     requires:
       vars: [SALT]
     cmds:
       - mkdir -p "{{.PROPOSAL_DIR}}"
       - |
         set -euo pipefail
+        DEPLOYER_BIN="$(task imutable-deploy:deployer:ensure | tail -1)"
+        MANIFEST="$(task imutable-deploy:manifest:ensure | tail -1)"
         PROPOSAL="{{.PROPOSAL_DIR}}/proposal-{{.ALG}}-{{.SALT}}.json"
-        "{{.DEPLOYER_BIN}}" deploy propose imutable \
+        "${DEPLOYER_BIN}" deploy propose imutable \
           --source-root "{{.ROOT_DIR}}" \
           --bootstrap-alg "{{.ALG}}" \
+          --from-manifest "$MANIFEST" \
+          --manifest-sidecar "${MANIFEST}.sha256" \
           --safe-publish \
           --owner-address "{{.OWNER_ADDRESS}}" \
           --deploy-key "${DEPLOY_KEY:?DEPLOY_KEY is required}" \
@@ -67,12 +131,13 @@ tasks:
     cmds:
       - |
         set -euo pipefail
+        DEPLOYER_BIN="$(task imutable-deploy:deployer:ensure | tail -1)"
         PROPOSAL="{{.PROPOSAL_DIR}}/proposal-{{.ALG}}-{{.SALT}}.json"
         if [ ! -f "$PROPOSAL" ]; then
-          echo "proposal not found: $PROPOSAL (run deploy:imutable:propose first)" >&2
+          echo "proposal not found: $PROPOSAL (run imutable-deploy:propose first)" >&2
           exit 1
         fi
-        "{{.DEPLOYER_BIN}}" deploy approve "$PROPOSAL" \
+        "${DEPLOYER_BIN}" deploy approve "$PROPOSAL" \
           --source-root "{{.ROOT_DIR}}" \
           --bootstrap-alg "{{.ALG}}" \
           --deploy-key "${DEPLOY_KEY:?DEPLOY_KEY is required}" \
@@ -87,12 +152,22 @@ tasks:
         set -euo pipefail
         ADDR=$(jq -r '.imutableUnivocity' "{{.MANIFEST}}")
         RPC="${RPC_URL:?RPC_URL is required}"
-        CODE=$(cast code "$ADDR" --rpc-url "$RPC")
-        if [ -z "$CODE" ] || [ "$CODE" = "0x" ]; then
+        CODE=$(curl -fsS "$RPC" \
+          -H 'content-type: application/json' \
+          -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"eth_getCode\",\"params\":[\"$ADDR\",\"latest\"]}")
+        BYTECODE=$(echo "$CODE" | jq -r '.result')
+        if [ -z "$BYTECODE" ] || [ "$BYTECODE" = "0x" ]; then
           echo "no contract code at $ADDR" >&2
           exit 1
         fi
-        cast call "$ADDR" "bootstrapConfig()(int64,bytes)" --rpc-url "$RPC" >/dev/null
+        CALL=$(curl -fsS "$RPC" \
+          -H 'content-type: application/json' \
+          -d "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"eth_call\",\"params\":[{\"to\":\"$ADDR\",\"data\":\"0x198865fe\"},\"latest\"]}")
+        RESULT=$(echo "$CALL" | jq -r '.result')
+        if [ -z "$RESULT" ] || [ "$RESULT" = "0x" ]; then
+          echo "bootstrapConfig call returned empty at $ADDR" >&2
+          exit 1
+        fi
         echo "bootstrapConfig OK at $ADDR"
 
   default:
@@ -122,6 +197,7 @@ tasks:
           --arg salt "$(jq -r '.safe.salt' "$PROPOSAL")" \
           --arg safeTxHash "$(jq -r '.safe.safeTxHash' "$PROPOSAL")" \
           --arg toolsVersion "{{.UNIVOCITY_TOOLS_VERSION}}" \
+          --arg univocityVersion "{{.UNIVOCITY_VERSION}}" \
           '{
             kind: $kind,
             version: $version,
@@ -132,7 +208,8 @@ tasks:
             from: $from,
             salt: $salt,
             safeTxHash: $safeTxHash,
-            toolsVersion: $toolsVersion
+            toolsVersion: $toolsVersion,
+            univocityVersion: $univocityVersion
           }' > "$MANIFEST"
         echo "manifest: $MANIFEST"
         cat "$MANIFEST"

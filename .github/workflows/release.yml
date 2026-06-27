@@ -46,11 +46,35 @@ jobs:
           UNIVOCITY_TOOLS_VERSION: ${{ inputs.tools_version || 'v0.4.0' }}
         run: task contract-artefacts-release:release
 
+      - name: Generate deploy manifest
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF#refs/tags/}"
+          python3 scripts/generate_deploy_manifest.py "${TAG}" --out-dir out \
+            --create3-out-dir script/create3-factory/out \
+            --output "deploy-manifest-${TAG}.json"
+
+      - name: Verify deploy manifest matches artifact
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF#refs/tags/}"
+          python3 scripts/verify_deploy_manifest_artifact.py \
+            "deploy-manifest-${TAG}.json" \
+            out/ImutableUnivocity.sol/ImutableUnivocity.json
+
       - name: Prepare release assets
         run: |
           set -euo pipefail
           mkdir -p release
           cp .work/univocity-*.tar.gz .work/create3-factory-*.tar.gz release/
+          TAG="${GITHUB_REF#refs/tags/}"
+          if [ -f "deploy-manifest-${TAG}.json" ]; then
+            cp "deploy-manifest-${TAG}.json" release/
+            ( cd release && shasum -a 256 "deploy-manifest-${TAG}.json" \
+              > "deploy-manifest-${TAG}.json.sha256" )
+          fi
           for asset in release/*.tar.gz; do
             ( cd release && shasum -a 256 "$(basename "$asset")" > "$(basename "$asset").sha256" )
           done
@@ -81,3 +105,5 @@ jobs:
           files: |
             release/*.tar.gz
             release/*.tar.gz.sha256
+            release/deploy-manifest-*.json
+            release/deploy-manifest-*.json.sha256
