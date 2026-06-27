@@ -1,0 +1,34 @@
+---
+description: One Solidity type/library per file; module layout
+alwaysApply: true
+---
+
+# Types and single responsibility (Solidity)
+
+Do **not** use monolithic catch-all files (`Types.sol`, `Helpers.sol`) that mix
+unrelated domains.
+
+## Rule
+
+- **One library per file** under `src/<module>/lib/`.
+- **Interfaces and events** live under `src/<module>/interfaces/` — one primary
+  interface (or tightly coupled interface group) per file.
+- **Shared domain types** for a module live in `src/<module>/<Type>.sol` when
+  not tied to a single library.
+- **Deployable contracts** compose modules under `src/contracts/`; keep each
+  deployable focused — delegate crypto to `lib/`.
+- Include **closely related** constants, errors, or helper types in the same
+  file as the primary type they serve.
+
+## File naming
+
+- Name files after the primary type (`LibCose.sol`, `IUnivocity.sol`).
+- Prefer PascalCase matching the Solidity type name.
+
+## Imports
+
+- Use **explicit named imports** only (see `.cursorrules`).
+- Prefer importing from the concrete module path; avoid barrel files that hide
+  dependencies.
+
+See [docs/agents/solidity.md](../docs/agents/solidity.md) for module layout.

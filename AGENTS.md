@@ -20,6 +20,9 @@
 
 - **`.cursorrules`** — Solidity imports and comment wrapping; see
   [docs/agents/solidity.md](docs/agents/solidity.md) for layout.
+- **`.cursor/rules/`** — [branch-naming](.cursor/rules/branch-naming.mdc),
+  [solidity-comments](.cursor/rules/solidity-comments.mdc) (cross-repo NatSpec;
+  wrapping stays in `.cursorrules`), [types-single-responsibility](.cursor/rules/types-single-responsibility.mdc).
 
 ## Source layout
 
