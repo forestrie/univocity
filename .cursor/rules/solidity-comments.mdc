@@ -1,0 +1,65 @@
+---
+description: Solidity comment policy — NatSpec, signposts, and wrap rules
+globs: **/*.sol
+alwaysApply: false
+---
+
+# Solidity comments
+
+Forestrie is a **highly distributed system**. On-chain verification assumes
+off-chain grant publication, log hierarchy, and signer behaviour documented
+across repositories. Comments must make those obligations reachable without
+duplicating platform docs.
+
+**Line wrapping:** follow **Comment wrapping (Solidity)** in [`.cursorrules`](../.cursorrules)
+(79/100 columns, tag continuation, `forge fmt` last). This rule covers **content**
+and **cross-repo signposts**; `.cursorrules` covers **format**.
+
+## Principles
+
+1. **Signpost, don't silo.** State how the contract or library fits the wider
+   auth and checkpoint flow; name off-chain dependencies and on-chain invariants.
+2. **Brief with a pointer.** One or two sentences plus a doc link is enough
+   unless the interaction is security-critical.
+3. **Explain purpose, not syntax.** NatSpec describes **role**, **invariants**,
+   and **trust assumptions** — not a narration of each opcode.
+4. **Non-obvious details only at line level.** Use `//` for surprising
+   mechanics (gas bounds, calldata layout, MMR edge cases).
+5. **Full coverage of public surfaces.** Every **public** and **external**
+   function, event, error, and exported type needs `@notice`; document
+   `@param` / `@return` when types alone do not convey constraints.
+
+## Cross-repo signposts
+
+Prefer stable **GitHub blob links** in `@dev` or `@notice`:
+
+```solidity
+/// @notice Verifies a checkpoint grant against the owner log's published root.
+/// @dev Off-chain grant shape and inclusion rules:
+/// https://github.com/forestrie/devdocs/blob/main/arc/arc-0019-grant-verification-model.md
+```
+
+| Target | Link form |
+|--------|-----------|
+| Repo-local ARC | `https://github.com/forestrie/univocity/blob/main/docs/arc/…` |
+| Platform ADR/ARC | `https://github.com/forestrie/devdocs/blob/main/arc/…` |
+| SCRAPI / Workers | `https://github.com/forestrie/canopy/blob/main/docs/…` |
+| Go services | `https://github.com/forestrie/arbor/blob/main/services/…` |
+
+Name the **remote component**, **contract** (route, COSE label, storage slot),
+and what this code **assumes** vs **guarantees**.
+
+## What to write at each level
+
+| Level | Comment answers |
+|-------|-----------------|
+| **File / contract** | Role in checkpoint verification; trust boundaries. |
+| **Library** | Crypto or encoding obligation; callers' preconditions. |
+| **Function** | Authorization step performed; revert conditions worth knowing. |
+| **Line** | Non-obvious mechanics only. |
+
+## When editing
+
+- Security-sensitive or cross-repo behaviour → update NatSpec in the same change.
+- Do not copy ARC/ADR prose into source — link and state the local obligation.
+- Run `forge fmt` after comment edits; do not manually re-wrap afterward.
