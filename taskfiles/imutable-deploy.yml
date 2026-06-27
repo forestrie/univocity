@@ -1,6 +1,6 @@
 # ImutableUnivocity deploy via univocity-tools deployer (Safe CREATE2 path).
 # Secrets: DEPLOY_KEY, RPC_URL; ES256 also needs BOOTSTRAP_PEM_ES256.
-# Local: doppler run -- task deploy:imutable ALG=es256 SALT=0x…
+# Local: doppler run -- task imutable-deploy:default ALG=es256 SALT=0x…
 version: "3"
 
 vars:
@@ -34,7 +34,17 @@ tasks:
             ;;
         esac
         BIN="{{.DEPLOYER_CACHE_DIR}}/deployer-${PLATFORM}"
+        SIDECAR="${BIN}.sha256"
         if [ -x "$BIN" ]; then
+          if [ ! -f "$SIDECAR" ]; then
+            curl -fsSL "{{.RELEASE_BASE}}/deployer-${PLATFORM}.sha256" -o "$SIDECAR"
+          fi
+          EXPECTED=$(awk '{print $1}' "$SIDECAR")
+          ACTUAL=$(shasum -a 256 "$BIN" | awk '{print $1}')
+          if [ "$EXPECTED" != "$ACTUAL" ]; then
+            echo "cached deployer sha256 mismatch" >&2
+            exit 1
+          fi
           echo "deployer already present at $BIN"
           echo "$BIN"
           exit 0
@@ -59,19 +69,32 @@ tasks:
       - |
         set -euo pipefail
         MANIFEST="{{.MANIFEST_CACHE_DIR}}/deploy-manifest-{{.UNIVOCITY_VERSION}}.json"
+        SIDECAR="${MANIFEST}.sha256"
+        verify_manifest() {
+          if [ ! -f "$SIDECAR" ]; then
+            curl -fsSL "{{.RELEASE_BASE}}/deploy-manifest-{{.UNIVOCITY_VERSION}}.json.sha256" -o "$SIDECAR"
+          fi
+          EXPECTED=$(awk '{print $1}' "$SIDECAR")
+          ACTUAL=$(shasum -a 256 "$MANIFEST" | awk '{print $1}')
+          if [ "$EXPECTED" != "$ACTUAL" ]; then
+            echo "deploy-manifest sha256 mismatch" >&2
+            exit 1
+          fi
+          RELEASE_ID=$(jq -r '.releaseId' "$MANIFEST")
+          if [ "$RELEASE_ID" != "{{.UNIVOCITY_VERSION}}" ]; then
+            echo "deploy-manifest releaseId mismatch: expected {{.UNIVOCITY_VERSION}}, got ${RELEASE_ID}" >&2
+            exit 1
+          fi
+        }
         if [ -f "$MANIFEST" ]; then
+          verify_manifest
           echo "deploy-manifest already present at $MANIFEST"
           echo "$MANIFEST"
           exit 0
         fi
         curl -fsSL "{{.RELEASE_BASE}}/deploy-manifest-{{.UNIVOCITY_VERSION}}.json" -o "$MANIFEST"
-        curl -fsSL "{{.RELEASE_BASE}}/deploy-manifest-{{.UNIVOCITY_VERSION}}.json.sha256" -o "${MANIFEST}.sha256"
-        EXPECTED=$(awk '{print $1}' "${MANIFEST}.sha256")
-        ACTUAL=$(shasum -a 256 "$MANIFEST" | awk '{print $1}')
-        if [ "$EXPECTED" != "$ACTUAL" ]; then
-          echo "deploy-manifest sha256 mismatch" >&2
-          exit 1
-        fi
+        curl -fsSL "{{.RELEASE_BASE}}/deploy-manifest-{{.UNIVOCITY_VERSION}}.json.sha256" -o "$SIDECAR"
+        verify_manifest
         echo "$MANIFEST"
 
   propose:
@@ -83,13 +106,14 @@ tasks:
       - mkdir -p "{{.PROPOSAL_DIR}}"
       - |
         set -euo pipefail
-        DEPLOYER_BIN="$(task deploy:imutable:deployer:ensure | tail -1)"
-        MANIFEST="$(task deploy:imutable:manifest:ensure | tail -1)"
+        DEPLOYER_BIN="$(task imutable-deploy:deployer:ensure | tail -1)"
+        MANIFEST="$(task imutable-deploy:manifest:ensure | tail -1)"
         PROPOSAL="{{.PROPOSAL_DIR}}/proposal-{{.ALG}}-{{.SALT}}.json"
         "${DEPLOYER_BIN}" deploy propose imutable \
           --source-root "{{.ROOT_DIR}}" \
           --bootstrap-alg "{{.ALG}}" \
           --from-manifest "$MANIFEST" \
+          --manifest-sidecar "${MANIFEST}.sha256" \
           --safe-publish \
           --owner-address "{{.OWNER_ADDRESS}}" \
           --deploy-key "${DEPLOY_KEY:?DEPLOY_KEY is required}" \
@@ -107,10 +131,10 @@ tasks:
     cmds:
       - |
         set -euo pipefail
-        DEPLOYER_BIN="$(task deploy:imutable:deployer:ensure | tail -1)"
+        DEPLOYER_BIN="$(task imutable-deploy:deployer:ensure | tail -1)"
         PROPOSAL="{{.PROPOSAL_DIR}}/proposal-{{.ALG}}-{{.SALT}}.json"
         if [ ! -f "$PROPOSAL" ]; then
-          echo "proposal not found: $PROPOSAL (run deploy:imutable:propose first)" >&2
+          echo "proposal not found: $PROPOSAL (run imutable-deploy:propose first)" >&2
           exit 1
         fi
         "${DEPLOYER_BIN}" deploy approve "$PROPOSAL" \

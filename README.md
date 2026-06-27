@@ -81,6 +81,11 @@ binary — no `forge`, `cast`, or clone of this repo.
 Multi-step flows (`deploy propose imutable --from-manifest`, `--release-root`,
 `deploy execute`) are documented in
 [univocity-tools CLI docs](https://github.com/forestrie/univocity-tools/blob/main/docs/agents/cli.md).
+Manifest schema and trust model:
+[ADR-0010](https://github.com/forestrie/univocity-tools/blob/main/docs/adr/adr-0010-deploy-manifest-format.md).
+
+Safe path via taskfile: `task imutable-deploy:default SALT=0x…` (see
+`taskfiles/imutable-deploy.yml`).
 
 Foundry remains required for **contract development** and for producing release
 archives in CI.

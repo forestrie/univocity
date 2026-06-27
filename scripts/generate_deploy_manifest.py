@@ -71,7 +71,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--out-dir",
         default="out",
-        help="Foundry out directory (default: out)",
+        help="Foundry out directory for ImutableUnivocity (default: out)",
+    )
+    parser.add_argument(
+        "--create3-out-dir",
+        default="script/create3-factory/out",
+        help="Foundry out directory for CREATE3Factory "
+        "(default: script/create3-factory/out)",
     )
     parser.add_argument(
         "--output",
@@ -88,7 +94,7 @@ def main(argv: list[str] | None = None) -> int:
         "ImutableUnivocity": contract_entry(imutable_path),
     }
 
-    factory_path = out_dir / "CREATE3Factory.sol" / "CREATE3Factory.json"
+    factory_path = Path(args.create3_out_dir) / "CREATE3Factory.sol" / "CREATE3Factory.json"
     if factory_path.is_file():
         contracts["CREATE3Factory"] = contract_entry(factory_path)
 

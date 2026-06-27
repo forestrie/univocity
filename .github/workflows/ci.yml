@@ -38,6 +38,9 @@ jobs:
       - name: Run Forge tests
         run: forge test -vvv
 
+      - name: Deploy manifest generator tests
+        run: python3 -m unittest scripts/test_generate_deploy_manifest.py scripts/test_verify_deploy_manifest_artifact.py
+
       - name: Install mise
         uses: jdx/mise-action@v3
         with:
