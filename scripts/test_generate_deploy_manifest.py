@@ -100,6 +100,57 @@ class GenerateDeployManifestTest(unittest.TestCase):
                 imutable["bytecodeSha256"], golden_imutable["bytecodeSha256"]
             )
 
+    def test_main_includes_uups_entries_when_artifacts_present(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            out_dir = Path(tmp) / "out"
+            for name in ("UUPSUnivocity", "ERC1967Proxy"):
+                artifact_dir = out_dir / f"{name}.sol"
+                artifact_dir.mkdir(parents=True)
+                (artifact_dir / f"{name}.json").write_text(
+                    json.dumps(
+                        {
+                            "bytecode": {"object": "0x6003"},
+                            "metadata": json.dumps(
+                                {"compiler": {"version": "0.8.26+commit.abc"}}
+                            ),
+                            "abi": [{"type": "constructor", "inputs": []}],
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+            imutable_dir = out_dir / "ImutableUnivocity.sol"
+            imutable_dir.mkdir(parents=True)
+            (imutable_dir / "ImutableUnivocity.json").write_text(
+                json.dumps(
+                    {
+                        "bytecode": {"object": "0x6001"},
+                        "metadata": json.dumps(
+                            {"compiler": {"version": "0.8.26+commit.abc"}}
+                        ),
+                        "abi": [{"type": "constructor", "inputs": []}],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            output = Path(tmp) / "deploy-manifest-v0.4.0.json"
+            self.assertEqual(
+                main(
+                    [
+                        "v0.4.0",
+                        "--out-dir",
+                        str(out_dir),
+                        "--output",
+                        str(output),
+                    ]
+                ),
+                0,
+            )
+            generated = json.loads(output.read_text(encoding="utf-8"))
+            contracts = generated["contracts"]
+            self.assertIn("UUPSUnivocity", contracts)
+            self.assertIn("ERC1967Proxy", contracts)
+            self.assertIn("abi", contracts["UUPSUnivocity"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -49,10 +49,12 @@ def contract_entry(path: Path) -> dict[str, Any]:
 
     abi = artifact.get("abi")
     constructor_abi: list[Any] = []
+    full_abi: list[Any] = []
     if isinstance(abi, list):
         constructor_abi = [
             item for item in abi if isinstance(item, dict) and item.get("type") == "constructor"
         ]
+        full_abi = [item for item in abi if isinstance(item, dict)]
 
     entry: dict[str, Any] = {
         "contractName": contract_name,
@@ -62,6 +64,8 @@ def contract_entry(path: Path) -> dict[str, Any]:
     }
     if constructor_abi:
         entry["constructorAbi"] = constructor_abi
+    if full_abi:
+        entry["abi"] = full_abi
     return entry
 
 
@@ -97,6 +101,14 @@ def main(argv: list[str] | None = None) -> int:
     factory_path = Path(args.create3_out_dir) / "CREATE3Factory.sol" / "CREATE3Factory.json"
     if factory_path.is_file():
         contracts["CREATE3Factory"] = contract_entry(factory_path)
+
+    uups_path = out_dir / "UUPSUnivocity.sol" / "UUPSUnivocity.json"
+    if uups_path.is_file():
+        contracts["UUPSUnivocity"] = contract_entry(uups_path)
+
+    proxy_path = out_dir / "ERC1967Proxy.sol" / "ERC1967Proxy.json"
+    if proxy_path.is_file():
+        contracts["ERC1967Proxy"] = contract_entry(proxy_path)
 
     manifest = {
         "version": 1,
