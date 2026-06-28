@@ -66,12 +66,13 @@ using the prebuilt [univocity-tools deployer](https://github.com/forestrie/univo
 binary — no `forge`, `cast`, or clone of this repo.
 
 1. Download `deployer-linux-x64` or `deployer-darwin-arm64` (+ `.sha256`) from
-   an [univocity-tools release](https://github.com/forestrie/univocity-tools/releases).
+   the [univocity-tools v0.6.0 release](https://github.com/forestrie/univocity-tools/releases/tag/v0.6.0)
+   (or a newer tag).
 2. One-shot EOA deploy (uses `deploy-manifest-<tag>.json` when present):
 
 ```shell
 ./deployer-darwin-arm64 deploy imutable \
-  --from-release v0.4.0 \
+  --from-release v0.1.4 \
   --bootstrap-alg ks256 \
   --bootstrap-ks256-signer 0xYourSigner \
   --deploy-key "$DEPLOY_KEY" \
@@ -139,14 +140,14 @@ Published **build archives** (see [ADR-0007](docs/adr/adr-0007-contract-release-
 
 Each archive is round-trip validated with `contract-artefacts archive-extract`
 and `archive-validate` before publish. Requires
-[univocity-tools](https://github.com/forestrie/univocity-tools) `v0.4.0+`
+[univocity-tools](https://github.com/forestrie/univocity-tools) `v0.6.0+`
 (`contract-artefacts` binary).
 
 Local dry-run (downloads Linux `contract-artefacts` on CI; on macOS use a local
 Cart build or `workflow_dispatch`):
 
 ```shell
-UNIVOCITY_TOOLS_VERSION=v0.4.0 task contract-artefacts-release:release
+UNIVOCITY_TOOLS_VERSION=v0.6.0 task contract-artefacts-release:release
 ls -la .work/univocity-*.tar.gz .work/create3-factory-*.tar.gz
 ```
 
