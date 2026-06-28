@@ -62,8 +62,14 @@ re-initialization.
 ### Consumer deploy (no Foundry required)
 
 Independent operators can deploy **ImutableUnivocity** from a published release
-using the prebuilt [univocity-tools deployer](https://github.com/forestrie/univocity-tools/releases)
-binary — no `forge`, `cast`, or clone of this repo.
+using either:
+
+- **Browser:** [univocity-deploy](https://univocity-deploy.pages.dev) — Privy or
+  injected wallet, verified `deploy-manifest` + sidecar, genesis JSON download.
+- **CLI:** prebuilt [univocity-tools deployer](https://github.com/forestrie/univocity-tools/releases)
+  binary — no `forge`, `cast`, or clone of this repo.
+
+#### CLI one-shot
 
 1. Download `deployer-linux-x64` or `deployer-darwin-arm64` (+ `.sha256`) from
    the [univocity-tools v0.6.0 release](https://github.com/forestrie/univocity-tools/releases/tag/v0.6.0)
@@ -101,6 +107,13 @@ deterministic address using the shared Arachnid CREATE3 factory. Config in
 `deployment.json`. Secrets via **Doppler** (or `.env`): `RPC_URL`, `PRIVATE_KEY`,
 `UPGRADE_ADMIN`, `BOOTSTRAP_ALG`, `BOOTSTRAP_PUB`. Steps are idempotent (no-op
 when factory or proxy already deployed).
+
+**Foundry-free operator path:** use the [univocity-tools deployer](https://github.com/forestrie/univocity-tools)
+binary — `deploy create3 --from-release <tag>` then
+`deploy uups --from-release <tag>` (see
+[ADR-0012 in univocity-tools](https://github.com/forestrie/univocity-tools/blob/main/docs/adr/adr-0012-foundry-free-uups-deploy.md)).
+Requires a release whose deploy-manifest includes `UUPSUnivocity` and
+`ERC1967Proxy` bytecode entries.
 
 ```shell
 task deploy                 # one-shot: factory (if missing), prepare, execute

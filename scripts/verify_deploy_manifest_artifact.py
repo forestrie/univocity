@@ -19,12 +19,17 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         help="ImutableUnivocity forge artifact JSON path",
     )
+    parser.add_argument(
+        "--contract",
+        default="ImutableUnivocity",
+        help="Manifest contracts key to verify (default: ImutableUnivocity)",
+    )
     args = parser.parse_args(argv)
 
     manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
-    entry = manifest.get("contracts", {}).get("ImutableUnivocity")
+    entry = manifest.get("contracts", {}).get(args.contract)
     if not isinstance(entry, dict):
-        raise SystemExit("manifest missing contracts.ImutableUnivocity")
+        raise SystemExit(f"manifest missing contracts.{args.contract}")
 
     artifact_entry = contract_entry(args.artifact)
     for field in ("creationBytecode", "bytecodeSha256"):

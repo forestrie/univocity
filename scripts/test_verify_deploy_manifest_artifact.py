@@ -86,6 +86,70 @@ class VerifyDeployManifestArtifactTest(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 verify_main([str(manifest_path), str(artifact_path)])
 
+    def test_accepts_uups_univocity_entry(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            out_dir = root / "out"
+            imutable_dir = out_dir / "ImutableUnivocity.sol"
+            imutable_dir.mkdir(parents=True)
+            (imutable_dir / "ImutableUnivocity.json").write_text(
+                json.dumps(
+                    {
+                        "bytecode": {"object": "0x6001"},
+                        "metadata": json.dumps(
+                            {"compiler": {"version": "0.8.26+commit.abc"}}
+                        ),
+                        "abi": [{"type": "constructor", "inputs": []}],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            artifact_dir = out_dir / "UUPSUnivocity.sol"
+            artifact_dir.mkdir(parents=True)
+            bytecode = "0x6002"
+            (artifact_dir / "UUPSUnivocity.json").write_text(
+                json.dumps(
+                    {
+                        "bytecode": {"object": bytecode},
+                        "metadata": json.dumps(
+                            {"compiler": {"version": "0.8.26+commit.abc"}}
+                        ),
+                        "abi": [
+                            {
+                                "type": "function",
+                                "name": "initialize",
+                                "inputs": [],
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            manifest_path = root / "deploy-manifest-v0.4.0.json"
+            self.assertEqual(
+                generate_main(
+                    [
+                        "v0.4.0",
+                        "--out-dir",
+                        str(out_dir),
+                        "--output",
+                        str(manifest_path),
+                    ]
+                ),
+                0,
+            )
+            self.assertEqual(
+                verify_main(
+                    [
+                        str(manifest_path),
+                        str(artifact_dir / "UUPSUnivocity.json"),
+                        "--contract",
+                        "UUPSUnivocity",
+                    ]
+                ),
+                0,
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
