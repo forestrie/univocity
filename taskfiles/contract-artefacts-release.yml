@@ -1,9 +1,9 @@
 # Build archives for contracts release via univocity-tools contract-artefacts.
-# Local: UNIVOCITY_TOOLS_VERSION=v0.4.0 task contract-artefacts-release:release
+# Local: UNIVOCITY_TOOLS_VERSION=v0.6.0 task contract-artefacts-release:release
 version: "3"
 
 vars:
-  UNIVOCITY_TOOLS_VERSION: '{{.UNIVOCITY_TOOLS_VERSION | default "v0.4.0"}}'
+  UNIVOCITY_TOOLS_VERSION: '{{.UNIVOCITY_TOOLS_VERSION | default "v0.6.0"}}'
   TOOLS_CACHE_DIR: "{{.ROOT_DIR}}/.cache/univocity-tools"
   CART_BIN: "{{.TOOLS_CACHE_DIR}}/contract-artefacts-linux-x64"
   WORK_DIR: "{{.ROOT_DIR}}/.work"

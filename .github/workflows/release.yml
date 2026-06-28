@@ -12,7 +12,7 @@ on:
       tools_version:
         description: "univocity-tools release tag"
         required: false
-        default: "v0.4.0"
+        default: "v0.6.0"
         type: string
 
 jobs:
@@ -43,7 +43,7 @@ jobs:
 
       - name: Build, archive, and validate
         env:
-          UNIVOCITY_TOOLS_VERSION: ${{ inputs.tools_version || 'v0.4.0' }}
+          UNIVOCITY_TOOLS_VERSION: ${{ inputs.tools_version || 'v0.6.0' }}
         run: task contract-artefacts-release:release
 
       - name: Generate deploy manifest
