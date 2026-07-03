@@ -9,6 +9,15 @@ on:
       - "v*"
   workflow_dispatch:
     inputs:
+      orchestrator_run_id:
+        description: Correlation id from release-orchestrator release.yml
+        required: false
+        type: string
+      skip_cross_repo_tests:
+        description: Skip cross-repo tests when orchestrator already qualified dev
+        required: false
+        default: true
+        type: boolean
       tools_version:
         description: "univocity-tools release tag"
         required: false
