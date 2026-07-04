@@ -16,6 +16,10 @@ import {
 import {includedRoot} from "@univocity/algorithms/includedRoot.sol";
 import {IUnivocityEvents} from "@univocity/interfaces/IUnivocityEvents.sol";
 import {consistentRoots} from "@univocity/algorithms/consistentRoots.sol";
+import {
+    buildDetachedPayloadCommitment,
+    verifyConsistencyProofChain
+} from "@univocity/checkpoints/lib/consistencyReceipt.sol";
 
 /// @notice Harness to call includedRoot with calldata proof (tests pass memory).
 contract IncludedRootHarness {
@@ -57,12 +61,42 @@ contract ConsistencyCommitmentHarness {
     }
 }
 
+/// @notice Harness to sign a multi-proof consistency receipt (calldata proofs).
+contract MultiSealReceiptHarness is Test {
+    function buildSignedReceipt(
+        ConsistencyProof[] calldata proofs,
+        bytes memory protected,
+        uint256 signerPk
+    ) external returns (ConsistencyReceipt memory) {
+        bytes32[] memory initialAcc = new bytes32[](0);
+        bytes32[] memory finalAcc =
+            verifyConsistencyProofChain(initialAcc, proofs);
+        bytes memory detached = buildDetachedPayloadCommitment(finalAcc);
+        bytes memory sigStruct = buildSigStructure(protected, detached);
+        (uint8 v, bytes32 r, bytes32 s) =
+            vm.sign(signerPk, keccak256(sigStruct));
+        return ConsistencyReceipt({
+            protectedHeader: protected,
+            signature: abi.encodePacked(r, s, v),
+            consistencyProofs: proofs,
+            delegationProof: DelegationProof({
+                protectedHeader: "",
+                delegationKey: "",
+                mmrStart: 0,
+                mmrEnd: 0,
+                signature: ""
+            })
+        });
+    }
+}
+
 /// @notice Integration tests: full bootstrap, grant inclusion proof,
 ///    permissionless submission.
 contract CheckpointFlowTest is Test, IUnivocityEvents {
     ImutableUnivocity internal univocity;
     IncludedRootHarness internal includedRootHarness;
     ConsistencyCommitmentHarness internal commitmentHarness;
+    MultiSealReceiptHarness internal receiptHarness;
 
     address internal constant BOOTSTRAP = address(0xB007);
     uint256 internal constant SIGNER_PK =
@@ -76,6 +110,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
         rootLogId = keccak256("authority");
         includedRootHarness = new IncludedRootHarness();
         commitmentHarness = new ConsistencyCommitmentHarness();
+        receiptHarness = new MultiSealReceiptHarness();
 
         vm.prank(BOOTSTRAP);
         univocity =
@@ -508,6 +543,98 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
         );
 
         assertEq(univocity.logState(TARGET_LOG).size, 2);
+    }
+
+    /// @notice Publisher path: one receipt chains two per-seal consistency proofs
+    ///    (on-chain size 0 → 2) using `ConsistencyProof[]` length 2.
+    /// @dev Pins the proof composition `publishproof` must build when catching
+    ///    up multiple sealed checkpoints in one `publishCheckpoint` call.
+    ///    See plan-0033 / FOR-314.
+    function test_multiSealProofChain_singlePublish_advancesTargetLogTwice()
+        public
+    {
+        PublishGrant memory g0 = _publishGrant(
+            rootLogId,
+            GRANT_ROOT,
+            GC_AUTH_LOG,
+            1000,
+            0,
+            bytes32(0),
+            abi.encodePacked(ks256Signer)
+        );
+        bytes32 authLeaf0 = _leafCommitment(IDTIMESTAMP_0, g0);
+        univocity.publishCheckpoint(
+            _buildConsistencyReceipt(_toAcc(authLeaf0)),
+            _emptyInclusionProof(),
+            IDTIMESTAMP_0,
+            g0
+        );
+
+        PublishGrant memory gTarget = _publishGrant(
+            TARGET_LOG,
+            GRANT_DATA,
+            GC_DATA_LOG,
+            1000,
+            0,
+            rootLogId,
+            abi.encodePacked(ks256Signer)
+        );
+        bytes32 targetLeaf1 = _leafCommitment(IDTIMESTAMP_1, gTarget);
+        bytes8 idtimestamp2 = bytes8(uint64(2));
+        bytes32 targetLeaf2 = _leafCommitment(idtimestamp2, gTarget);
+        ConsistencyReceipt memory consistency1to2 =
+            _buildConsistencyReceipt1To2(authLeaf0, targetLeaf1);
+        vm.prank(BOOTSTRAP);
+        univocity.publishCheckpoint(
+            consistency1to2, _emptyInclusionProof(), IDTIMESTAMP_0, g0
+        );
+
+        bytes32[] memory path = _path1(authLeaf0);
+        ConsistencyReceipt memory chained =
+            _buildConsistencyReceipt0To2(targetLeaf1, targetLeaf2);
+        vm.prank(address(0x6001));
+        univocity.publishCheckpoint(
+            chained,
+            _buildPaymentInclusionProof(1, path),
+            IDTIMESTAMP_1,
+            gTarget
+        );
+
+        assertEq(univocity.logState(TARGET_LOG).size, 2);
+        assertEq(
+            chained.consistencyProofs.length,
+            2,
+            "publisher must supply one proof per sealed step"
+        );
+        assertEq(chained.consistencyProofs[0].treeSize1, 0);
+        assertEq(chained.consistencyProofs[0].treeSize2, 1);
+        assertEq(chained.consistencyProofs[1].treeSize1, 1);
+        assertEq(chained.consistencyProofs[1].treeSize2, 2);
+    }
+
+    /// @dev Build a receipt whose `consistencyProofs` chain size 0 → 1 → 2.
+    function _buildConsistencyReceipt0To2(bytes32 leaf1, bytes32 leaf2)
+        internal
+        returns (ConsistencyReceipt memory)
+    {
+        ConsistencyProof[] memory proofs = new ConsistencyProof[](2);
+        proofs[0] = ConsistencyProof({
+            treeSize1: 0,
+            treeSize2: 1,
+            paths: new bytes32[][](0),
+            rightPeaks: _toAcc(leaf1)
+        });
+
+        bytes32[] memory path1 = _path1(leaf2);
+        bytes32[][] memory paths = new bytes32[][](1);
+        paths[0] = path1;
+        proofs[1] = ConsistencyProof({
+            treeSize1: 1, treeSize2: 2, paths: paths, rightPeaks: _toAcc(leaf2)
+        });
+
+        return receiptHarness.buildSignedReceipt(
+            proofs, hex"a1013a00010106", SIGNER_PK
+        );
     }
 
     function _buildConsistencyReceipt1To3(

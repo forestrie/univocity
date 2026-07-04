@@ -11,6 +11,9 @@
       "rev": "fcbae5394ae8ad52d8e580a3477db99814b9d565"
     }
   },
+  "lib/solmate": {
+    "rev": "89365b880c4f3c786bdd453d4b8e8fe410344a69"
+  },
   "lib/witnet-solidity-bridge": {
     "tag": {
       "name": "3.1.5",
