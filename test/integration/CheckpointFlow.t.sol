@@ -43,7 +43,7 @@ contract ConsistencyCommitmentHarness {
         uint256 ifrom,
         bytes32[][] calldata paths,
         bytes32[] calldata rightPeaks
-    ) external view returns (bytes32) {
+    ) external view returns (bytes memory) {
         bytes32[] memory roots = consistentRoots(ifrom, accumulator, paths);
         bytes32[] memory accMem =
             new bytes32[](roots.length + rightPeaks.length);
@@ -53,7 +53,7 @@ contract ConsistencyCommitmentHarness {
         for (uint256 j = 0; j < rightPeaks.length; j++) {
             accMem[roots.length + j] = rightPeaks[j];
         }
-        return sha256(abi.encodePacked(accMem));
+        return abi.encodePacked(accMem);
     }
 }
 
@@ -210,7 +210,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
             rightPeaks: accMem
         });
         bytes memory protected = hex"a1013a00010106";
-        bytes32 commitment = sha256(abi.encodePacked(accMem));
+        bytes memory commitment = abi.encodePacked(accMem);
         bytes memory sigStruct =
             buildSigStructure(protected, abi.encodePacked(commitment));
         (uint8 v, bytes32 r, bytes32 s) =
@@ -236,7 +236,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
         bytes32[] memory accFrom = new bytes32[](1);
         accFrom[0] = leaf0;
         commitmentHarness.setAccumulator(accFrom);
-        bytes32 commitment =
+        bytes memory commitment =
             commitmentHarness.getCommitment(0, paths, rightPeaksOnly);
         ConsistencyProof[] memory proofs = new ConsistencyProof[](1);
         proofs[0] = ConsistencyProof({
@@ -522,7 +522,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
         accFrom[0] = leaf0;
         commitmentHarness.setAccumulator(accFrom);
         bytes32[] memory emptyRightPeaks = new bytes32[](0);
-        bytes32 commitment =
+        bytes memory commitment =
             commitmentHarness.getCommitment(0, paths, emptyRightPeaks);
         ConsistencyProof[] memory proofs = new ConsistencyProof[](1);
         proofs[0] = ConsistencyProof({

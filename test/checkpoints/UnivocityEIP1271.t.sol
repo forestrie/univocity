@@ -257,7 +257,7 @@ contract UnivocityEIP1271Test is UnivocityTestHelper {
         pure
         returns (bytes32)
     {
-        bytes32 commitment = sha256(abi.encodePacked(accMem));
+        bytes memory commitment = abi.encodePacked(accMem);
         bytes memory sigStruct = buildSigStructure(
             hex"a1013a00010106", abi.encodePacked(commitment)
         );

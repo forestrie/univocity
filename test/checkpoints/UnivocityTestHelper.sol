@@ -253,7 +253,7 @@ contract ConsistencyCommitmentHarness {
         uint256 ifrom,
         bytes32[][] calldata paths,
         bytes32[] calldata rightPeaks
-    ) external view returns (bytes32) {
+    ) external view returns (bytes memory) {
         bytes32[] memory roots = consistentRoots(ifrom, accumulator, paths);
         bytes32[] memory accMem =
             new bytes32[](roots.length + rightPeaks.length);
@@ -263,7 +263,7 @@ contract ConsistencyCommitmentHarness {
         for (uint256 j = 0; j < rightPeaks.length; j++) {
             accMem[roots.length + j] = rightPeaks[j];
         }
-        return sha256(abi.encodePacked(accMem));
+        return abi.encodePacked(accMem);
     }
 }
 
@@ -398,7 +398,7 @@ abstract contract UnivocityTestHelper is Test {
         ConsistencyProof[] memory proofs = new ConsistencyProof[](1);
         proofs[0] = _decodedPayload0To1(accMem[0]);
         bytes memory protected = hex"a1013a00010106";
-        bytes32 commitment = sha256(abi.encodePacked(accMem));
+        bytes memory commitment = abi.encodePacked(accMem);
         bytes memory sigStruct =
             buildSigStructure(protected, abi.encodePacked(commitment));
         (uint8 v, bytes32 r, bytes32 s) =
@@ -565,7 +565,7 @@ abstract contract UnivocityTestHelper is Test {
             rightPeaks: new bytes32[](0)
         });
         bytes memory protected = hex"a1013a00010106";
-        bytes32 commitment = sha256(abi.encodePacked());
+        bytes memory commitment = abi.encodePacked();
         bytes memory sigStruct =
             buildSigStructure(protected, abi.encodePacked(commitment));
         (uint8 v, bytes32 r, bytes32 s) =
@@ -616,7 +616,7 @@ abstract contract UnivocityTestHelper is Test {
             rightPeaks: rightPeaksOnly
         });
         bytes memory protected = hex"a1013a00010106";
-        bytes32 commitment = sha256(abi.encodePacked(toAcc));
+        bytes memory commitment = abi.encodePacked(toAcc);
         bytes memory sigStruct =
             buildSigStructure(protected, abi.encodePacked(commitment));
         (uint8 v, bytes32 r, bytes32 s) =
@@ -652,7 +652,7 @@ abstract contract UnivocityTestHelper is Test {
             rightPeaks: rightPeaksOnly
         });
         bytes memory protected = hex"a10126";
-        bytes32 commitment = sha256(abi.encodePacked(toAcc));
+        bytes memory commitment = abi.encodePacked(toAcc);
         bytes memory sigStruct =
             buildSigStructure(protected, abi.encodePacked(commitment));
         bytes32 hash = sha256(sigStruct);
@@ -712,7 +712,7 @@ abstract contract UnivocityTestHelper is Test {
             rightPeaks: toAcc
         });
         bytes memory protected = hex"a1013a00010106";
-        bytes32 commitment = sha256(abi.encodePacked(toAcc));
+        bytes memory commitment = abi.encodePacked(toAcc);
         bytes memory sigStruct =
             buildSigStructure(protected, abi.encodePacked(commitment));
         (uint8 v, bytes32 r, bytes32 s) =
@@ -737,7 +737,7 @@ abstract contract UnivocityTestHelper is Test {
         accFrom[0] = leaf0;
         commitmentHarness.setAccumulator(accFrom);
         bytes32[] memory emptyRightPeaks = new bytes32[](0);
-        bytes32 commitment =
+        bytes memory commitment =
             commitmentHarness.getCommitment(0, paths, emptyRightPeaks);
         ConsistencyProof[] memory proofs = new ConsistencyProof[](1);
         proofs[0] = ConsistencyProof({
@@ -807,7 +807,7 @@ abstract contract UnivocityTestHelper is Test {
             rightPeaks: rightPeaksWrong
         });
         bytes memory protected = hex"a1013a00010106";
-        bytes32 commitment = sha256(abi.encodePacked(rightPeaksWrong));
+        bytes memory commitment = abi.encodePacked(rightPeaksWrong);
         bytes memory sigStruct =
             buildSigStructure(protected, abi.encodePacked(commitment));
         (uint8 v, bytes32 r, bytes32 s) =
@@ -833,7 +833,7 @@ abstract contract UnivocityTestHelper is Test {
         commitmentHarness.setAccumulator(accFrom);
         bytes32[] memory rightPeaks = new bytes32[](1);
         rightPeaks[0] = leaf2;
-        bytes32 commitment =
+        bytes memory commitment =
             commitmentHarness.getCommitment(1, paths, rightPeaks);
         ConsistencyProof[] memory proofs = new ConsistencyProof[](1);
         proofs[0] = ConsistencyProof({
@@ -867,7 +867,7 @@ abstract contract UnivocityTestHelper is Test {
         accFrom[1] = leaf1;
         commitmentHarness.setAccumulator(accFrom);
         bytes32[] memory emptyRightPeaks = new bytes32[](0);
-        bytes32 commitment =
+        bytes memory commitment =
             commitmentHarness.getCommitment(1, paths, emptyRightPeaks);
         ConsistencyProof[] memory proofs = new ConsistencyProof[](1);
         proofs[0] = ConsistencyProof({
@@ -905,7 +905,7 @@ abstract contract UnivocityTestHelper is Test {
         accFrom[1] = leaf1;
         commitmentHarness.setAccumulator(accFrom);
         bytes32[] memory emptyRightPeaks = new bytes32[](0);
-        bytes32 commitment =
+        bytes memory commitment =
             commitmentHarness.getCommitment(1, paths, emptyRightPeaks);
         ConsistencyProof[] memory proofs = new ConsistencyProof[](1);
         proofs[0] = ConsistencyProof({
@@ -1154,7 +1154,7 @@ abstract contract UnivocityTestHelper is Test {
         ConsistencyProof[] memory proofs = new ConsistencyProof[](1);
         proofs[0] = _decodedPayload0To1(accMem[0]);
         bytes memory protected = hex"a10126";
-        bytes32 commitment = sha256(abi.encodePacked(accMem));
+        bytes memory commitment = abi.encodePacked(accMem);
         bytes memory sigStruct =
             buildSigStructure(protected, abi.encodePacked(commitment));
         bytes32 hash = sha256(sigStruct);

@@ -757,8 +757,16 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
         (bytes32 peakV, bytes32 kxV, bytes32 kyV) = verifier.decodeAndRecover(
             consistencyRebuild, _emptyInclusionProof(), idtimestampBe, g
         );
-        assertEq(kxV, bytes32(kx), "verifier key.x must match for rebuilt");
-        assertEq(kyV, bytes32(ky), "verifier key.y must match for rebuilt");
+        // Recovery canonicalises to the lex-min candidate per signature, so the
+        // rebuilt receipt (different accumulator, hence a different signature)
+        // need not recover the same key as consistency0. Assert the 4-arg
+        // decode agrees with the 1-arg recovery for the rebuilt receipt, and
+        // the first peak is set.
+        ES256RecoveredKeyFromReceiptHelper oneArg =
+            new ES256RecoveredKeyFromReceiptHelper();
+        (bytes32 kx1, bytes32 ky1) = oneArg.getRecoveredKey(consistencyRebuild);
+        assertEq(kxV, kx1, "rebuilt key.x: 4-arg must match 1-arg recovery");
+        assertEq(kyV, ky1, "rebuilt key.y: 4-arg must match 1-arg recovery");
         assertTrue(peakV != bytes32(0), "verifier peak must be non-zero");
     }
 
@@ -784,8 +792,16 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
         (bytes32 peak4, bytes32 kx4, bytes32 ky4) = verifier.decodeAndRecover(
             consistency, _emptyInclusionProof(), idtimestampBe, g
         );
-        assertEq(kx4, bytes32(pubX), "verifier key.x must match signer");
-        assertEq(ky4, bytes32(pubY), "verifier key.y must match signer");
+        // A 64-byte ES256 signature (r || s) recovers to two valid candidate
+        // keys; recoverES256 canonicalises to the lexicographically smaller,
+        // which is not determinable to be the raw signer from (r, s) alone.
+        // Assert the 4-arg contract-view decode agrees with the 1-arg recovery
+        // on that canonical key (decode-path alignment).
+        ES256RecoveredKeyFromReceiptHelper oneArg =
+            new ES256RecoveredKeyFromReceiptHelper();
+        (bytes32 kx1, bytes32 ky1) = oneArg.getRecoveredKey(consistency);
+        assertEq(kx4, kx1, "4-arg decode key.x must match 1-arg recovery");
+        assertEq(ky4, ky1, "4-arg decode key.y must match 1-arg recovery");
         assertTrue(peak4 != bytes32(0), "verifier peak must be non-zero");
     }
 

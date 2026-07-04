@@ -149,7 +149,7 @@ contract UnivocityHandler is Test {
             rightPeaks: accMem
         });
         bytes memory protected = hex"a1013a00010106";
-        bytes32 commitment = sha256(abi.encodePacked(accMem));
+        bytes memory commitment = abi.encodePacked(accMem);
         bytes memory sigStruct =
             buildSigStructure(protected, abi.encodePacked(commitment));
         (uint8 v, bytes32 r, bytes32 s) =
@@ -278,7 +278,7 @@ contract UnivocityHandler is Test {
             treeSize1: 1, treeSize2: 2, paths: paths, rightPeaks: toAcc
         });
         bytes memory protected = hex"a1013a00010106";
-        bytes32 commitment = sha256(abi.encodePacked(toAcc));
+        bytes memory commitment = abi.encodePacked(toAcc);
         bytes memory sigStruct =
             buildSigStructure(protected, abi.encodePacked(commitment));
         (uint8 v, bytes32 r, bytes32 s) =

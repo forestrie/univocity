@@ -50,16 +50,19 @@ function verifyConsistencyProofChain(
     return accMem;
 }
 
-/// @notice Build the detached payload (commitment) for consistency receipt
-///    signature verification. Draft: "use the consistent accumulator as
-///    the detached payload".
-/// @param accumulator Peak hashes (MMR accumulator).
-/// @return commitment 32-byte SHA-256 commitment.
+/// @notice Build the detached payload for consistency receipt signature
+///    verification. Draft-bryce (ADR-0046): "use the consistent accumulator
+///    as the detached payload" — the raw concatenation of the accumulator
+///    peaks, in descending height order, matching the draft's inclusion-
+///    receipt raw-value convention. No hashing: the Sig_structure is hashed
+///    whole for verification.
+/// @param accumulator Peak hashes (MMR accumulator), descending height order.
+/// @return detachedPayload Raw concatenation of the peaks (32 bytes each).
 function buildDetachedPayloadCommitment(bytes32[] memory accumulator)
     pure
-    returns (bytes memory commitment)
+    returns (bytes memory detachedPayload)
 {
-    commitment = abi.encodePacked(sha256(abi.encodePacked(accumulator)));
+    detachedPayload = abi.encodePacked(accumulator);
 }
 
 /// @notice MMR profile: verify a series of pre-decoded consistency proofs per
