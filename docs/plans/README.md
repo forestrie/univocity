@@ -30,6 +30,10 @@ Algorithms test coverage parity.
 [plan-0014-gas-metrics.md](plan-0014-gas-metrics.md)  
 Gas metrics (if present).
 
+[plan-2607-01-lone-peak-grant-review-remediation.md](plan-2607-01-lone-peak-grant-review-remediation.md)  
+Review remediation for the lone-peak grant inclusion fix: an empty grant
+inclusion path is a peak assertion, not a missing proof. **DRAFT.**
+
 ## Historical plans
 
 Superseded or point-in-time plans are in [../history/plans/](../history/plans/).
