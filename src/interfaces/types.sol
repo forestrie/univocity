@@ -31,8 +31,12 @@ struct ConsistencyProof {
     bytes32[] rightPeaks;
 }
 
-/// @notice Pre-decoded inclusion proof (index + path). Empty path means
-///    no payment proof.
+/// @notice Pre-decoded inclusion proof (index + path). An empty path is a
+///    valid proof, NOT a missing one: it asserts the leaf is itself an
+///    accumulator peak (a height-0 perfect subtree, so no sibling to hash
+///    against). It verifies as an exact peak match and fails closed — see
+///    _Univocity._applyInclusionGrant.
+/// @param index MMR node index of the leaf (not a leaf ordinal).
 struct InclusionProof {
     uint64 index;
     bytes32[] path;

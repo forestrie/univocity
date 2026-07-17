@@ -358,16 +358,36 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
         }
 
         LogState storage ownerLog = _logs[authLogId];
-        // Empty path is valid only when owner has size 1 and index 0 (peak =
-        // leaf); e.g. when creating a child log and the owner has one leaf.
-        if (grantInclusionProof.path.length == 0) {
-            if (!(ownerLog.size == 1 && grantInclusionProof.index == 0)) {
-                revert InvalidPaymentReceipt();
-            }
-        }
         if (grantInclusionProof.path.length > MAX_HEIGHT) {
             revert ProofPayloadExceedsMaxHeight();
         }
+        // An empty path is a PROOF, not a missing proof. It asserts the grant
+        // leaf IS one of the owner's accumulator peaks, so there is no sibling
+        // to hash against. This is the normal shape whenever the grant leaf is
+        // the owner's last leaf and the owner's leaf count is odd (the leaf is
+        // then a height-0 perfect subtree, i.e. a peak). Creating a child log
+        // hits it about half the time, because the create grant is by
+        // construction the owner's most recent leaf: for an owner with N
+        // leaves the grant is leaf N-1, a lone peak exactly when N is odd.
+        //
+        // Accepting an empty path is ALWAYS safe: verifyGrantInclusionStorage
+        // below still decides, and for an empty path it degrades to an exact
+        // peak match rather than a weaker check —
+        //   - proofLengthRootStorage(acc, size, 0) selects the height-0 peak
+        //     via peakIndex(leafCount, 0); when the owner has no lone-leaf
+        //     peak (even leaf count) that index is out of range and it returns
+        //     bytes32(0) -> false;
+        //   - includedRoot(i, leaf, []) returns the leaf unchanged.
+        // So the test reduces to `grant leaf == owner's height-0 peak`, and it
+        // fails closed. An omitted or forged proof cannot pass: the leaf is
+        // sha256 over the grant's own fields (rule 2 — see _leafCommitment),
+        // so a caller cannot choose it to collide with a real peak, and
+        // verifyInclusionStorage rejects size == 0 outright.
+        //
+        // Requiring `ownerLog.size == 1` here (the previous guard) rejected
+        // every legitimate lone-peak grant against a grown owner log, and the
+        // publisher terminally acks a mined revert — permanently stranding the
+        // child log. Soundness lives in the peak match, not in this guard.
         if (!ownerLog.verifyGrantInclusionStorage(
                 publishGrant,
                 grantIDTimestampBe,
