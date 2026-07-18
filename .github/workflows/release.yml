@@ -123,6 +123,7 @@ jobs:
           name: univocity
           path: upload/univocity/*.tar.gz
           if-no-files-found: error
+          retention-days: 7  # handoff to the release step; permanent copies are release assets (FOR-398)
 
       - name: Upload CREATE3 factory workflow artefact
         uses: actions/upload-artifact@v4
@@ -130,6 +131,7 @@ jobs:
           name: create3-factory
           path: upload/create3-factory/*.tar.gz
           if-no-files-found: error
+          retention-days: 7  # handoff to the release step; permanent copies are release assets (FOR-398)
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
