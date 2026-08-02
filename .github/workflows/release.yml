@@ -9,12 +9,11 @@ on:
       - "v*"
   workflow_dispatch:
     inputs:
-      orchestrator_run_id:
-        description: Correlation id from release-orchestrator release.yml
-        required: false
-        type: string
       skip_cross_repo_tests:
-        description: Skip cross-repo tests when orchestrator already qualified dev
+        description: >-
+          Skip cross-repo tests on a manual re-cut. The orchestrator no longer
+          dispatches this workflow (plan-2608-06 Phase 3) — it reads the
+          releases this repo publishes for itself.
         required: false
         default: true
         type: boolean
