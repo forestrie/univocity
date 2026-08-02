@@ -49,17 +49,23 @@ on:
         required: false
         type: string
         default: ""
+    # Every value re-exported below is a public on-chain deployment fact — see
+    # the matching note on the `deploy` job and devdocs plan-2608-04.
     outputs:
       imutable_address:
+        # secret-egress-ok: a deployed contract address, public on-chain
         description: "Deployed ImutableUnivocity address"
         value: ${{ jobs.deploy.outputs.imutable_address }}
       chain_id:
+        # secret-egress-ok: an EIP-155 chain id, not secret-derived
         description: "EIP-155 chain id"
         value: ${{ jobs.deploy.outputs.chain_id }}
       bootstrap_alg:
+        # secret-egress-ok: echoes the `bootstrap_alg` input, not secret-derived
         description: "Bootstrap algorithm used"
         value: ${{ jobs.deploy.outputs.bootstrap_alg }}
       manifest_json:
+        # secret-egress-ok: public deployment record, already logged and uploaded
         description: "Deployment manifest JSON"
         value: ${{ jobs.deploy.outputs.manifest_json }}
     secrets:
@@ -75,6 +81,13 @@ permissions:
 
 jobs:
   deploy:
+    # secret-egress-ok: exports on-chain deployment facts, no key material
+    # The manifest holds kind/version/alg/chainId/contract address/publishMode/
+    # deployer address/salt/safeTxHash/tool versions — all public, and already
+    # printed to the log and uploaded as an artifact. DEPLOY_KEY, RPC_URL and
+    # BOOTSTRAP_PEM_ES256 are read at point of use by the deploy step and never
+    # reach an output. The `workflow_call` re-export carries the same four
+    # public values. See devdocs plan-2608-04.
     name: deploy imutable (${{ inputs.bootstrap_alg }})
     runs-on: ubuntu-latest
     outputs:
