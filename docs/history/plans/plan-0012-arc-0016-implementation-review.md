@@ -16,7 +16,7 @@ divergences and gaps for review before considering ARC-0017.
 
 ## 1. Scope
 
-- **Source:** [ARC-0016 Checkpoint Incentivisation Model](https://github.com/forestrie/devdocs/blob/main/arc/arc-0016-checkpoint-incentivisation-model.md) (devdocs).
+- **Source:** [ARC-0016 Checkpoint Incentivisation Model](https://github.com/forestrie/devdocs/blob/main/archive/2602/arc/arc-0016-checkpoint-incentivisation-model.md) (devdocs).
 - **Implementation:** Univocity.sol and related interfaces/libraries in this
   repo.
 - **Purpose:** Re-draft the model to reflect what was actually built; identify

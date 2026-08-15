@@ -11,7 +11,7 @@
 
 This document re-drafts the checkpoint incentivisation model to reflect the
 **actual current implementation** in univocity. It is a reflection of
-[ARC-0016 in devdocs](https://github.com/forestrie/devdocs/blob/main/arc/arc-0016-checkpoint-incentivisation-model.md) as built. For divergences and
+[ARC-0016 in devdocs](https://github.com/forestrie/devdocs/blob/main/archive/2602/arc/arc-0016-checkpoint-incentivisation-model.md) as built. For divergences and
 gaps vs the original design, see **Appendix A**.
 
 ---
