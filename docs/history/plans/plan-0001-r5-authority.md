@@ -9,10 +9,10 @@
 |----------|-------------|
 | [ARC-0001](../arc/arc-0001-grant-minimum-range.md) | Grant minimum range (min_growth) and permissionless submission |
 | [ARC-0016](https://github.com/forestrie/devdocs/blob/main/archive/2602/arc/arc-0016-checkpoint-incentivisation-model.md) | Checkpoint Incentivisation Model |
-| [ADR-0025](https://github.com/forestrie/devdocs/blob/main/adr/adr-0025-log-based-checkpoint-authority.md) | Log-Based Checkpoint Publishing Authority |
-| [ADR-0026](https://github.com/forestrie/devdocs/blob/main/adr/adr-0026-content-exclusion-proofs.md) | Content-Based Exclusion Proofs (deferred) |
-| [ADR-0027](https://github.com/forestrie/devdocs/blob/main/adr/adr-0027-urkle-trie-retention.md) | Urkle Trie Retention Analysis |
-| [ADR-0028](https://github.com/forestrie/devdocs/blob/main/adr/adr-0028-log-ownership-challenge.md) | Log Ownership Model (rejected - signing key IS ownership) |
+| [ADR-0025](https://github.com/forestrie/devdocs/blob/main/archive/2602/adr/adr-0025-log-based-checkpoint-authority.md) | Log-Based Checkpoint Publishing Authority |
+| [ADR-0026](https://github.com/forestrie/devdocs/blob/main/archive/2602/adr/adr-0026-content-exclusion-proofs.md) | Content-Based Exclusion Proofs (deferred) |
+| [ADR-0027](https://github.com/forestrie/devdocs/blob/main/archive/2602/adr/adr-0027-urkle-trie-retention.md) | Urkle Trie Retention Analysis |
+| [ADR-0028](https://github.com/forestrie/devdocs/blob/main/archive/2602/adr/adr-0028-log-ownership-challenge.md) | Log Ownership Model (rejected - signing key IS ownership) |
 | [ARC-0010](https://github.com/forestrie/devdocs/blob/main/archive/2601/arc/arc-0010-delegation-signer-cose-cbor-scitt.md) | Delegation Signer COSE/CBOR |
 
 ## Summary
