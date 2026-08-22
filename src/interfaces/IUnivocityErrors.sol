@@ -65,6 +65,24 @@ interface IUnivocityErrors {
     error DelegationLogIdMismatch();
     error CheckpointIndexOutOfDelegationRange();
 
+    // ALG_ES256_WEBAUTHN delegation (WebAuthn assertion envelope)
+    /// @notice WebAuthn assertion envelope malformed: bad
+    ///    abi.encode(WebAuthnAuth) shape, short authenticatorData, wrong
+    ///    clientDataJSON type, or inconsistent BE/BS flags.
+    error InvalidWebAuthnAssertion();
+    /// @notice clientDataJSON.challenge is not
+    ///    base64url(sha256(Sig_structure)) for the canonical delegation
+    ///    payload — the assertion does not bind this delegation.
+    error DelegationChallengeMismatch();
+    /// @notice Assertion lacks the UP (user present) flag.
+    error DelegationUserPresenceRequired();
+    /// @notice Log policy requires UV (user verified) but the assertion
+    ///    lacks the flag.
+    error DelegationUserVerificationRequired();
+    /// @notice Log policy pins the relying party and the assertion's
+    ///    rpIdHash does not match.
+    error DelegationRpIdMismatch();
+
     // Plan 0014: Receipt of Consistency
     error MissingCheckpointSignerKey();
     error ConsistencyReceiptSignatureInvalid();

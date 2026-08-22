@@ -5,9 +5,11 @@ import {IUnivocity} from "@univocity/interfaces/IUnivocity.sol";
 import {
     GF_AUTH_LOG,
     GF_CREATE,
+    GF_DERIVED,
     GF_EXTEND,
     GF_GC_MASK,
     GF_DATA_LOG,
+    GF_REQUIRES_USER_VERIFICATION,
     GC_AUTH_LOG,
     GC_DATA_LOG,
     P256_P
@@ -32,8 +34,8 @@ import {
 } from "@univocity/cosecbor/cosecbor.sol";
 import {
     decodeDelegationKeyES256,
-    verifyDelegationProofES256,
-    verifyDelegationProofKS256
+    verifyDelegationProofKS256,
+    verifyDelegationProofP256
 } from "@univocity/checkpoints/lib/delegationVerifier.sol";
 import {
     verifyConsistencyProofChain,
@@ -458,8 +460,7 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
         bytes memory detachedPayload,
         LogConfig storage config,
         DelegationProof calldata delegationProof,
-        uint256,
-        /* grant */
+        uint256 grant,
         bytes calldata grantData
     ) internal view returns (bytes memory initialRoot) {
         // --- Verifier key: the key that must have signed the consistency receipt. ---
@@ -475,6 +476,7 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
             detachedPayload,
             config,
             delegationProof,
+            grant,
             grantData
         );
 
@@ -605,12 +607,22 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
         bytes memory detachedPayload,
         LogConfig storage config,
         DelegationProof calldata delegationProof,
+        uint256 grant,
         bytes calldata grantData
     )
         internal
         view
         returns (bytes memory rootKey, bytes32 verifierX, bytes32 verifierY)
     {
+        // WebAuthn delegation policy (PRD passkey-log-custody R1): UV is
+        // per-log policy stated by the authority in the grant, not a
+        // verifier constant. GF_REQUIRES_USER_VERIFICATION is meaningful
+        // only alongside GF_DERIVED (ADR-0062 §4). rpIdHash pinning is the
+        // same shape of decision but has no grant-flag mechanism settled
+        // yet, so it is disabled (zero) pending the canopy-side registry
+        // work; the verifier already supports it.
+        bool requireUV = (grant & GF_DERIVED) != 0
+            && (grant & GF_REQUIRES_USER_VERIFICATION) != 0;
         // Root key from storage, or from grantData on first checkpoint
         // (verify-only; no on-chain recovery). For the root authority log's
         // first checkpoint, grantData must match bootstrap (checked later in
@@ -695,10 +707,12 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
             }
 
             // Delegation present: root from grantData authorizes delegate;
-            // delegate must have signed the receipt (verified below).
+            // delegate must have signed the receipt (verified below). The
+            // root may sign as plain COSE ES256 or as a WebAuthn assertion
+            // (passkey root); dispatch is by delegation-proof alg.
             (verifierX, verifierY) =
                 decodeDelegationKeyES256(delegationProof.delegationKey);
-            verifyDelegationProofES256(
+            verifyDelegationProofP256(
                 delegationProof.protectedHeader,
                 delegationProof.mmrStart,
                 delegationProof.mmrEnd,
@@ -708,7 +722,9 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
                 rootX,
                 rootY,
                 verifierX,
-                verifierY
+                verifierY,
+                requireUV,
+                bytes32(0)
             );
             return (abi.encodePacked(rootX, rootY), verifierX, verifierY);
         }
@@ -721,7 +737,7 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
             // checkpoint in _verifyCheckpointSignatureES256; harmless duplicate.
             (verifierX, verifierY) =
                 decodeDelegationKeyES256(delegationProof.delegationKey);
-            verifyDelegationProofES256(
+            verifyDelegationProofP256(
                 delegationProof.protectedHeader,
                 delegationProof.mmrStart,
                 delegationProof.mmrEnd,
@@ -731,7 +747,9 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
                 rootX,
                 rootY,
                 verifierX,
-                verifierY
+                verifierY,
+                requireUV,
+                bytes32(0)
             );
         } else {
             verifierX = rootX;

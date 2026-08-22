@@ -12,6 +12,16 @@ pragma solidity ^0.8.24;
 uint256 constant GF_CREATE = uint256(1) << 32;
 uint256 constant GF_EXTEND = uint256(1) << 33;
 uint256 constant GF_DERIVED = uint256(1) << 34;
+// PROPOSED derived-band flag (devdocs ADR-0062: univocity bit 36, canopy
+// wire byte 3 mask 0x10; registry row pending). Meaningful only alongside
+// GF_DERIVED. When set, a WebAuthn-assertion delegation proof
+// (ALG_ES256_WEBAUTHN) must carry the UV (user verified) flag. Native
+// enforcement of a derived-band bit is deliberate: the authority states
+// the policy at issuance (PRD passkey-log-custody R1) and the verifier's
+// check stays declarative. Reading it here promotes bit 36 out of the
+// freely assignable derived set — the ADR-0062 registry must record that
+// before canopy issues grants using bit 36 for anything else.
+uint256 constant GF_REQUIRES_USER_VERIFICATION = uint256(1) << 36;
 uint256 constant GF_AUTH_LOG = uint256(1);
 uint256 constant GF_DATA_LOG = uint256(2);
 
