@@ -12,16 +12,21 @@ pragma solidity ^0.8.24;
 uint256 constant GF_CREATE = uint256(1) << 32;
 uint256 constant GF_EXTEND = uint256(1) << 33;
 uint256 constant GF_DERIVED = uint256(1) << 34;
-// PROPOSED derived-band flag (devdocs ADR-0062: univocity bit 36, canopy
-// wire byte 3 mask 0x10; registry row pending). Meaningful only alongside
-// GF_DERIVED. When set, a WebAuthn-assertion delegation proof
-// (ALG_ES256_WEBAUTHN) must carry the UV (user verified) flag. Native
-// enforcement of a derived-band bit is deliberate: the authority states
-// the policy at issuance (PRD passkey-log-custody R1) and the verifier's
-// check stays declarative. Reading it here promotes bit 36 out of the
-// freely assignable derived set — the ADR-0062 registry must record that
-// before canopy issues grants using bit 36 for anything else.
-uint256 constant GF_REQUIRES_USER_VERIFICATION = uint256(1) << 36;
+
+// Native algorithm-policy flag band (ADR-0008): bits 40-47, canopy wire
+// byte 2. Distinct from the canopy-assignable derived band (bits 35-39,
+// byte 3, devdocs ADR-0062): these bits are natively enforced protocol,
+// not derived-protocol semantics, so they never need GF_DERIVED. Each
+// delegation algorithm declares which band bits it consumes; the
+// contract rejects any set band bit the supplied algorithm does not
+// consume, so a stated policy can never be silently dropped.
+uint256 constant GF_ALG_MASK = uint256(0xFF) << 40;
+// When set, the delegation proof must be a WebAuthn assertion carrying
+// the UV (user verified) flag: the authority states the biometric/PIN
+// requirement at issuance (PRD passkey-log-custody R1) and the
+// verifier's check stays declarative. Only ALG_ES256_WEBAUTHN consumes
+// this bit.
+uint256 constant GF_REQUIRES_USER_VERIFICATION = uint256(1) << 40;
 uint256 constant GF_AUTH_LOG = uint256(1);
 uint256 constant GF_DATA_LOG = uint256(2);
 

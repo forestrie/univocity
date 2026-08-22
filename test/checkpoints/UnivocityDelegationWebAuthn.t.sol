@@ -10,7 +10,6 @@ import {ImutableUnivocity} from "@univocity/contracts/ImutableUnivocity.sol";
 import {ALG_ES256} from "@univocity/cosecbor/constants.sol";
 import {buildSigStructure} from "@univocity/cosecbor/cosecbor.sol";
 import {
-    GF_DERIVED,
     GF_REQUIRES_USER_VERIFICATION
 } from "@univocity/interfaces/constants.sol";
 import {
@@ -31,6 +30,7 @@ contract WebAuthnDelegationHarness {
         uint64 mmrStart,
         uint64 mmrEnd,
         bytes calldata signature,
+        bytes[] calldata algData,
         bytes32 logId,
         uint64 mmrIndex,
         bytes32 storedRootX,
@@ -45,6 +45,7 @@ contract WebAuthnDelegationHarness {
             mmrStart,
             mmrEnd,
             signature,
+            algData,
             logId,
             mmrIndex,
             storedRootX,
@@ -59,7 +60,9 @@ contract WebAuthnDelegationHarness {
 
 /// @notice ALG_ES256_WEBAUTHN delegation proof coverage: a passkey root
 ///    signs the delegation as a WebAuthn assertion; the COSE Sig_structure
-///    hash is bound via clientDataJSON.challenge.
+///    hash is bound via clientDataJSON.challenge. Assertion parts ride in
+///    DelegationProof.algData (ADR-0008); UV policy rides in the grant's
+///    native alg-flag band (GF_ALG_MASK).
 contract UnivocityDelegationWebAuthnTest is UnivocityTestHelper {
     uint256 internal constant ROOT_PK = 1;
     uint256 internal constant DELEGATE_PK = 2;
@@ -73,6 +76,9 @@ contract UnivocityDelegationWebAuthnTest is UnivocityTestHelper {
     bytes1 internal constant FLAGS_UP_UV = 0x05;
     bytes1 internal constant FLAGS_UV_ONLY = 0x04;
     bytes1 internal constant FLAGS_UP_BS_NO_BE = 0x11;
+
+    uint256 internal constant GRANT_ROOT_UV =
+        GRANT_ROOT | GF_REQUIRES_USER_VERIFICATION;
 
     bytes32 internal RP_ID_HASH = sha256("thinker.example");
 
@@ -128,16 +134,10 @@ contract UnivocityDelegationWebAuthnTest is UnivocityTestHelper {
     function test_webauthnTamperedChallenge_reverts() public {
         // Consistently signed assertion whose challenge binds a different
         // payload hash: key possession proven, our delegation not bound.
-        (bytes32 delegateX, bytes32 delegateY) = _p256Key(DELEGATE_PK);
-        DelegationProof memory proof = DelegationProof({
-            protectedHeader: WEBAUTHN_PROTECTED,
-            delegationKey: abi.encodePacked(delegateX, delegateY),
-            mmrStart: 0,
-            mmrEnd: 0,
-            signature: _envelopeForChallenge(
-                sha256("some-other-payload"), ROOT_PK, FLAGS_UP
-            )
-        });
+        DelegationProof memory proof = _webauthnProof(0, 0, FLAGS_UP);
+        (proof.signature, proof.algData) = _assertionForChallenge(
+            sha256("some-other-payload"), ROOT_PK, FLAGS_UP
+        );
 
         _expectFirstDelegatedRevert(
             proof,
@@ -164,21 +164,10 @@ contract UnivocityDelegationWebAuthnTest is UnivocityTestHelper {
 
     function test_webauthnSignedByOtherKey_reverts() public {
         (bytes32 delegateX, bytes32 delegateY) = _p256Key(DELEGATE_PK);
-        DelegationProof memory proof = DelegationProof({
-            protectedHeader: WEBAUTHN_PROTECTED,
-            delegationKey: abi.encodePacked(delegateX, delegateY),
-            mmrStart: 0,
-            mmrEnd: 0,
-            signature: _envelope(
-                WEBAUTHN_PROTECTED,
-                0,
-                0,
-                OTHER_PK,
-                delegateX,
-                delegateY,
-                FLAGS_UP
-            )
-        });
+        DelegationProof memory proof = _webauthnProof(0, 0, FLAGS_UP);
+        (proof.signature, proof.algData) = _assertion(
+            WEBAUTHN_PROTECTED, 0, 0, OTHER_PK, delegateX, delegateY, FLAGS_UP
+        );
 
         _expectFirstDelegatedRevert(
             proof,
@@ -210,11 +199,12 @@ contract UnivocityDelegationWebAuthnTest is UnivocityTestHelper {
         );
     }
 
-    function test_webauthnRawSignatureBytes_reverts() public {
-        // WebAuthn alg header but an old-style raw r||s signature: envelope
-        // decode fails closed.
+    function test_webauthnWrongAlgDataCount_reverts() public {
         DelegationProof memory proof = _webauthnProof(0, 0, FLAGS_UP);
-        proof.signature = new bytes(64);
+        bytes[] memory twoElements = new bytes[](2);
+        twoElements[0] = proof.algData[0];
+        twoElements[1] = proof.algData[1];
+        proof.algData = twoElements;
 
         _expectFirstDelegatedRevert(
             proof,
@@ -224,19 +214,42 @@ contract UnivocityDelegationWebAuthnTest is UnivocityTestHelper {
         );
     }
 
-    function test_webauthnEnvelopeWithPlainES256Header_reverts() public {
-        // Plain ES256 alg routes to the plain verifier, which rejects the
-        // envelope on signature length: an assertion can never verify as a
-        // plain COSE Sign1.
+    function test_webauthnBadIndicesElement_reverts() public {
         DelegationProof memory proof = _webauthnProof(0, 0, FLAGS_UP);
-        uint256 envelopeLength = proof.signature.length;
-        proof.protectedHeader = hex"a10126";
+        proof.algData[2] = hex"0017"; // not 16 bytes
+
+        _expectFirstDelegatedRevert(
+            proof,
+            abi.encodeWithSelector(
+                IUnivocityErrors.InvalidWebAuthnAssertion.selector
+            )
+        );
+    }
+
+    function test_webauthnBadSignatureLength_reverts() public {
+        DelegationProof memory proof = _webauthnProof(0, 0, FLAGS_UP);
+        proof.signature = new bytes(65);
 
         _expectFirstDelegatedRevert(
             proof,
             abi.encodeWithSelector(
                 IUnivocityErrors.InvalidDelegationSignatureLength.selector,
-                envelopeLength
+                uint256(65)
+            )
+        );
+    }
+
+    function test_webauthnAlgDataWithPlainES256Header_reverts() public {
+        // Plain ES256 alg defines no algData elements; supplying assertion
+        // parts under that alg is rejected fail-closed, never ignored.
+        DelegationProof memory proof = _webauthnProof(0, 0, FLAGS_UP);
+        proof.protectedHeader = hex"a10126";
+
+        _expectFirstDelegatedRevert(
+            proof,
+            abi.encodeWithSelector(
+                IUnivocityErrors.UnexpectedDelegationAlgData.selector,
+                uint256(3)
             )
         );
     }
@@ -244,7 +257,7 @@ contract UnivocityDelegationWebAuthnTest is UnivocityTestHelper {
     function test_webauthnWrongCeremonyType_reverts() public {
         // "webauthn.create" (registration) must not verify as an assertion.
         DelegationProof memory proof = _webauthnProof(0, 0, FLAGS_UP);
-        proof.signature = _envelopeWithType(
+        (proof.signature, proof.algData) = _assertionWithType(
             _canonicalHash(AUTHORITY_LOG_ID, 0, 0, DELEGATE_PK),
             ROOT_PK,
             FLAGS_UP,
@@ -270,14 +283,14 @@ contract UnivocityDelegationWebAuthnTest is UnivocityTestHelper {
         );
     }
 
-    // === R1: UV policy from the grant (GF_DERIVED + bit 36) ===
+    // === R1: UV policy from the grant's native alg-flag band ===
 
     function test_webauthnUvRequiredByGrant_missingUv_reverts() public {
         DelegationProof memory proof = _webauthnProof(0, 0, FLAGS_UP);
 
         _expectFirstDelegatedRevertWithGrant(
             proof,
-            GRANT_ROOT | GF_DERIVED | GF_REQUIRES_USER_VERIFICATION,
+            GRANT_ROOT_UV,
             abi.encodeWithSelector(
                 IUnivocityErrors.DelegationUserVerificationRequired.selector
             )
@@ -287,41 +300,85 @@ contract UnivocityDelegationWebAuthnTest is UnivocityTestHelper {
     function test_webauthnUvRequiredByGrant_withUv_succeeds() public {
         DelegationProof memory proof = _webauthnProof(0, 0, FLAGS_UP_UV);
 
-        ImutableUnivocity fresh = _publishFirstDelegatedWithGrant(
-            proof, GRANT_ROOT | GF_DERIVED | GF_REQUIRES_USER_VERIFICATION
-        );
+        ImutableUnivocity fresh =
+            _publishFirstDelegatedWithGrant(proof, GRANT_ROOT_UV);
 
         LogState memory state = fresh.logState(AUTHORITY_LOG_ID);
         assertEq(state.size, 1);
     }
 
-    function test_webauthnUvBitWithoutDerived_notEnforced() public {
-        // ADR-0062 §4: a derived-band bit without GF_DERIVED carries no
-        // policy; UV must not be required.
-        DelegationProof memory proof = _webauthnProof(0, 0, FLAGS_UP);
+    // === Fail-closed alg-flag band (GF_ALG_MASK) ===
 
-        ImutableUnivocity fresh = _publishFirstDelegatedWithGrant(
-            proof, GRANT_ROOT | GF_REQUIRES_USER_VERIFICATION
-        );
-
-        LogState memory state = fresh.logState(AUTHORITY_LOG_ID);
-        assertEq(state.size, 1);
-    }
-
-    // === Existing plain ES256 path is untouched by grant UV policy ===
-
-    function test_plainES256Delegation_ignoresUvGrantPolicy() public {
+    function test_uvFlagWithPlainES256Delegation_reverts() public {
+        // The alg the publisher supplied has no UV concept, so a stated
+        // UV policy would be silently dropped; reject instead.
         (bytes32 delegateX, bytes32 delegateY) = _p256Key(DELEGATE_PK);
         DelegationProof memory proof = _buildDelegationProofES256(
             AUTHORITY_LOG_ID, 0, 0, ROOT_PK, delegateX, delegateY
         );
 
-        ImutableUnivocity fresh = _publishFirstDelegatedWithGrant(
-            proof, GRANT_ROOT | GF_DERIVED | GF_REQUIRES_USER_VERIFICATION
+        _expectFirstDelegatedRevertWithGrant(
+            proof,
+            GRANT_ROOT_UV,
+            abi.encodeWithSelector(
+                IUnivocityErrors.UnsupportedDelegationPolicyFlags.selector,
+                GF_REQUIRES_USER_VERIFICATION
+            )
         );
+    }
 
-        LogState memory state = fresh.logState(AUTHORITY_LOG_ID);
-        assertEq(state.size, 1);
+    function test_uvFlagWithoutDelegation_reverts() public {
+        // No delegation proof at all: nothing can honour the band flag.
+        (bytes32 rootX, bytes32 rootY) = _p256Key(ROOT_PK);
+        ImutableUnivocity fresh = _deployES256(rootX, rootY);
+        PublishGrant memory g = _rootGrant(GRANT_ROOT_UV);
+        bytes32 leaf0 = _leafCommitment(IDTIMESTAMP_AUTH, g);
+        ConsistencyReceipt memory receipt =
+            _buildConsistencyReceiptES256(_toAcc(leaf0), ROOT_PK);
+
+        vm.prank(BOOTSTRAP);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IUnivocityErrors.UnsupportedDelegationPolicyFlags.selector,
+                GF_REQUIRES_USER_VERIFICATION
+            )
+        );
+        fresh.publishCheckpoint(
+            receipt, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g
+        );
+    }
+
+    function test_unknownAlgBandFlag_reverts() public {
+        // A band flag no algorithm consumes (bit 41) rejects even when the
+        // delegation is WebAuthn.
+        DelegationProof memory proof = _webauthnProof(0, 0, FLAGS_UP_UV);
+
+        _expectFirstDelegatedRevertWithGrant(
+            proof,
+            GRANT_ROOT_UV | (uint256(1) << 41),
+            abi.encodeWithSelector(
+                IUnivocityErrors.UnsupportedDelegationPolicyFlags.selector,
+                uint256(1) << 41
+            )
+        );
+    }
+
+    function test_algDataWithPlainES256Delegation_reverts() public {
+        (bytes32 delegateX, bytes32 delegateY) = _p256Key(DELEGATE_PK);
+        DelegationProof memory proof = _buildDelegationProofES256(
+            AUTHORITY_LOG_ID, 0, 0, ROOT_PK, delegateX, delegateY
+        );
+        bytes[] memory stray = new bytes[](1);
+        stray[0] = hex"00";
+        proof.algData = stray;
+
+        _expectFirstDelegatedRevert(
+            proof,
+            abi.encodeWithSelector(
+                IUnivocityErrors.UnexpectedDelegationAlgData.selector,
+                uint256(1)
+            )
+        );
     }
 
     // === Direct free-function coverage (rpId pinning, UV param) ===
@@ -358,31 +415,8 @@ contract UnivocityDelegationWebAuthnTest is UnivocityTestHelper {
     }
 
     function test_direct_truncatedAuthenticatorData_reverts() public {
-        (bytes32 delegateX, bytes32 delegateY) = _p256Key(DELEGATE_PK);
-        bytes32 canonicalHash =
-            _canonicalHash(AUTHORITY_LOG_ID, 0, 0, DELEGATE_PK);
-        string memory clientDataJSON = _clientDataJSON(canonicalHash);
-        bytes memory shortAuthData = abi.encodePacked(RP_ID_HASH, FLAGS_UP); // 33 bytes < 37
-        (bytes32 r, bytes32 s) = vm.signP256(
-            ROOT_PK,
-            sha256(
-                abi.encodePacked(shortAuthData, sha256(bytes(clientDataJSON)))
-            )
-        );
-        DelegationProof memory proof = DelegationProof({
-            protectedHeader: WEBAUTHN_PROTECTED,
-            delegationKey: abi.encodePacked(delegateX, delegateY),
-            mmrStart: 0,
-            mmrEnd: 0,
-            signature: abi.encode(
-                r,
-                _ensureP256LowerS(s),
-                uint256(23),
-                uint256(1),
-                shortAuthData,
-                clientDataJSON
-            )
-        });
+        DelegationProof memory proof = _webauthnProof(0, 0, FLAGS_UP);
+        proof.algData[0] = abi.encodePacked(RP_ID_HASH, FLAGS_UP); // 33 < 37
         vm.expectRevert(
             abi.encodeWithSelector(
                 IUnivocityErrors.InvalidWebAuthnAssertion.selector
@@ -407,6 +441,7 @@ contract UnivocityDelegationWebAuthnTest is UnivocityTestHelper {
             proof.mmrStart,
             proof.mmrEnd,
             proof.signature,
+            proof.algData,
             AUTHORITY_LOG_ID,
             0,
             rootX,
@@ -429,6 +464,7 @@ contract UnivocityDelegationWebAuthnTest is UnivocityTestHelper {
             proof.mmrStart,
             proof.mmrEnd,
             proof.signature,
+            proof.algData,
             AUTHORITY_LOG_ID,
             0,
             rootX,
@@ -464,27 +500,29 @@ contract UnivocityDelegationWebAuthnTest is UnivocityTestHelper {
     function _webauthnProof(uint64 mmrStart, uint64 mmrEnd, bytes1 flags)
         internal
         view
-        returns (DelegationProof memory)
+        returns (DelegationProof memory proof)
     {
         (bytes32 delegateX, bytes32 delegateY) = _p256Key(DELEGATE_PK);
-        return DelegationProof({
+        proof = DelegationProof({
             protectedHeader: WEBAUTHN_PROTECTED,
             delegationKey: abi.encodePacked(delegateX, delegateY),
             mmrStart: mmrStart,
             mmrEnd: mmrEnd,
-            signature: _envelope(
-                WEBAUTHN_PROTECTED,
-                mmrStart,
-                mmrEnd,
-                ROOT_PK,
-                delegateX,
-                delegateY,
-                flags
-            )
+            signature: "",
+            algData: new bytes[](0)
         });
+        (proof.signature, proof.algData) = _assertion(
+            WEBAUTHN_PROTECTED,
+            mmrStart,
+            mmrEnd,
+            ROOT_PK,
+            delegateX,
+            delegateY,
+            flags
+        );
     }
 
-    function _envelope(
+    function _assertion(
         bytes memory protected,
         uint64 mmrStart,
         uint64 mmrEnd,
@@ -492,48 +530,34 @@ contract UnivocityDelegationWebAuthnTest is UnivocityTestHelper {
         bytes32 delegateX,
         bytes32 delegateY,
         bytes1 flags
-    ) internal view returns (bytes memory) {
+    ) internal view returns (bytes memory signature, bytes[] memory algData) {
         bytes memory payload = _buildDelegationPayloadES256(
             AUTHORITY_LOG_ID, mmrStart, mmrEnd, delegateX, delegateY
         );
-        return _envelopeForChallenge(
+        return _assertionForChallenge(
             sha256(buildSigStructure(protected, payload)), signerPk, flags
         );
     }
 
-    function _clientDataJSON(bytes32 challengeHash)
-        internal
-        pure
-        returns (string memory)
-    {
-        // Field order matches what browsers emit for webauthn.get;
-        // typeIndex = 1, challengeIndex = 23 in this layout.
-        return string.concat(
-            "{\"type\":\"webauthn.get\",\"challenge\":\"",
-            Base64.encodeURL(abi.encodePacked(challengeHash)),
-            "\",\"origin\":\"https://thinker.example\",\"crossOrigin\":false}"
-        );
-    }
-
-    /// @notice Assertion envelope whose challenge is
-    ///    base64url(challengeHash), signed by signerPk over exactly what a
-    ///    real authenticator signs.
-    function _envelopeForChallenge(
+    /// @notice Assertion parts whose challenge is base64url(challengeHash),
+    ///    signed by signerPk over exactly what a real authenticator signs.
+    function _assertionForChallenge(
         bytes32 challengeHash,
         uint256 signerPk,
         bytes1 flags
-    ) internal view returns (bytes memory) {
-        return _envelopeWithType(
-            challengeHash, signerPk, flags, "webauthn.get"
-        );
+    ) internal view returns (bytes memory signature, bytes[] memory algData) {
+        return
+            _assertionWithType(challengeHash, signerPk, flags, "webauthn.get");
     }
 
-    function _envelopeWithType(
+    function _assertionWithType(
         bytes32 challengeHash,
         uint256 signerPk,
         bytes1 flags,
         string memory ceremonyType
-    ) internal view returns (bytes memory) {
+    ) internal view returns (bytes memory signature, bytes[] memory algData) {
+        // Field order matches what browsers emit for webauthn.get;
+        // typeIndex = 1, '"challenge"' follows '{"type":"<type>",'.
         string memory clientDataJSON = string.concat(
             "{\"type\":\"",
             ceremonyType,
@@ -541,23 +565,16 @@ contract UnivocityDelegationWebAuthnTest is UnivocityTestHelper {
             Base64.encodeURL(abi.encodePacked(challengeHash)),
             "\",\"origin\":\"https://thinker.example\",\"crossOrigin\":false}"
         );
-        uint256 challengeIndex = bytes(ceremonyType).length + 11;
+        uint64 challengeIndex = uint64(bytes(ceremonyType).length + 11);
         bytes memory authData = abi.encodePacked(RP_ID_HASH, flags, uint32(1));
         bytes32 digest =
             sha256(abi.encodePacked(authData, sha256(bytes(clientDataJSON))));
         (bytes32 r, bytes32 s) = vm.signP256(signerPk, digest);
-        // Flat-tuple field encoding (r, s, challengeIndex, typeIndex,
-        // authenticatorData, clientDataJSON) — the layout
-        // WebAuthn.tryDecodeAuth expects; note this is NOT
-        // abi.encode(struct), which prepends an outer offset word.
-        return abi.encode(
-            r,
-            _ensureP256LowerS(s),
-            challengeIndex,
-            uint256(1),
-            authData,
-            clientDataJSON
-        );
+        signature = abi.encodePacked(r, _ensureP256LowerS(s));
+        algData = new bytes[](3);
+        algData[0] = authData;
+        algData[1] = bytes(clientDataJSON);
+        algData[2] = abi.encodePacked(challengeIndex, uint64(1));
     }
 
     // === Publish helpers (mirrors UnivocityDelegation.t.sol) ===
@@ -651,6 +668,7 @@ contract UnivocityDelegationWebAuthnTest is UnivocityTestHelper {
             proof.mmrStart,
             proof.mmrEnd,
             proof.signature,
+            proof.algData,
             AUTHORITY_LOG_ID,
             proof.mmrStart,
             rootX,

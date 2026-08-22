@@ -84,7 +84,8 @@ contract MultiSealReceiptHarness is Test {
                 delegationKey: "",
                 mmrStart: 0,
                 mmrEnd: 0,
-                signature: ""
+                signature: "",
+                algData: new bytes[](0)
             })
         });
     }
@@ -212,7 +213,8 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
             delegationKey: "",
             mmrStart: 0,
             mmrEnd: 0,
-            signature: ""
+            signature: "",
+            algData: new bytes[](0)
         });
     }
 

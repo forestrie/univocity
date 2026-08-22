@@ -36,6 +36,9 @@ error DelegationChallengeMismatch();
 error DelegationUserPresenceRequired();
 error DelegationUserVerificationRequired();
 error DelegationRpIdMismatch();
+// algData supplied for an algorithm that defines no elements; rejected
+// fail-closed rather than silently ignored (ADR-0008).
+error UnexpectedDelegationAlgData(uint256 count);
 
 bytes constant DELEGATION_DOMAIN = "forestrie.univocity.delegation.v1";
 
@@ -114,15 +117,15 @@ function verifyDelegationProofES256(
 ///    via the challenge: clientDataJSON.challenge MUST equal
 ///    base64url(sha256(Sig_structure)). Without that binding the assertion
 ///    proves key possession only and says nothing about this delegation.
-/// @dev signature carries the assertion as an opaque envelope interpreted
-///    only here, mirroring how ERC-4337 passkey wallets carry assertions
-///    in opaque signature bytes. Encoding is the WebAuthnAuth fields as a
-///    flat tuple — abi.encode(r, s, challengeIndex, typeIndex,
-///    authenticatorData, clientDataJSON) — exactly what
-///    WebAuthn.tryDecodeAuth expects (NOT abi.encode(struct), which
-///    prepends an outer offset word). Checks mirror OZ WebAuthn.verify
-///    (type, challenge, UP, UV, BE/BS, P-256) but revert with distinct
-///    errors instead of returning false.
+/// @dev The assertion parts arrive through DelegationProof.algData
+///    (ADR-0008): opaque to the outer ABI, decoded by
+///    decodeWebAuthnDelegationAlgData, interpreted only here — mirroring
+///    how ERC-4337 passkey wallets carry assertions in opaque signature
+///    bytes. signature stays r || s (64 bytes) as for plain ES256. Checks
+///    mirror OZ WebAuthn.verify (type, challenge, UP, UV, BE/BS, P-256)
+///    but revert with distinct errors instead of returning false.
+/// @param algData [authenticatorData, clientDataJSON, indices]; see
+///    decodeWebAuthnDelegationAlgData.
 /// @param requireUserVerification Per-log policy (PRD passkey-log-custody
 ///    R1): when true the assertion must carry the UV flag (biometric/PIN
 ///    performed). User presence (UP) is always required.
@@ -135,6 +138,7 @@ function verifyDelegationProofES256WebAuthn(
     uint64 mmrStart,
     uint64 mmrEnd,
     bytes calldata signature,
+    bytes[] calldata algData,
     bytes32 logId,
     uint64 mmrIndex,
     bytes32 storedRootX,
@@ -147,6 +151,9 @@ function verifyDelegationProofES256WebAuthn(
     if (extractAlgorithm(protectedHeader) != ALG_ES256_WEBAUTHN) {
         revert DelegationSignatureInvalid();
     }
+    if (signature.length != 64) {
+        revert InvalidDelegationSignatureLength(signature.length);
+    }
     if (storedRootX == 0 && storedRootY == 0) {
         revert DelegationSignatureInvalid();
     }
@@ -154,14 +161,14 @@ function verifyDelegationProofES256WebAuthn(
         revert CheckpointIndexOutOfDelegationRange();
     }
 
-    (bool decoded, WebAuthn.WebAuthnAuth calldata auth) =
-        WebAuthn.tryDecodeAuth(signature);
-    if (!decoded) revert InvalidWebAuthnAssertion();
-    // authenticatorData = rpIdHash (32) || flags (1) || signCount (4).
-    if (auth.authenticatorData.length < 37) {
-        revert InvalidWebAuthnAssertion();
-    }
-    bytes1 flags = auth.authenticatorData[32];
+    (
+        bytes calldata authenticatorData,
+        bytes calldata clientDataJSON,
+        uint256 challengeIndex,
+        uint256 typeIndex
+    ) = decodeWebAuthnDelegationAlgData(algData);
+
+    bytes1 flags = authenticatorData[32];
     if (flags & WebAuthn.AUTH_DATA_FLAGS_UP == 0) {
         revert DelegationUserPresenceRequired();
     }
@@ -178,18 +185,17 @@ function verifyDelegationProofES256WebAuthn(
     }
     if (
         requiredRpIdHash != 0
-            && bytes32(auth.authenticatorData[:32]) != requiredRpIdHash
+            && bytes32(authenticatorData[:32]) != requiredRpIdHash
     ) {
         revert DelegationRpIdMismatch();
     }
 
-    bytes calldata clientDataJSON = bytes(auth.clientDataJSON);
     // Assertion ceremony only: '"type":"webauthn.get"' (21 bytes) must sit
     // at typeIndex. Registration ("webauthn.create") must not verify.
     if (
-        clientDataJSON.length < auth.typeIndex
-            || clientDataJSON.length - auth.typeIndex < 21
-            || keccak256(clientDataJSON[auth.typeIndex:auth.typeIndex + 21])
+        clientDataJSON.length < typeIndex
+            || clientDataJSON.length - typeIndex < 21
+            || keccak256(clientDataJSON[typeIndex:typeIndex + 21])
                 != keccak256(bytes("\"type\":\"webauthn.get\""))
     ) {
         revert InvalidWebAuthnAssertion();
@@ -215,11 +221,11 @@ function verifyDelegationProofES256WebAuthn(
         )
     );
     if (
-        clientDataJSON.length < auth.challengeIndex
-            || clientDataJSON.length - auth.challengeIndex
+        clientDataJSON.length < challengeIndex
+            || clientDataJSON.length - challengeIndex
                 < expectedChallenge.length
             || keccak256(
-                    clientDataJSON[auth.challengeIndex:auth.challengeIndex
+                    clientDataJSON[challengeIndex:challengeIndex
                                 + expectedChallenge.length
                     ]
                 ) != keccak256(expectedChallenge)
@@ -228,26 +234,61 @@ function verifyDelegationProofES256WebAuthn(
     }
 
     // What the authenticator actually signed (WebAuthn L2 §6.3.3 step 19).
-    bytes32 webauthnDigest = sha256(
-        abi.encodePacked(auth.authenticatorData, sha256(clientDataJSON))
-    );
-    if (!P256.verify(webauthnDigest, auth.r, auth.s, storedRootX, storedRootY))
-    {
+    bytes32 webauthnDigest =
+        sha256(abi.encodePacked(authenticatorData, sha256(clientDataJSON)));
+    bytes32 r;
+    bytes32 s;
+    assembly {
+        r := calldataload(signature.offset)
+        s := calldataload(add(signature.offset, 32))
+    }
+    if (!P256.verify(webauthnDigest, r, s, storedRootX, storedRootY)) {
         revert DelegationSignatureInvalid();
     }
+}
+
+/// @notice Decode the ALG_ES256_WEBAUTHN algData elements (ADR-0008).
+///    Exactly three: [0] authenticatorData (>= 37 bytes: rpIdHash 32,
+///    flags 1, signCount 4); [1] clientDataJSON; [2] 16 bytes of packed
+///    big-endian indices, uint64 challengeIndex || uint64 typeIndex,
+///    locating '"challenge":"' and '"type":"' in clientDataJSON so the
+///    verifier compares slices instead of parsing JSON.
+function decodeWebAuthnDelegationAlgData(bytes[] calldata algData)
+    pure
+    returns (
+        bytes calldata authenticatorData,
+        bytes calldata clientDataJSON,
+        uint256 challengeIndex,
+        uint256 typeIndex
+    )
+{
+    if (algData.length != 3) {
+        revert InvalidWebAuthnAssertion();
+    }
+    authenticatorData = algData[0];
+    clientDataJSON = algData[1];
+    bytes calldata indices = algData[2];
+    if (authenticatorData.length < 37 || indices.length != 16) {
+        revert InvalidWebAuthnAssertion();
+    }
+    challengeIndex = uint64(bytes8(indices[:8]));
+    typeIndex = uint64(bytes8(indices[8:16]));
 }
 
 /// @notice Dispatch a P-256-rooted delegation proof by protected-header
 ///    alg: ALG_ES256_WEBAUTHN takes the WebAuthn assertion path; anything
 ///    else goes to verifyDelegationProofES256, which fails closed on
-///    unknown algs. Policy params are ignored on the plain ES256 path
-///    (they are WebAuthn ceremony properties; a plain COSE Sign1 has no
-///    UV/rpId to check).
+///    unknown algs. The plain path defines no algData elements and no
+///    policy semantics (a plain COSE Sign1 has no UV/rpId ceremony), so a
+///    non-empty algData is rejected rather than ignored; the caller must
+///    reject stray policy flags the same way (see
+///    _Univocity._checkDelegationAlgConstraints).
 function verifyDelegationProofP256(
     bytes calldata protectedHeader,
     uint64 mmrStart,
     uint64 mmrEnd,
     bytes calldata signature,
+    bytes[] calldata algData,
     bytes32 logId,
     uint64 mmrIndex,
     bytes32 storedRootX,
@@ -263,6 +304,7 @@ function verifyDelegationProofP256(
             mmrStart,
             mmrEnd,
             signature,
+            algData,
             logId,
             mmrIndex,
             storedRootX,
@@ -273,6 +315,9 @@ function verifyDelegationProofP256(
             requiredRpIdHash
         );
         return;
+    }
+    if (algData.length != 0) {
+        revert UnexpectedDelegationAlgData(algData.length);
     }
     verifyDelegationProofES256(
         protectedHeader,

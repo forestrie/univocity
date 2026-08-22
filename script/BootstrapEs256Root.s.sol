@@ -71,7 +71,8 @@ contract BootstrapEs256Root is Script {
                 delegationKey: "",
                 mmrStart: 0,
                 mmrEnd: 0,
-                signature: ""
+                signature: "",
+                algData: new bytes[](0)
             })
         });
 

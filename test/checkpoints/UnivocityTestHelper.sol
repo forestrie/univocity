@@ -421,7 +421,8 @@ abstract contract UnivocityTestHelper is Test {
             delegationKey: "",
             mmrStart: 0,
             mmrEnd: 0,
-            signature: ""
+            signature: "",
+            algData: new bytes[](0)
         });
     }
 
@@ -499,7 +500,8 @@ abstract contract UnivocityTestHelper is Test {
             delegationKey: abi.encodePacked(delegatedKeyX, delegatedKeyY),
             mmrStart: mmrStart,
             mmrEnd: mmrEnd,
-            signature: abi.encodePacked(r, s, v)
+            signature: abi.encodePacked(r, s, v),
+            algData: new bytes[](0)
         });
     }
 
@@ -524,7 +526,8 @@ abstract contract UnivocityTestHelper is Test {
             delegationKey: abi.encodePacked(delegatedKeyX, delegatedKeyY),
             mmrStart: mmrStart,
             mmrEnd: mmrEnd,
-            signature: abi.encodePacked(r, s)
+            signature: abi.encodePacked(r, s),
+            algData: new bytes[](0)
         });
     }
 
@@ -548,7 +551,8 @@ abstract contract UnivocityTestHelper is Test {
             delegationKey: abi.encodePacked(delegatedKeyX, delegatedKeyY),
             mmrStart: mmrStart,
             mmrEnd: mmrEnd,
-            signature: abi.encodePacked(r, s)
+            signature: abi.encodePacked(r, s),
+            algData: new bytes[](0)
         });
     }
 

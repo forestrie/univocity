@@ -82,6 +82,14 @@ interface IUnivocityErrors {
     /// @notice Log policy pins the relying party and the assertion's
     ///    rpIdHash does not match.
     error DelegationRpIdMismatch();
+    /// @notice Grant carries alg-policy flags (GF_ALG_MASK band) that the
+    ///    supplied delegation algorithm does not consume — including no
+    ///    delegation at all. Rejected so a stated policy is never
+    ///    silently dropped (ADR-0008).
+    error UnsupportedDelegationPolicyFlags(uint256 unsupported);
+    /// @notice DelegationProof.algData supplied for an algorithm that
+    ///    defines no elements (ADR-0008).
+    error UnexpectedDelegationAlgData(uint256 count);
 
     // Plan 0014: Receipt of Consistency
     error MissingCheckpointSignerKey();

@@ -42,16 +42,25 @@ struct InclusionProof {
     bytes32[] path;
 }
 
-/// @notice COSE-shaped delegation proof (ADR-0006). No cert decode.
-///    delegationKey is alg-specific opaque bytes; for P-256/ES256 it is
-///    64 bytes (x || y). The signature is over a COSE Sign1 Sig_structure
-///    with a contract-derived canonical delegation payload.
+/// @notice COSE-shaped delegation proof (ADR-0006, ADR-0008). No cert
+///    decode. delegationKey is alg-specific opaque bytes; for P-256/ES256
+///    it is 64 bytes (x || y). The signature binds a COSE Sign1
+///    Sig_structure over a contract-derived canonical delegation payload;
+///    its envelope is alg-specific (ES256_WEBAUTHN signs
+///    authenticatorData || SHA256(clientDataJSON) with the Sig_structure
+///    hash bound via the WebAuthn challenge).
+/// @param algData Alg-specific opaque elements; count and meaning are
+///    fixed per algorithm and interpreted only by that algorithm's
+///    verifier (ADR-0008). Empty for ES256/KS256; for ES256_WEBAUTHN see
+///    decodeWebAuthnDelegationAlgData. Algorithms that define no elements
+///    reject a non-empty array fail-closed.
 struct DelegationProof {
     bytes protectedHeader;
     bytes delegationKey;
     uint64 mmrStart;
     uint64 mmrEnd;
     bytes signature;
+    bytes[] algData;
 }
 
 /// @notice Pre-decoded consistency receipt (plan 0016). No COSE envelope

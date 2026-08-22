@@ -57,12 +57,12 @@ about this delegation. Each failure mode has a distinct error
 `DelegationRpIdMismatch`) so canopy can classify rejections without
 re-running the verify off-chain.
 
-### 3. The envelope rides in `DelegationProof.signature` — no ABI change
+### 3. Alg-specific data rides in a generic `algData` array
 
 This was the largest single design choice. The WebAuthn variant needs
 `authenticatorData` and `clientDataJSON` threaded to the verifier, and
 `DelegationProof` is nested inside `ConsistencyReceipt`, the calldata
-argument of `publishCheckpoint`. Three options were considered.
+argument of `publishCheckpoint`. Four options were considered.
 
 **Option A — extend the struct (rejected):**
 
@@ -106,25 +106,53 @@ parallel `publishCheckpoint` overloads (a full-surface duplication), or
 both structs side by side with one always empty — strictly worse than
 Option A.
 
-**Option C — opaque envelope (chosen):** `DelegationProof` is
-unchanged. For `ALG_ES256_WEBAUTHN` the existing `signature` field
-carries the assertion as a flat-tuple encoding
+**Option C — opaque envelope inside `signature` (rejected after
+implementation):** leave the struct untouched and pack the whole
+assertion into the existing `signature` field as a flat-tuple encoding
+(`abi.encode(r, s, challengeIndex, typeIndex, authenticatorData,
+clientDataJSON)`, the layout OZ `WebAuthn.tryDecodeAuth` lifts out of
+opaque bytes). Zero ABI change, and it matches how ERC-4337 wallets
+smuggle assertions through fixed `bytes signature` interfaces. Two
+reasons it lost to D: those wallets pack because their interfaces are
+frozen — ours is not, and nothing is in production; and the hand-rolled
+inner encoding is a papercut for every future encoder (the first
+implementation was bitten by exactly this: `abi.encode(struct)`
+prepends an offset word `tryDecodeAuth` does not accept, an error the
+ABI itself can never catch). It also overloads `signature` to mean
+"sometimes a signature, sometimes a container".
 
+**Option D — generic `algData` array (chosen):** one one-time ABI
+change that never needs another:
+
+```solidity
+struct DelegationProof {
+    bytes protectedHeader;
+    bytes delegationKey;
+    uint64 mmrStart;
+    uint64 mmrEnd;
+    bytes signature;  // always the signature itself; r ‖ s for P-256 algs
+    bytes[] algData;  // alg-specific; count and meaning fixed per alg
+}
 ```
-abi.encode(r, s, challengeIndex, typeIndex, authenticatorData, clientDataJSON)
-```
 
-decoded in exactly one place by OpenZeppelin's
-`WebAuthn.tryDecodeAuth` (v5.5, already vendored), which validates the
-encoding shape without reverting. The struct already carries this
-doctrine: `delegationKey` is documented as "alg-specific opaque bytes",
-and `signature` is already alg-shaped (64 bytes ES256, 65 bytes KS256
-EOA, arbitrary ERC-1271 bytes for KS256 contract signers). Dispatch
-was already by protected-header alg.
+Element count and meaning are fixed per algorithm and interpreted in
+exactly one place per algorithm. For `ALG_ES256_WEBAUTHN`
+(`decodeWebAuthnDelegationAlgData` is normative): `[0]`
+authenticatorData (≥ 37 bytes), `[1]` clientDataJSON, `[2]` 16 bytes of
+packed big-endian `uint64 challengeIndex ‖ uint64 typeIndex`. For
+ES256/KS256 the array must be empty — a non-empty array under an
+algorithm that defines no elements reverts
+`UnexpectedDelegationAlgData` rather than being ignored (see §4's
+fail-closed rule). Future algorithms with special data requirements add
+an interpretation, not a field, so there is no never-ending series of
+explicitly named struct members. Compared with C, the framing (count,
+boundaries) is ABI-native — standard tooling encodes it from the outer
+ABI and the only per-alg documentation is what each index means — and
+`signature` keeps a single uniform meaning, so the plain-ES256 length
+check applies to WebAuthn unchanged.
 
-This is also the industry-standard shape for passkey signatures
-on-chain — the signature field stays opaque to the outer ABI and one
-verifier interprets it:
+The elements stay opaque `bytes` interpreted by one verifier, which is
+the industry-standard shape for passkey signatures on-chain:
 
 - [ERC-1271](https://eips.ethereum.org/EIPS/eip-1271) — `bytes
   signature` fully opaque to the caller, interpreted by the verifying
@@ -142,45 +170,67 @@ verifier interprets it:
 - [daimo-eth/p256-verifier](https://github.com/daimo-eth/p256-verifier)
   — the `WebAuthn.sol` both OZ and Base credit as prior art.
 - [OpenZeppelin `WebAuthn.sol`](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/cryptography/WebAuthn.sol)
-  — ships `tryDecodeAuth(bytes)` precisely to lift a `WebAuthnAuth`
-  out of an opaque bytes field.
+  — the audited reference whose verification steps and flag constants
+  the univocity verifier mirrors (with distinct reverts instead of a
+  boolean).
 
-Cost: the envelope's inner encoding is a wire-format contract that
-off-chain encoders must implement from documentation rather than from
-the outer ABI alone (as every wallet above also does). The NatSpec on
-`verifyDelegationProofES256WebAuthn` is the normative statement of the
-encoding.
-
-### 4. User verification and origin pinning are per-log policy (R1)
+### 4. A native alg-policy flag band, mask-tested fail-closed (R1)
 
 The verifier takes `bool requireUserVerification` and `bytes32
 requiredRpIdHash` as parameters — policy is injected, never a constant.
 User presence (UP) is always required; UV only when policy says so;
 rpIdHash pinning only when nonzero.
 
-`_Univocity` derives `requireUserVerification` from the grant word:
-`GF_DERIVED` and `GF_REQUIRES_USER_VERIFICATION` (bit 36) must both be
-set, following ADR-0062 §4's rule that derived-band bits carry no
-policy without the namespace marker. **Pending settlement with the
-canopy side:** univocity natively reading bit 36 promotes it out of the
-freely assignable derived band, so the ADR-0062 registry must record
-the row (univocity bit 36, canopy wire byte 3, mask 0x10) before canopy
-assigns that bit to anything else. `requiredRpIdHash` is passed as zero
-(pinning disabled) until an equivalent policy channel is agreed — a
-32-byte hash does not fit a grant flag; candidates are `grantData` or a
-registry lookup.
+UV policy is natively enforced protocol, so it cannot live in the
+canopy-assignable derived band (ADR-0062 owns bits 35–39, wire byte 3,
+and univocity has promised never to read those). Instead
+`constants.sol` reserves a **native algorithm-policy band**:
+`GF_ALG_MASK` = bits 40–47 (canopy wire byte 2), with
+`GF_REQUIRES_USER_VERIFICATION = 1 << 40` as its first assignment. No
+`GF_DERIVED` gating applies — these are native bits.
+
+Each delegation algorithm declares which band bits it consumes
+(`ALG_ES256_WEBAUTHN`: the UV bit; ES256/KS256: none), and
+`_Univocity._checkDelegationAlgConstraints` rejects, before dispatch,
+any set band bit the supplied algorithm does not consume — including
+the case of no delegation proof at all
+(`UnsupportedDelegationPolicyFlags`). The same rule covers `algData`
+(`UnexpectedDelegationAlgData`). This is the load-bearing property of
+the band: the publisher chooses which delegation algorithm to present,
+so a stated policy that the presented algorithm cannot honour must
+revert rather than be silently dropped — a UV-required grant can never
+be satisfied by a plain ES256 proof.
+
+`requiredRpIdHash` is passed as zero (pinning disabled) until a policy
+channel is agreed — a 32-byte hash does not fit a grant flag;
+candidates are `grantData` or a registry lookup.
 
 ## Consequences
 
 - `_Univocity` bytecode changes (free functions inline), so this lands
   in new instances only; existing immutable deployments are unaffected
   and keep rejecting the alg fail-closed. Nothing is in production.
+- Adding `algData` changes the ABI of `DelegationProof` and therefore
+  of `ConsistencyReceipt`/`publishCheckpoint`: every off-chain encoder
+  (go-univocity, canopy, thinker) appends the field — empty for
+  ES256/KS256 — as a one-time migration. Acceptable now precisely
+  because nothing is in production; the array absorbs all future
+  alg-specific data without further ABI changes.
 - Canopy and thinker are separate work: an unknown alg is rejected by
   everything not yet taught about it, so contracts can land first.
+- Canopy's grant-wire layer must treat wire byte 2 as univocity-native
+  (the `GF_ALG_MASK` band): the devdocs ADR-0062 registry needs a note
+  that derived assignments stay in byte 3, and grant builders need a
+  constructor for the UV bit (byte 2, mask 0x01). The derived band
+  itself is untouched — a cleaner separation than promoting a derived
+  bit would have been.
+- Grants already issued with any byte-2 bit set would start reverting
+  at checkpoint under this contract; none exist (the band was
+  unassigned and nothing is in production).
 - Measured gas for `verifyDelegationProofES256WebAuthn` (see
-  `test_gas_webauthnDelegationVerify`): ~15.6k verifier overhead on the
+  `test_gas_webauthnDelegationVerify`): ~15.8k verifier overhead on the
   RIP-7212 path (≈19k total with the precompile's ~3.45k — Base
-  Sepolia, Arbitrum Sepolia, Monad), ~377k with OZ's Solidity fallback
+  Sepolia, Arbitrum Sepolia, Monad), ~378k with OZ's Solidity fallback
   (Filecoin FEVM). Degradation is cost, not capability.
 - The committed test vectors are synthetic (forge `signP256` over
   exactly what an authenticator signs). A golden assertion captured
