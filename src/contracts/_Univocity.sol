@@ -3,11 +3,13 @@ pragma solidity ^0.8.24;
 
 import {IUnivocity} from "@univocity/interfaces/IUnivocity.sol";
 import {
+    GF_ALG_MASK,
     GF_AUTH_LOG,
     GF_CREATE,
     GF_EXTEND,
     GF_GC_MASK,
     GF_DATA_LOG,
+    GF_REQUIRES_USER_VERIFICATION,
     GC_AUTH_LOG,
     GC_DATA_LOG,
     P256_P
@@ -23,7 +25,11 @@ import {
     PublishGrant
 } from "@univocity/interfaces/types.sol";
 import {IUnivocityErrors} from "@univocity/interfaces/IUnivocityErrors.sol";
-import {ALG_ES256, ALG_KS256} from "@univocity/cosecbor/constants.sol";
+import {
+    ALG_ES256,
+    ALG_ES256_WEBAUTHN,
+    ALG_KS256
+} from "@univocity/cosecbor/constants.sol";
 import {
     extractAlgorithm,
     verifyES256DetachedPayload,
@@ -32,8 +38,8 @@ import {
 } from "@univocity/cosecbor/cosecbor.sol";
 import {
     decodeDelegationKeyES256,
-    verifyDelegationProofES256,
-    verifyDelegationProofKS256
+    verifyDelegationProofKS256,
+    verifyDelegationProofP256
 } from "@univocity/checkpoints/lib/delegationVerifier.sol";
 import {
     verifyConsistencyProofChain,
@@ -420,6 +426,7 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
         // Dispatch is by **receipt** alg, not root alg: a KS256-root forest still
         // publishes ES256 consistency receipts signed by an ephemeral delegate once
         // the root has authorized that key via a KS256 delegation proof (BYOK).
+        _checkDelegationAlgConstraints(grant, delegationProof);
         int64 alg = extractAlgorithm(consistencyParts.protectedHeader);
 
         // NOTICE: verification failures always revert
@@ -451,6 +458,49 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
         revert UnsupportedAlgorithm(alg);
     }
 
+    /// @notice Fail-closed coupling of the grant's alg-policy flag band
+    ///    (GF_ALG_MASK, ADR-0008) and the proof's alg-specific data to the
+    ///    delegation algorithm actually supplied. A policy flag no
+    ///    algorithm consumes, or algData no algorithm interprets, is
+    ///    rejected rather than silently dropped — a UV-required grant can
+    ///    never be satisfied by an algorithm without a UV concept, and a
+    ///    band flag can never be stranded by omitting the delegation.
+    function _checkDelegationAlgConstraints(
+        uint256 grant,
+        DelegationProof calldata delegationProof
+    ) internal pure {
+        uint256 algFlags =
+            grant & GF_ALG_MASK;
+        if (delegationProof.signature.length == 0) {
+            // No delegation: nothing can consume band flags or algData.
+            if (algFlags != 0) {
+                revert UnsupportedDelegationPolicyFlags(algFlags);
+            }
+            if (delegationProof.algData.length != 0) {
+                revert UnexpectedDelegationAlgData(delegationProof.algData
+                    .length);
+            }
+            return;
+        }
+        int64 dalg = extractAlgorithm(delegationProof.protectedHeader);
+        if (dalg == ALG_ES256_WEBAUTHN) {
+            uint256 unsupported = algFlags & ~GF_REQUIRES_USER_VERIFICATION;
+            if (unsupported != 0) {
+                revert UnsupportedDelegationPolicyFlags(unsupported);
+            }
+            // algData shape is validated by the WebAuthn verifier.
+            return;
+        }
+        // ES256 / KS256 (and unknown algs, which fail later in dispatch):
+        // no band flags, no algData.
+        if (algFlags != 0) {
+            revert UnsupportedDelegationPolicyFlags(algFlags);
+        }
+        if (delegationProof.algData.length != 0) {
+            revert UnexpectedDelegationAlgData(delegationProof.algData.length);
+        }
+    }
+
     function _verifyCheckpointSignatureES256(
         bytes32 logId,
         uint64 claimedSize,
@@ -458,8 +508,7 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
         bytes memory detachedPayload,
         LogConfig storage config,
         DelegationProof calldata delegationProof,
-        uint256,
-        /* grant */
+        uint256 grant,
         bytes calldata grantData
     ) internal view returns (bytes memory initialRoot) {
         // --- Verifier key: the key that must have signed the consistency receipt. ---
@@ -475,6 +524,7 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
             detachedPayload,
             config,
             delegationProof,
+            grant,
             grantData
         );
 
@@ -605,12 +655,22 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
         bytes memory detachedPayload,
         LogConfig storage config,
         DelegationProof calldata delegationProof,
+        uint256 grant,
         bytes calldata grantData
     )
         internal
         view
         returns (bytes memory rootKey, bytes32 verifierX, bytes32 verifierY)
     {
+        // WebAuthn delegation policy (PRD passkey-log-custody R1): UV is
+        // per-log policy stated by the authority in the grant's native
+        // alg-flag band (ADR-0008), not a verifier constant.
+        // _checkDelegationAlgConstraints has already rejected the flag
+        // for algorithms that cannot honour it. rpIdHash pinning is the
+        // same shape of decision but a 32-byte hash does not fit a grant
+        // flag; disabled (zero) pending a policy channel — the verifier
+        // already supports it.
+        bool requireUV = (grant & GF_REQUIRES_USER_VERIFICATION) != 0;
         // Root key from storage, or from grantData on first checkpoint
         // (verify-only; no on-chain recovery). For the root authority log's
         // first checkpoint, grantData must match bootstrap (checked later in
@@ -695,20 +755,25 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
             }
 
             // Delegation present: root from grantData authorizes delegate;
-            // delegate must have signed the receipt (verified below).
+            // delegate must have signed the receipt (verified below). The
+            // root may sign as plain COSE ES256 or as a WebAuthn assertion
+            // (passkey root); dispatch is by delegation-proof alg.
             (verifierX, verifierY) =
                 decodeDelegationKeyES256(delegationProof.delegationKey);
-            verifyDelegationProofES256(
+            verifyDelegationProofP256(
                 delegationProof.protectedHeader,
                 delegationProof.mmrStart,
                 delegationProof.mmrEnd,
                 delegationProof.signature,
+                delegationProof.algData,
                 logId,
                 claimedSize > 0 ? claimedSize - 1 : 0,
                 rootX,
                 rootY,
                 verifierX,
-                verifierY
+                verifierY,
+                requireUV,
+                bytes32(0)
             );
             return (abi.encodePacked(rootX, rootY), verifierX, verifierY);
         }
@@ -721,17 +786,20 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
             // checkpoint in _verifyCheckpointSignatureES256; harmless duplicate.
             (verifierX, verifierY) =
                 decodeDelegationKeyES256(delegationProof.delegationKey);
-            verifyDelegationProofES256(
+            verifyDelegationProofP256(
                 delegationProof.protectedHeader,
                 delegationProof.mmrStart,
                 delegationProof.mmrEnd,
                 delegationProof.signature,
+                delegationProof.algData,
                 logId,
                 claimedSize > 0 ? claimedSize - 1 : 0,
                 rootX,
                 rootY,
                 verifierX,
-                verifierY
+                verifierY,
+                requireUV,
+                bytes32(0)
             );
         } else {
             verifierX = rootX;

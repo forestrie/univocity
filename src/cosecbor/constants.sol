@@ -15,3 +15,10 @@ uint8 constant MAJOR_TYPE_MAP = 5;
 // === COSE algorithm IDs (ES256 RFC 9053; KS256 private use) ===
 int64 constant ALG_ES256 = -7;
 int64 constant ALG_KS256 = -65799;
+// Private use, adjacent to KS256. Same curve and key type as ES256 but a
+// WebAuthn assertion envelope: the authenticator signs
+// authenticatorData || SHA256(clientDataJSON), with SHA256(Sig_structure)
+// carried as the WebAuthn challenge. A distinct alg (rather than -7 plus a
+// flag) keeps unaware verifiers fail-closed: they reject on unknown alg
+// instead of attempting a plain ES256 verify that can only fail late.
+int64 constant ALG_ES256_WEBAUTHN = -65800;

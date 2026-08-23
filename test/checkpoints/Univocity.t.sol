@@ -447,7 +447,8 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
             delegationKey: new bytes(64),
             mmrStart: 0,
             mmrEnd: 1,
-            signature: new bytes(64)
+            signature: new bytes(64),
+            algData: new bytes[](0)
         });
         PublishGrant memory g = _publishGrant(
             AUTHORITY_LOG_ID,
@@ -1473,7 +1474,8 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
                 delegationKey: "",
                 mmrStart: 0,
                 mmrEnd: 0,
-                signature: ""
+                signature: "",
+                algData: new bytes[](0)
             })
         });
         vm.expectRevert(

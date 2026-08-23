@@ -12,6 +12,21 @@ pragma solidity ^0.8.24;
 uint256 constant GF_CREATE = uint256(1) << 32;
 uint256 constant GF_EXTEND = uint256(1) << 33;
 uint256 constant GF_DERIVED = uint256(1) << 34;
+
+// Native algorithm-policy flag band (ADR-0008): bits 40-47, canopy wire
+// byte 2. Distinct from the canopy-assignable derived band (bits 35-39,
+// byte 3, devdocs ADR-0062): these bits are natively enforced protocol,
+// not derived-protocol semantics, so they never need GF_DERIVED. Each
+// delegation algorithm declares which band bits it consumes; the
+// contract rejects any set band bit the supplied algorithm does not
+// consume, so a stated policy can never be silently dropped.
+uint256 constant GF_ALG_MASK = uint256(0xFF) << 40;
+// When set, the delegation proof must be a WebAuthn assertion carrying
+// the UV (user verified) flag: the authority states the biometric/PIN
+// requirement at issuance (PRD passkey-log-custody R1) and the
+// verifier's check stays declarative. Only ALG_ES256_WEBAUTHN consumes
+// this bit.
+uint256 constant GF_REQUIRES_USER_VERIFICATION = uint256(1) << 40;
 uint256 constant GF_AUTH_LOG = uint256(1);
 uint256 constant GF_DATA_LOG = uint256(2);
 

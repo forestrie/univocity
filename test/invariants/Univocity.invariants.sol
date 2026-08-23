@@ -124,7 +124,8 @@ contract UnivocityHandler is Test {
             delegationKey: "",
             mmrStart: 0,
             mmrEnd: 0,
-            signature: ""
+            signature: "",
+            algData: new bytes[](0)
         });
     }
 
