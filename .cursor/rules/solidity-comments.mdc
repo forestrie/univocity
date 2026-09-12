@@ -36,13 +36,14 @@ Prefer stable **GitHub blob links** in `@dev` or `@notice`:
 ```solidity
 /// @notice Verifies a checkpoint grant against the owner log's published root.
 /// @dev Off-chain grant shape and inclusion rules:
-/// https://github.com/forestrie/devdocs/blob/main/arc/arc-0019-grant-verification-model.md
+/// https://github.com/forestrie/protocol/blob/main/decisions/arc-0019-grant-verification-model.md
 ```
 
 | Target | Link form |
 |--------|-----------|
 | Repo-local ARC | `https://github.com/forestrie/univocity/blob/main/docs/arc/…` |
 | Platform ADR/ARC | `https://github.com/forestrie/devdocs/blob/main/arc/…` |
+| Moved decisions (ADR-0045/0064/0065, ARC-0019) | `https://github.com/forestrie/protocol/blob/main/decisions/…` |
 | SCRAPI / Workers | `https://github.com/forestrie/canopy/blob/main/docs/…` |
 | Go services | `https://github.com/forestrie/arbor/blob/main/services/…` |
 
