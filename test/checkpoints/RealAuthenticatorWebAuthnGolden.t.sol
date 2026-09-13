@@ -22,6 +22,10 @@ import {
 ///    harness plus canopy's gen-sol-constants helper, never by hand. The
 ///    scope (log id, mmr range, delegated key) matches the synthetic
 ///    TS vectors in TsOnchainDelegationVectors.t.sol.
+///
+///    Which thinker commit and which page produced the capture — and why a
+///    fresh capture is never byte-identical to this one — is recorded in
+///    test/fixtures/webauthn-real-authenticator-golden.provenance.md.
 contract RealAuthenticatorWebAuthnGoldenTest is Test {
     /// COSE protected header {1: -65800} (ALG_ES256_WEBAUTHN).
     bytes internal constant WEBAUTHN_PROTECTED = hex"a1013a00010107";
