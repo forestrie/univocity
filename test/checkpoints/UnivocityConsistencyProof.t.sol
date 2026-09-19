@@ -26,10 +26,11 @@ import {IUnivocityErrors} from "@univocity/interfaces/IUnivocityErrors.sol";
 import {hashPosPair64} from "@univocity/algorithms/binUtils.sol";
 import {
     inclusionProofPathLength
-} from "@univocity/algorithms/inclusionProofPath.sol";
+} from "../algorithms/InclusionProofPathOracle.sol";
 
-/// @notice Harness so tests compute expected path lengths from the same
-///    arithmetic the contract uses, rather than hardcoding them.
+/// @notice Harness so tests compute expected path lengths from the draft's
+///    own walk (the test-tree oracle), independently of the bitmap
+///    arithmetic the contract uses.
 contract InclusionProofPathLengthHarness {
     function length(uint256 i, uint256 c)
         external

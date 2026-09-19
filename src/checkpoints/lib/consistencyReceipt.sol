@@ -7,7 +7,6 @@ import {
     checkConsistencyProofShape,
     consistentRootsFromSize
 } from "@univocity/algorithms/consistentRoots.sol";
-import {peaks} from "@univocity/algorithms/peaks.sol";
 
 /// @notice Run the consistency proof chain from initial accumulator (memory).
 ///    Caller supplies pre-decoded proof payloads (calldata). Caller must copy
@@ -59,7 +58,7 @@ function verifyConsistencyProofChain(
             revert IUnivocityErrors.InvalidConsistencyProof();
         }
 
-        uint256 carried =
+        (uint256 carried, uint256 expectedRight) =
             checkConsistencyProofShape(p.treeSize1, p.treeSize2, p.paths);
         bytes32[] memory roots =
             consistentRootsFromSize(p.treeSize1, accMem, p.paths);
@@ -70,8 +69,6 @@ function verifyConsistencyProofChain(
                 carried, roots.length
             );
         }
-        uint256 expectedRight =
-            peaks(uint256(p.treeSize2) - 1).length - carried;
         if (p.rightPeaks.length != expectedRight) {
             revert IUnivocityErrors.ConsistencyPeakCountMismatch(
                 expectedRight, p.rightPeaks.length

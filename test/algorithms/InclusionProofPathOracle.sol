@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-// Position-only form of inclusion_proof_path from
-// draft-bryce-cose-receipts-mmr-profile. The draft's function returns the
-// sibling indices; a verifier only needs how many there are and where the
-// walk ends, so this returns the path length and the committing peak. The
-// draft asks that "the implementation SHOULD check the lengths of the proof
-// paths are appropriate for the provided tree sizes"; this is that check's
-// arithmetic.
+// TEST-ONLY ORACLE. Position-only form of inclusion_proof_path from
+// draft-bryce-cose-receipts-mmr-profile, walked hop by hop exactly as the
+// draft writes it. The contract does not use this: checkConsistencyProofShape
+// derives the same path lengths from the peaks bitmaps in constant time. The
+// walk is kept here so fuzz tests can show the bitmap arithmetic agrees with
+// the draft's definition on random size pairs (ConsistencyShape.t.sol) and
+// so checkpoint tests can state expected lengths without hardcoding them.
 
 import {indexHeight} from "@univocity/algorithms/binUtils.sol";
 
