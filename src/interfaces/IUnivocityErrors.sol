@@ -42,8 +42,8 @@ interface IUnivocityErrors {
     ///    the size it follows: the anchored size for the first proof, the
     ///    previous proof's treeSize2 thereafter (FOR-567).
     error ConsistencyBaseMismatch(uint64 expected, uint64 declared);
-    /// @notice A declared tree size is not a complete MMR
-    ///    (indexHeight(size) != 0), so no MMR has that many nodes.
+    /// @notice A proof's declared target size (treeSize2) is not a complete
+    ///    MMR (size != 2L - popcount(L)), so no MMR has that many nodes.
     error IncompleteTreeSize(uint64 size);
     /// @notice Consistency proof path `peak` (position in the origin
     ///    accumulator) has a length other than the one the two declared

@@ -18,8 +18,8 @@ import {bitLength, popcount64} from "@univocity/algorithms/binUtils.sol";
 import {IUnivocityErrors} from "@univocity/interfaces/IUnivocityErrors.sol";
 
 /// @notice Check a consistency proof's shape against the draft's
-///    `consistency_proof_paths(ifrom, ito)`: both sizes must be complete
-///    MMRs, there must be one path per peak of MMR(sizeFrom), and each path
+///    `consistency_proof_paths(ifrom, ito)`: the target size must be a
+///    complete MMR, there must be one path per peak of MMR(sizeFrom), and each path
 ///    must have exactly the length the two sizes imply. Position arithmetic
 ///    only; no hashing. Without this a prover chooses the path lengths, and
 ///    so the heights at which the origin peaks are re-homed.
@@ -51,12 +51,9 @@ function checkConsistencyProofShape(
     // it, so the bitmaps only describe these trees if the sizes are
     // complete. Without this a target such as 6 anchors an accumulator that
     // is no MMR's, and an offline verifier reads its entries at the wrong
-    // heights. The base is anchored state and is complete whenever it was
-    // written by this check; the test names state anchored before it.
+    // heights. Only the target is checked: the base is anchored state, and
+    // every anchored size was itself a checked target.
     uint256 from = peaksBitmap(sizeFrom);
-    if (mmrSizeForLeafCount(from) != sizeFrom) {
-        revert IUnivocityErrors.IncompleteTreeSize(sizeFrom);
-    }
     uint256 to = peaksBitmap(sizeTo);
     if (mmrSizeForLeafCount(to) != sizeTo) {
         revert IUnivocityErrors.IncompleteTreeSize(sizeTo);

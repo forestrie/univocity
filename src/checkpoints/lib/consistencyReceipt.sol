@@ -15,8 +15,8 @@ import {
 ///    Every proof is folded from the accumulator it follows: the initial
 ///    state for the first, the previous proof's output thereafter. The
 ///    declared base of each proof must be the size of that accumulator, each
-///    proof must grow the tree, both sizes must be complete MMRs, and the
-///    paths must have the lengths the two sizes imply (the draft's SHOULD).
+///    proof must grow the tree to a complete MMR size, and the paths must
+///    have the lengths the two sizes imply (the draft's SHOULD).
 ///    `consistentRoots` alone checks only peak counts, which many sizes
 ///    share, and hashes whatever path length it is given; without the size
 ///    and shape checks a proof could re-home the anchored peaks at heights
