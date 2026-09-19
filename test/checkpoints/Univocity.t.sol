@@ -392,7 +392,7 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
         );
 
         // Any claimedSize <= the current size (3) triggers SizeMustIncrease
-        // before the consistency proof shape is ever checked; use an honest
+        // before the consistency proof shape is ever checked; use a valid
         // 0 -> 1 receipt rather than an impossible tree size.
         ConsistencyReceipt memory consistencyDecrease =
             _buildConsistencyReceipt(_toAcc(keccak256("p0")));
@@ -511,7 +511,7 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
         );
     }
 
-    /// @notice Geometrically honest 1 -> 3 fold, signed over the wrong
+    /// @notice Well-formed 1 -> 3 fold, signed over the wrong
     ///    payload: shape/peak-count checks all pass, so the fold succeeds and
     ///    the signature check (over the real folded accumulator, not the
     ///    signed "wrong" one) is what fails.

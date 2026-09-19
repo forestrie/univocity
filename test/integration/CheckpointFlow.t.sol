@@ -15,7 +15,7 @@ import {
 } from "@univocity/interfaces/types.sol";
 import {includedRoot} from "@univocity/algorithms/includedRoot.sol";
 import {IUnivocityEvents} from "@univocity/interfaces/IUnivocityEvents.sol";
-import {consistentRoots} from "@univocity/algorithms/consistentRoots.sol";
+import {consistentRoots} from "../algorithms/ConsistentRootsOracle.sol";
 import {
     buildDetachedPayloadCommitment,
     verifyConsistencyProofChain
@@ -260,7 +260,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
         });
     }
 
-    /// @notice Honest 1 -> 3 fold: leaf0 is the sole peak of MMR(1); folding
+    /// @notice 1 -> 3 fold: leaf0 is the sole peak of MMR(1); folding
     ///    it with sibling leaf1 (path length 1) yields the sole peak of
     ///    MMR(3), with no right peaks (MMR(3) has exactly one peak).
     function _buildConsistencyReceipt1To3(bytes32 leaf0, bytes32 leaf1)
@@ -617,7 +617,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
     }
 
     /// @dev Build a receipt whose `consistencyProofs` chain size 0 → 1 → 3
-    ///    (honest MMR sizes only; a single-seal 0 -> 2 or 1 -> 2 step is not
+    ///    (valid MMR sizes only; a single-seal 0 -> 2 or 1 -> 2 step is not
     ///    a valid tree size).
     function _buildConsistencyReceipt0To3(bytes32 leaf1, bytes32 leaf2)
         internal

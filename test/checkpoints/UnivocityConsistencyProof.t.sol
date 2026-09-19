@@ -1,20 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-/// @notice Consistency proof chain tests: the declared base of every proof
-///   must be the size the contract actually holds (FOR-567). Split per
-///   test/checkpoints/README.md.
-///
-///   `consistentRoots` only checks that the stored accumulator has as many
-///   peaks as `peaks(treeSize1 - 1)`. Many sizes share a peak count, so
-///   before the fix a proof could declare a base other than the anchored
-///   size and still fold. Four routes are exercised, each against a log
-///   that already holds an accumulator, and each must now revert:
-///   - base 0: the fold adopted `rightPeaks` verbatim (stored state ignored)
-///   - aliased base: size 1 held, base 3 declared (both one peak)
-///   - chain break: proof i declares a base other than proof i-1's treeSize2
-///   - shrinking chain: contiguous bases, but one step goes 3 -> 2
-///   Each route was run green against 8143868 before the fix.
+/// @notice Consistency proof chain tests (FOR-567). Every proof in a chain
+///   must start at the size the contract holds (then at the previous proof's
+///   treeSize2), grow to a complete MMR size, and carry paths of the length
+///   the two sizes imply. Cases, each against a log that already holds an
+///   accumulator:
+///   - base 0 declared for a log at size 3
+///   - base 3 declared for a log at size 1 (both sizes have one peak)
+///   - a chain whose second proof does not start at the first proof's target
+///   - a chain with a step that does not grow (3 -> 2)
+///   - an incomplete target size; empty paths; missing and surplus rightPeaks
+///   - a 1 -> 3 -> 4 -> 7 chain that is accepted, with the accumulator
+///     checked at each step
+///   Split per test/checkpoints/README.md.
 
 import "./UnivocityTestHelper.sol";
 import {
@@ -56,10 +55,10 @@ contract UnivocityConsistencyProofTest is UnivocityTestHelper {
         assertEq(univocity.logState(TEST_LOG_ID).size, 1);
     }
 
-    // --- honest baseline ---------------------------------------------------
+    // --- accepted extension ------------------------------------------------
 
-    /// @notice Honest extension of TEST_LOG from size 1 to 3: the stored peak
-    ///    is folded with the supplied sibling. Same shape as the aliased-base
+    /// @notice Extension of TEST_LOG from size 1 to 3: the stored peak is
+    ///    folded with the supplied sibling. Same shape as the declared-base-3
     ///    case below, differing only in the declared base.
     function test_extend_declaredBaseMatchesStoredSize_succeeds() public {
         bytes32[][] memory paths = _paths1(_path1(keccak256("leaf1")));
@@ -76,22 +75,20 @@ contract UnivocityConsistencyProofTest is UnivocityTestHelper {
 
     // --- FOR-567 -----------------------------------------------------------
 
-    /// @notice Route 1: base-0 proof against the authority log (size 3). The
-    ///    fold used to ignore the stored accumulator and adopt `rightPeaks`
-    ///    as-is, letting the root key holder replace the anchored history
-    ///    with a peak of their choosing. The root grant is replayed with the
-    ///    same inclusion proof the honest extension tests use. Declared
-    ///    target (4) is above the current size so the base check is reached
-    ///    (rather than SizeMustIncrease firing first).
+    /// @notice A proof declaring base 0 for the authority log, which is at
+    ///    size 3, reverts ConsistencyBaseMismatch(3, 0). The root grant and
+    ///    inclusion proof are the ones the extension tests use. The declared
+    ///    target (4) exceeds the current size so the base check is reached
+    ///    rather than SizeMustIncrease.
     function test_publishCheckpoint_base0OnInitialisedLog_reverts() public {
-        bytes32 forged = keccak256("forged-root");
+        bytes32 replacement = keccak256("replacement-peak");
         bytes32 before = univocity.logState(AUTHORITY_LOG_ID).accumulator[0];
-        assertTrue(before != forged);
+        assertTrue(before != replacement);
 
         ConsistencyProof[] memory proofs = new ConsistencyProof[](1);
-        proofs[0] = _proof(0, 4, new bytes32[][](0), _toAcc(forged));
+        proofs[0] = _proof(0, 4, new bytes32[][](0), _toAcc(replacement));
         ConsistencyReceipt memory receipt =
-            _signReceipt(proofs, _toAcc(forged));
+            _signReceipt(proofs, _toAcc(replacement));
 
         vm.prank(BOOTSTRAP);
         vm.expectRevert(_baseMismatch(3, 0));
@@ -106,37 +103,35 @@ contract UnivocityConsistencyProofTest is UnivocityTestHelper {
         assertEq(univocity.logState(AUTHORITY_LOG_ID).accumulator[0], before);
     }
 
-    /// @notice Route 2: TEST_LOG holds size 1 (one peak). A proof declaring
-    ///    base 3 (also one peak) passes the peak-count check; before the fix
-    ///    the stored peak was hashed as though it sat at MMR index 2 with a
-    ///    sibling the caller chose.
+    /// @notice TEST_LOG is at size 1. A proof declaring base 3 reverts
+    ///    ConsistencyBaseMismatch(1, 3). Both sizes have one peak, so a
+    ///    peak-count check alone would not distinguish them.
     function test_publishCheckpoint_aliasedBaseOnInitialisedLog_reverts()
         public
     {
-        bytes32[][] memory paths = _paths1(_path1(keccak256("chosen")));
-        // What the fold computes when it believes PEAK1 is the peak of MMR(2).
-        bytes32 bogus =
+        bytes32[][] memory paths = _paths1(_path1(keccak256("sibling")));
+        // The value the fold would produce with PEAK1 taken as node index 2.
+        bytes32 folded =
             includedRootHarness.callIncludedRoot(2, PEAK1, paths[0]);
         ConsistencyProof[] memory proofs = new ConsistencyProof[](1);
         proofs[0] = _proof(3, 7, paths, new bytes32[](0));
 
         vm.expectRevert(_baseMismatch(1, 3));
-        _publishTestLog(_signReceipt(proofs, _toAcc(bogus)));
+        _publishTestLog(_signReceipt(proofs, _toAcc(folded)));
 
         assertEq(univocity.logState(TEST_LOG_ID).size, 1);
         assertEq(univocity.logState(TEST_LOG_ID).accumulator[0], PEAK1);
     }
 
-    /// @notice Route 3: an honest 1 -> 3 proof followed by a proof that
-    ///    declares base 1 rather than 3. Before the fix the chain was never
-    ///    checked for contiguity, so the second proof folded the
-    ///    intermediate root as a leaf.
+    /// @notice A 1 -> 3 proof followed by a proof declaring base 1 rather
+    ///    than 3 reverts ConsistencyBaseMismatch(3, 1): each proof must start
+    ///    at the previous proof's target.
     function test_publishCheckpoint_chainBaseMismatch_reverts() public {
         bytes32[][] memory paths0 = _paths1(_path1(keccak256("leaf1")));
         bytes32 root3 =
             includedRootHarness.callIncludedRoot(0, PEAK1, paths0[0]);
-        bytes32[][] memory paths1 = _paths1(_path1(keccak256("chosen")));
-        bytes32 bogus =
+        bytes32[][] memory paths1 = _paths1(_path1(keccak256("sibling")));
+        bytes32 folded =
             includedRootHarness.callIncludedRoot(0, root3, paths1[0]);
 
         ConsistencyProof[] memory proofs = new ConsistencyProof[](2);
@@ -144,44 +139,42 @@ contract UnivocityConsistencyProofTest is UnivocityTestHelper {
         proofs[1] = _proof(1, 7, paths1, new bytes32[](0));
 
         vm.expectRevert(_baseMismatch(3, 1));
-        _publishTestLog(_signReceipt(proofs, _toAcc(bogus)));
+        _publishTestLog(_signReceipt(proofs, _toAcc(folded)));
 
         assertEq(univocity.logState(TEST_LOG_ID).size, 1);
     }
 
-    /// @notice Route 4: a contiguous chain that shrinks mid-way (1 -> 3 ->
-    ///    2 -> 7). Each base matches the previous treeSize2, but the 3 -> 2
-    ///    step re-homes the size-3 root as one of two size-2 peaks, after
-    ///    which it is hashed at a position no honest MMR gives it.
+    /// @notice A chain 1 -> 3 -> 2 -> 7 reverts InvalidConsistencyProof at
+    ///    the 3 -> 2 step: every proof must grow the tree (and 2 is not a
+    ///    complete MMR size).
     function test_publishCheckpoint_chainShrinks_reverts() public {
-        bytes32 chosen = keccak256("chosen");
+        bytes32 sibling = keccak256("sibling");
         bytes32[][] memory paths0 = _paths1(_path1(keccak256("leaf1")));
         bytes32 root3 =
             includedRootHarness.callIncludedRoot(0, PEAK1, paths0[0]);
-        // 3 -> 2: fold root3 (as peak of MMR(2)) with `chosen`, then pad to
-        // the two peaks size 2 requires.
-        bytes32[][] memory paths1 = _paths1(_path1(chosen));
+        // 3 -> 2 step: root3 folded with `sibling`, padded with a second peak.
+        bytes32[][] memory paths1 = _paths1(_path1(sibling));
         bytes32 node =
             includedRootHarness.callIncludedRoot(2, root3, paths1[0]);
-        // 2 -> 7: both size-2 "peaks" prove to the same root at index 0/1.
+        // 2 -> 7 step: both peaks fold to the same value.
         bytes32[][] memory paths2 = new bytes32[][](2);
-        paths2[0] = _path1(chosen);
+        paths2[0] = _path1(sibling);
         paths2[1] = _path1(node);
-        bytes32 bogus =
+        bytes32 folded =
             includedRootHarness.callIncludedRoot(0, node, paths2[0]);
 
         ConsistencyProof[] memory proofs = new ConsistencyProof[](3);
         proofs[0] = _proof(1, 3, paths0, new bytes32[](0));
-        proofs[1] = _proof(3, 2, paths1, _toAcc(chosen));
+        proofs[1] = _proof(3, 2, paths1, _toAcc(sibling));
         proofs[2] = _proof(2, 7, paths2, new bytes32[](0));
 
         vm.expectRevert(IUnivocityErrors.InvalidConsistencyProof.selector);
-        _publishTestLog(_signReceipt(proofs, _toAcc(bogus)));
+        _publishTestLog(_signReceipt(proofs, _toAcc(folded)));
 
         assertEq(univocity.logState(TEST_LOG_ID).size, 1);
     }
 
-    // --- checkConsistencyProofShape errors -----------------------------------
+    // --- proof shape -------------------------------------------------------
 
     /// @notice A declared target size that is not a complete MMR reverts
     ///    IncompleteTreeSize(5), before any path/peak-count check runs.
@@ -195,14 +188,16 @@ contract UnivocityConsistencyProofTest is UnivocityTestHelper {
                 IUnivocityErrors.IncompleteTreeSize.selector, uint64(5)
             )
         );
-        _publishTestLog(_signReceipt(proofs, _toAcc(keccak256("whatever"))));
+        _publishTestLog(_signReceipt(proofs, _toAcc(keccak256("unreached"))));
 
         assertEq(univocity.logState(TEST_LOG_ID).size, 1);
     }
 
-    /// @notice The keyless "replay the old signature at an inflated size"
-    ///    attack: an empty path at 1 -> 3 (the path length peak index 0
-    ///    needs there is 1) reverts ConsistencyPathLengthMismatch(0, 1, 0).
+    /// @notice An empty path at 1 -> 3 reverts
+    ///    ConsistencyPathLengthMismatch(0, 1, 0): the path for peak index 0
+    ///    must have length 1. With an empty path the fold would return the
+    ///    stored peak unchanged, so a receipt already published for size 1
+    ///    would verify against a larger declared size.
     function test_publishCheckpoint_emptyPathAt1To3_reverts() public {
         bytes32[][] memory paths = _paths1(new bytes32[](0));
         ConsistencyProof[] memory proofs = new ConsistencyProof[](1);
@@ -221,8 +216,8 @@ contract UnivocityConsistencyProofTest is UnivocityTestHelper {
         assertEq(univocity.logState(TEST_LOG_ID).size, 1);
     }
 
-    /// @notice Same attack shape at 1 -> 7: the expected length (what the
-    ///    error carries) comes from inclusionProofPathLength, not a guess.
+    /// @notice The same shape at 1 -> 7: the expected length carried by the
+    ///    error comes from inclusionProofPathLength rather than a literal.
     function test_publishCheckpoint_emptyPathAt1To7_reverts() public {
         (uint256 expectedLen,) = pathLengthHarness.length(0, 6);
         assertEq(expectedLen, 2);
@@ -244,7 +239,7 @@ contract UnivocityConsistencyProofTest is UnivocityTestHelper {
         assertEq(univocity.logState(TEST_LOG_ID).size, 1);
     }
 
-    /// @notice 1 -> 4 with an honest origin path but no rightPeaks: MMR(4)
+    /// @notice 1 -> 4 with a correct origin path but no rightPeaks: MMR(4)
     ///    has two peaks, and the second (the new leaf) must arrive as a
     ///    rightPeak. Omitting it reverts ConsistencyPeakCountMismatch(1, 0).
     function test_publishCheckpoint_missingRightPeakAt1To4_reverts() public {
@@ -259,18 +254,18 @@ contract UnivocityConsistencyProofTest is UnivocityTestHelper {
                 uint256(0)
             )
         );
-        _publishTestLog(_signReceipt(proofs, _toAcc(keccak256("whatever"))));
+        _publishTestLog(_signReceipt(proofs, _toAcc(keccak256("unreached"))));
 
         assertEq(univocity.logState(TEST_LOG_ID).size, 1);
     }
 
-    /// @notice 1 -> 3 with an honest origin path plus a junk rightPeak:
+    /// @notice 1 -> 3 with a correct origin path plus a surplus rightPeak:
     ///    MMR(3) has one peak, fully carried from the origin, so any
     ///    rightPeak reverts ConsistencyPeakCountMismatch(0, 1).
     function test_publishCheckpoint_surplusRightPeakAt1To3_reverts() public {
         bytes32[][] memory paths = _paths1(_path1(keccak256("leaf1")));
         ConsistencyProof[] memory proofs = new ConsistencyProof[](1);
-        proofs[0] = _proof(1, 3, paths, _toAcc(keccak256("junk")));
+        proofs[0] = _proof(1, 3, paths, _toAcc(keccak256("surplus")));
 
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -279,12 +274,12 @@ contract UnivocityConsistencyProofTest is UnivocityTestHelper {
                 uint256(1)
             )
         );
-        _publishTestLog(_signReceipt(proofs, _toAcc(keccak256("whatever"))));
+        _publishTestLog(_signReceipt(proofs, _toAcc(keccak256("unreached"))));
 
         assertEq(univocity.logState(TEST_LOG_ID).size, 1);
     }
 
-    // --- honest chained growth -----------------------------------------------
+    // --- chained growth ----------------------------------------------------
 
     /// @notice 1 -> 3 -> 4 -> 7 all succeed in sequence on TEST_LOG, and the
     ///    on-chain accumulator matches the canonical MMR node values

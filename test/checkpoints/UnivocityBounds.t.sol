@@ -156,7 +156,7 @@ contract UnivocityBoundsTest is UnivocityTestHelper {
         );
         assertEq(univocity.logState(TEST_LOG_ID).size, 1);
 
-        // Honest 1 -> 3 growth is +2; require minGrowth 3 so that growth
+        // 1 -> 3 growth is +2; require minGrowth 3 so that growth
         // still falls short (2 is not a valid MMR size and must not appear
         // as a proof's treeSize2).
         ConsistencyReceipt memory consistency1to3 = _buildConsistencyReceipt1To3(
@@ -202,7 +202,7 @@ contract UnivocityBoundsTest is UnivocityTestHelper {
         fresh.publishCheckpoint(
             consistency0, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g0
         );
-        // maxHeight 3 (not 2): honest growth jumps 1 -> 3, so the first
+        // maxHeight 3 (not 2): growth jumps 1 -> 3, so the first
         // extend must land exactly on the boundary for the second extend
         // (3 -> 4) to be the one that exceeds it.
         PublishGrant memory g = _publishGrant(

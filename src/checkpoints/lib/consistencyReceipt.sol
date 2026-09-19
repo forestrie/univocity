@@ -4,8 +4,7 @@ pragma solidity ^0.8.24;
 import {ConsistencyProof} from "@univocity/interfaces/types.sol";
 import {IUnivocityErrors} from "@univocity/interfaces/IUnivocityErrors.sol";
 import {
-    checkConsistencyProofShape,
-    consistentRootsFromSize
+    consistentRootsForSizes
 } from "@univocity/algorithms/consistentRoots.sol";
 
 /// @notice Run the consistency proof chain from initial accumulator (memory).
@@ -17,13 +16,14 @@ import {
 ///    declared base of each proof must be the size of that accumulator, each
 ///    proof must grow the tree to a complete MMR size, and the paths must
 ///    have the lengths the two sizes imply (the draft's SHOULD).
-///    `consistentRoots` alone checks only peak counts, which many sizes
-///    share, and hashes whatever path length it is given; without the size
-///    and shape checks a proof could re-home the anchored peaks at heights
-///    and positions the log never had, or re-anchor an unchanged
-///    accumulator at an inflated size (FOR-567 and follow-ups). An empty log
-///    is size 0 with no peaks; a first checkpoint is just the base-0 case of
-///    the same fold.
+///    The draft's consistent_roots alone checks only peak counts, which
+///    many sizes share, and hashes whatever path length it is given;
+///    without the size and shape checks a proof could re-home the anchored
+///    peaks at heights and positions the log never had, or re-anchor an
+///    unchanged accumulator at an inflated size (FOR-567 and follow-ups).
+///    consistentRootsForSizes enforces the shape in the same pass as the
+///    hashing. An empty log is size 0 with no peaks; a first checkpoint is
+///    just the base-0 case of the same fold.
 /// @param initialAccumulator Peaks of the log state (tree-size before first
 ///    proof). Must be memory (copy from storage in caller if needed).
 /// @param initialSize Node count committed by initialAccumulator (0 when the
@@ -58,17 +58,8 @@ function verifyConsistencyProofChain(
             revert IUnivocityErrors.InvalidConsistencyProof();
         }
 
-        (uint256 carried, uint256 expectedRight) =
-            checkConsistencyProofShape(p.treeSize1, p.treeSize2, p.paths);
-        bytes32[] memory roots =
-            consistentRootsFromSize(p.treeSize1, accMem, p.paths);
-        // With path lengths pinned, origin peaks under one target peak must
-        // fold to the same value; a surplus root means inconsistent siblings.
-        if (roots.length != carried) {
-            revert IUnivocityErrors.ConsistencyPeakCountMismatch(
-                carried, roots.length
-            );
-        }
+        (bytes32[] memory roots, uint256 expectedRight) =
+            consistentRootsForSizes(p.treeSize1, p.treeSize2, accMem, p.paths);
         if (p.rightPeaks.length != expectedRight) {
             revert IUnivocityErrors.ConsistencyPeakCountMismatch(
                 expectedRight, p.rightPeaks.length

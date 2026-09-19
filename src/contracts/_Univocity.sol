@@ -51,7 +51,8 @@ import {
     LibLogState,
     _leafCommitment
 } from "@univocity/algorithms/lib/LibLogState.sol";
-import {peaks} from "@univocity/algorithms/peaks.sol";
+import {peaksBitmap} from "@univocity/algorithms/peaks.sol";
+import {popcount64} from "@univocity/algorithms/binUtils.sol";
 
 /// @title _Univocity
 /// @notice Abstract base for Univocity-style transparency contracts (plan 0027).
@@ -918,7 +919,7 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
         uint64 size,
         bytes32[] memory accumulator
     ) private pure {
-        uint256 expectedPeaks = size == 0 ? 0 : peaks(uint256(size) - 1).length;
+        uint256 expectedPeaks = popcount64(peaksBitmap(size));
         if (accumulator.length != expectedPeaks) {
             revert InvalidAccumulatorLength(expectedPeaks, accumulator.length);
         }

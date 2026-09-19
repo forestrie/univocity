@@ -120,7 +120,7 @@ contract UnivocityDelegationWebAuthnTest is UnivocityTestHelper {
         bytes32 leaf1 = keccak256("webauthn-second-checkpoint");
         ConsistencyReceipt memory second =
             _buildConsistencyReceipt1To3ES256(leaf0, leaf1, DELEGATE_PK);
-        // claimedSize is 3 (honest 1 -> 3 growth), so mmrIndex = size - 1 = 2.
+        // claimedSize is 3 (1 -> 3 growth), so mmrIndex = size - 1 = 2.
         second.delegationProof = _webauthnProof(2, 2, FLAGS_UP);
 
         vm.prank(BOOTSTRAP);

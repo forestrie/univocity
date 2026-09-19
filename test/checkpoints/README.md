@@ -35,9 +35,9 @@ functionally grouped contracts:
   sizes, and carry paths of the length the draft's `inclusion_proof_path`
   implies. Holds the regression routes for the base-0 / aliased-base /
   chain-break / shrinking-chain / empty-path / peak-count cases plus an
-  honest 1→3→4→7 chain.
+  1→3→4→7 chain.
 
-Fixtures use honest MMR geometry only: valid sizes are 1, 3, 4, 7, 8, 10, 11,
+Fixtures use valid MMR geometry only: valid sizes are 1, 3, 4, 7, 8, 10, 11,
 15 … (`indexHeight(size) == 0`); size 2 is not an MMR and the contract rejects
 it. The authority log after `_publishBootstrapAndSecondCheckpoint` is at size
 3 with accumulator `[hashPosPair64(3, leaf0, leaf1)]`.
