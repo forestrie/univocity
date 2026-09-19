@@ -194,7 +194,7 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
         }
         bytes32[] memory initialAcc = _accumulatorToMemory(log);
         bytes32[] memory accMem = verifyConsistencyProofChain(
-            initialAcc, consistencyParts.consistencyProofs
+            initialAcc, currentSize, consistencyParts.consistencyProofs
         );
         _validateCheckpointAccumulatorLength(claimedSize, accMem);
 
@@ -911,7 +911,9 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
     }
 
     /// @notice Accumulator length must match expected peaks for size (MMR
-    ///    profile). Call after proof chain.
+    ///    profile). Call after proof chain. The fold already pins the
+    ///    accumulator shape per proof (checkConsistencyProofShape), so this
+    ///    is defence in depth: it cannot fire for a chain the fold accepted.
     function _validateCheckpointAccumulatorLength(
         uint64 size,
         bytes32[] memory accumulator

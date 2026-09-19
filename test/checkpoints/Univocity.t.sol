@@ -170,7 +170,7 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
         );
         bytes32 leafChild = _leafCommitment(IDTIMESTAMP_TEST, gChild);
         ConsistencyReceipt memory consistency1 =
-            _buildConsistencyReceipt1To2(leaf0, leafChild);
+            _buildConsistencyReceipt1To3(leaf0, leafChild);
         PublishGrant memory g1 = _publishGrant(
             AUTHORITY_LOG_ID,
             GRANT_ROOT,
@@ -372,9 +372,8 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
         _publishFirstToTestLog(
             univocity, keccak256("peak1"), authorityLeaf0, grantTestLog
         );
-        ConsistencyReceipt memory consistency1to3 = _buildConsistencyReceipt1To3(
-            keccak256("peak1"), authorityLeaf1, keccak256("leaf2")
-        );
+        ConsistencyReceipt memory consistency1to3 =
+            _buildConsistencyReceipt1To3(keccak256("peak1"), authorityLeaf1);
         bytes32[] memory pathDec = _path1(authorityLeaf0);
         PublishGrant memory g = _publishGrant(
             TEST_LOG_ID,
@@ -392,21 +391,32 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
             g
         );
 
-        ConsistencyReceipt memory consistency0to2 =
-            _buildConsistencyReceipt0To2(keccak256("p0"), keccak256("p1"));
+        // Any claimedSize <= the current size (3) triggers SizeMustIncrease
+        // before the consistency proof shape is ever checked; use an honest
+        // 0 -> 1 receipt rather than an impossible tree size.
+        ConsistencyReceipt memory consistencyDecrease =
+            _buildConsistencyReceipt(_toAcc(keccak256("p0")));
         vm.expectRevert(
             abi.encodeWithSelector(
-                IUnivocityErrors.SizeMustIncrease.selector, 3, 2
+                IUnivocityErrors.SizeMustIncrease.selector, 3, 1
             )
         );
         univocity.publishCheckpoint(
-            consistency0to2,
+            consistencyDecrease,
             _buildPaymentInclusionProof(1, pathDec),
             IDTIMESTAMP_TEST,
             g
         );
     }
 
+    /// @notice A successful consistency-proof-chain fold now always produces
+    ///    an accumulator of the correct length by construction (each proof's
+    ///    roots + rightPeaks are checked against the target peak count), so
+    ///    InvalidAccumulatorLength is unreachable via a submitted proof; the
+    ///    wrong-peak-count fixture is now caught earlier, by
+    ///    ConsistencyPeakCountMismatch from checkConsistencyProofShape /
+    ///    verifyConsistencyProofChain. Same intent (reject a padded
+    ///    accumulator), different (now unreachable) error name.
     function test_publishCheckpoint_revertsOnInvalidAccumulatorLength()
         public
     {
@@ -415,7 +425,7 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
         );
         ConsistencyReceipt memory wrongConsistency =
             _buildConsistencyReceipt1To3WrongPeakCount(
-                keccak256("peak1"), authorityLeaf1, keccak256("leaf2")
+                keccak256("peak1"), authorityLeaf1
             );
         bytes32[] memory pathWrong = _path1(authorityLeaf0);
         PublishGrant memory g = _publishGrant(
@@ -423,7 +433,7 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
         );
         vm.expectRevert(
             abi.encodeWithSelector(
-                IUnivocityErrors.InvalidAccumulatorLength.selector, 1, 2
+                IUnivocityErrors.ConsistencyPeakCountMismatch.selector, 0, 1
             )
         );
         univocity.publishCheckpoint(
@@ -439,7 +449,7 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
     function test_publishCheckpoint_ks256WithDelegation_revertsDelegationNotSupported()
         public
     {
-        ConsistencyReceipt memory consistency = _buildConsistencyReceipt2To3(
+        ConsistencyReceipt memory consistency = _buildConsistencyReceipt3To4(
             authorityLeaf0, authorityLeaf1, keccak256("third")
         );
         consistency.delegationProof = DelegationProof({
@@ -501,6 +511,10 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
         );
     }
 
+    /// @notice Geometrically honest 1 -> 3 fold, signed over the wrong
+    ///    payload: shape/peak-count checks all pass, so the fold succeeds and
+    ///    the signature check (over the real folded accumulator, not the
+    ///    signed "wrong" one) is what fails.
     function test_publishCheckpoint_revertsOnInvalidConsistencyProof() public {
         _publishFirstToTestLog(
             univocity,
@@ -510,23 +524,13 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
         );
 
         ConsistencyReceipt memory wrongConsistency =
-            _buildConsistencyReceipt1To3WrongProof(
-                0xaf5570f5a1810b7af78caf4bc70a660f0df51e42baf91d4de5b2328de0e83dfc,
-                authorityLeaf1,
-                bytes32(0)
-            );
+            _buildConsistencyReceipt1To3WrongProof(authorityLeaf1);
         bytes32[] memory pathWrongProof;
         PublishGrant memory g = _publishGrant(
             TEST_LOG_ID, GRANT_DATA, GC_DATA_LOG, 0, 0, AUTHORITY_LOG_ID, ""
         );
-        // Accumulator length is checked immediately after the consistency proof chain;
-        // this invalid proof yields wrong peak count so we revert with InvalidAccumulatorLength.
         vm.expectRevert(
-            abi.encodeWithSelector(
-                IUnivocityErrors.InvalidAccumulatorLength.selector,
-                uint256(1),
-                uint256(2)
-            )
+            IUnivocityErrors.ConsistencyReceiptSignatureInvalid.selector
         );
         univocity.publishCheckpoint(
             wrongConsistency,
@@ -541,7 +545,7 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
     /// @notice ADR-0004: non-bootstrap can extend root with valid grant
     ///    (permissionless submission; root extension requires grant in root).
     function test_publishCheckpoint_authorityLogOnlyBootstrap() public {
-        ConsistencyReceipt memory consistency2 = _buildConsistencyReceipt2To3(
+        ConsistencyReceipt memory consistency2 = _buildConsistencyReceipt3To4(
             authorityLeaf0, authorityLeaf1, keccak256("third")
         );
         PublishGrant memory g = _publishGrant(
@@ -561,7 +565,7 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
             IDTIMESTAMP_AUTH,
             g
         );
-        assertEq(univocity.logState(AUTHORITY_LOG_ID).size, 3);
+        assertEq(univocity.logState(AUTHORITY_LOG_ID).size, 4);
     }
 
     function test_publishCheckpoint_nonBootstrapNeedsReceipt() public {
@@ -1370,7 +1374,7 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
         );
         bytes32 leaf1 = _leafCommitment(IDTIMESTAMP_AUTH, g1);
         ConsistencyReceipt memory consistency1to2 =
-            _buildConsistencyReceipt1To2ES256(leaf0, leaf1, es256Pk);
+            _buildConsistencyReceipt1To3ES256(leaf0, leaf1, es256Pk);
         vm.expectRevert(
             abi.encodeWithSelector(
                 IUnivocityErrors.InconsistentReceiptSignature.selector,
@@ -1421,7 +1425,7 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
         );
         bytes32 leaf1 = _leafCommitment(IDTIMESTAMP_AUTH, g1);
         ConsistencyReceipt memory consistency1to2 =
-            _buildConsistencyReceipt1To2(leaf0, leaf1);
+            _buildConsistencyReceipt1To3(leaf0, leaf1);
         vm.expectRevert(
             abi.encodeWithSelector(
                 IUnivocityErrors.InconsistentReceiptSignature.selector,
@@ -1438,8 +1442,12 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
 
     /// @notice Reverts when consistency receipt has invalid proof payload
     ///    (decoded: treeSize2=1 but rightPeaks empty so accMem length 0).
-    ///    Sign the payload the contract will use so revert is
-    ///    InvalidAccumulatorLength, not signature.
+    ///    Sign the payload the contract will use. The rightPeaks/target-peak
+    ///    mismatch is now caught inside the proof-chain fold itself
+    ///    (ConsistencyPeakCountMismatch), before accumulator length is ever
+    ///    checked, so InvalidAccumulatorLength is unreachable via a
+    ///    submitted proof; same intent (reject a short accumulator), earlier
+    ///    (and more precise) error.
     function test_publishCheckpoint_revertsWhenConsistencyReceiptInvalidCose()
         public
     {
@@ -1480,7 +1488,7 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
         });
         vm.expectRevert(
             abi.encodeWithSelector(
-                IUnivocityErrors.InvalidAccumulatorLength.selector,
+                IUnivocityErrors.ConsistencyPeakCountMismatch.selector,
                 uint256(1),
                 uint256(0)
             )

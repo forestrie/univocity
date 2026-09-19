@@ -146,13 +146,13 @@ contract UnivocityEIP1271Test is UnivocityTestHelper {
         );
         bytes32 leaf1 = _leafCommitment(IDTIMESTAMP_TEST, childGrant);
         ConsistencyReceipt memory second =
-            _buildConsistencyReceipt1To2(leaf0, leaf1);
+            _buildConsistencyReceipt1To3(leaf0, leaf1);
 
         fresh.publishCheckpoint(
             second, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g
         );
 
-        assertEq(fresh.logState(AUTHORITY_LOG_ID).size, 2);
+        assertEq(fresh.logState(AUTHORITY_LOG_ID).size, 3);
     }
 
     function test_firstChildLog_ks256Erc1271RootSigner_succeeds() public {
@@ -177,7 +177,7 @@ contract UnivocityEIP1271Test is UnivocityTestHelper {
         );
         bytes32 childGrantLeaf = _leafCommitment(IDTIMESTAMP_TEST, childGrant);
         ConsistencyReceipt memory authoritySecond =
-            _buildConsistencyReceipt1To2(leaf0, childGrantLeaf);
+            _buildConsistencyReceipt1To3(leaf0, childGrantLeaf);
         fresh.publishCheckpoint(
             authoritySecond,
             _emptyInclusionProof(),

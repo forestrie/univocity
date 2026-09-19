@@ -10,6 +10,69 @@ pragma solidity ^0.8.24;
 
 import {includedRoot} from "@univocity/algorithms/includedRoot.sol";
 import {peaks} from "@univocity/algorithms/peaks.sol";
+import {indexHeight} from "@univocity/algorithms/binUtils.sol";
+import {
+    inclusionProofPathLength
+} from "@univocity/algorithms/inclusionProofPath.sol";
+import {IUnivocityErrors} from "@univocity/interfaces/IUnivocityErrors.sol";
+
+/// @notice Check a consistency proof's shape against the draft's
+///    `consistency_proof_paths(ifrom, ito)`: both sizes must be complete
+///    MMRs, there must be one path per peak of MMR(sizeFrom), and each path
+///    must have exactly the length the two sizes imply. Position arithmetic
+///    only; no hashing. Without this a prover chooses the path lengths, and
+///    so the heights at which the origin peaks are re-homed.
+/// @param sizeFrom Node count of the origin state (0 for an empty log).
+/// @param sizeTo Node count of the target state; must exceed sizeFrom.
+/// @param proofs One path per origin peak, in accumulator order.
+/// @return carried Number of MMR(sizeTo) peaks that commit at least one
+///    origin peak. The proven roots must number exactly this many, and the
+///    remaining MMR(sizeTo) peaks must arrive as rightPeaks.
+function checkConsistencyProofShape(
+    uint64 sizeFrom,
+    uint64 sizeTo,
+    bytes32[][] calldata proofs
+) pure returns (uint256 carried) {
+    if (indexHeight(sizeFrom) != 0) {
+        revert IUnivocityErrors.IncompleteTreeSize(sizeFrom);
+    }
+    if (indexHeight(sizeTo) != 0) {
+        revert IUnivocityErrors.IncompleteTreeSize(sizeTo);
+    }
+    if (sizeFrom == 0) {
+        if (proofs.length != 0) {
+            revert IUnivocityErrors.ConsistencyPeakCountMismatch(
+                0, proofs.length
+            );
+        }
+        return 0;
+    }
+
+    uint256[] memory fromPeaks = peaks(uint256(sizeFrom) - 1);
+    if (proofs.length != fromPeaks.length) {
+        revert IUnivocityErrors.ConsistencyPeakCountMismatch(
+            fromPeaks.length, proofs.length
+        );
+    }
+
+    uint256 ito = uint256(sizeTo) - 1;
+    uint256 lastPeak = type(uint256).max;
+    for (uint256 i = 0; i < fromPeaks.length; i++) {
+        (uint256 expected, uint256 peak) =
+            inclusionProofPathLength(fromPeaks[i], ito);
+        if (proofs[i].length != expected) {
+            revert IUnivocityErrors.ConsistencyPathLengthMismatch(
+                i, expected, proofs[i].length
+            );
+        }
+        // Origin peaks are in ascending index order, so peaks sharing a
+        // committing peak are adjacent.
+        if (peak != lastPeak) {
+            carried++;
+            lastPeak = peak;
+        }
+    }
+}
 
 /// @notice Computes the implied roots from consistency proofs for each peak.
 /// @dev Applies inclusion proof paths for each origin accumulator peak.
@@ -58,6 +121,24 @@ function consistentRoots(
     assembly {
         mstore(roots, rootCount)
     }
+}
+
+/// @notice consistentRootsMemory keyed by tree size rather than last index.
+///    MMR(0) has no peaks, so a zero-size origin is consistent only with an
+///    empty accumulator and no proofs; the same count checks apply as for any
+///    other size. Lets a chain fold from an empty log without a special case.
+/// @param sizeFrom Node count of the origin state (0 for an empty log).
+function consistentRootsFromSize(
+    uint256 sizeFrom,
+    bytes32[] memory accumulatorFrom,
+    bytes32[][] calldata proofs
+) pure returns (bytes32[] memory roots) {
+    if (sizeFrom == 0) {
+        require(accumulatorFrom.length == 0, "Peak count mismatch");
+        require(proofs.length == 0, "Proof count mismatch");
+        return new bytes32[](0);
+    }
+    return consistentRootsMemory(sizeFrom - 1, accumulatorFrom, proofs);
 }
 
 /// @notice Same as consistentRoots with memory accumulator (for chained

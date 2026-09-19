@@ -78,8 +78,9 @@ contract ES256RecoveredKeyFromReceiptHelper {
         returns (bytes32 x, bytes32 y)
     {
         bytes32[] memory initialAcc = new bytes32[](0);
-        bytes32[] memory accMem =
-            verifyConsistencyProofChain(initialAcc, receipt.consistencyProofs);
+        bytes32[] memory accMem = verifyConsistencyProofChain(
+            initialAcc, 0, receipt.consistencyProofs
+        );
         bytes memory detached = buildDetachedPayloadCommitment(accMem);
         return recoverES256FromDetachedPayload(
             receipt.protectedHeader, detached, receipt.signature
@@ -103,8 +104,9 @@ contract ES256RecoveredKeyFromReceiptHelper {
         returns (bytes32 firstPeak, bytes32 keyX, bytes32 keyY)
     {
         bytes32[] memory initialAcc = new bytes32[](0);
-        bytes32[] memory accMem =
-            verifyConsistencyProofChain(initialAcc, receipt.consistencyProofs);
+        bytes32[] memory accMem = verifyConsistencyProofChain(
+            initialAcc, 0, receipt.consistencyProofs
+        );
         firstPeak = accMem[0];
         bytes memory detached = buildDetachedPayloadCommitment(accMem);
         (keyX, keyY) = recoverES256FromDetachedPayload(
@@ -126,7 +128,7 @@ contract ES256ReceiptDecodeVerifier {
     ) external view returns (bytes32 firstPeak, bytes32 keyX, bytes32 keyY) {
         bytes32[] memory initialAcc = new bytes32[](0);
         bytes32[] memory accMem = verifyConsistencyProofChain(
-            initialAcc, consistencyParts.consistencyProofs
+            initialAcc, 0, consistencyParts.consistencyProofs
         );
         firstPeak = accMem[0];
         bytes memory detached = buildDetachedPayloadCommitment(accMem);
@@ -337,7 +339,7 @@ abstract contract UnivocityTestHelper is Test {
         );
         authorityLeaf1 = _leafCommitment(IDTIMESTAMP_TEST, grantTestLog);
         ConsistencyReceipt memory consistency1 =
-            _buildConsistencyReceipt1To2(authorityLeaf0, authorityLeaf1);
+            _buildConsistencyReceipt1To3(authorityLeaf0, authorityLeaf1);
         vm.prank(BOOTSTRAP);
         univocity.publishCheckpoint(
             consistency1, _emptyInclusionProof(), IDTIMESTAMP_AUTH, grant1
@@ -597,27 +599,29 @@ abstract contract UnivocityTestHelper is Test {
         });
     }
 
-    function _buildConsistencyReceipt1To2(bytes32 leaf0, bytes32 leaf1)
+    /// @notice Honest 1 -> 3 fold: leaf0 is the sole peak of MMR(1); folding
+    ///    it with sibling leaf1 (path length 1) yields the sole peak of
+    ///    MMR(3) (node2). No right peaks: MMR(3) has exactly one peak and it
+    ///    is fully carried from the origin peak.
+    function _buildConsistencyReceipt1To3(bytes32 leaf0, bytes32 leaf1)
         internal
         pure
         returns (ConsistencyReceipt memory)
     {
-        bytes32 parent = hashPosPair64(3, leaf0, leaf1);
+        bytes32 node2 = hashPosPair64(3, leaf0, leaf1);
         bytes32[] memory path0 = new bytes32[](1);
         path0[0] = leaf1;
         bytes32[][] memory paths = new bytes32[][](1);
         paths[0] = path0;
-        bytes32[] memory rightPeaksOnly = new bytes32[](1);
-        rightPeaksOnly[0] = leaf1;
-        bytes32[] memory toAcc = new bytes32[](2);
-        toAcc[0] = parent;
-        toAcc[1] = leaf1;
+        bytes32[] memory emptyRightPeaks = new bytes32[](0);
+        bytes32[] memory toAcc = new bytes32[](1);
+        toAcc[0] = node2;
         ConsistencyProof[] memory proofs = new ConsistencyProof[](1);
         proofs[0] = ConsistencyProof({
             treeSize1: 1,
-            treeSize2: 2,
+            treeSize2: 3,
             paths: paths,
-            rightPeaks: rightPeaksOnly
+            rightPeaks: emptyRightPeaks
         });
         bytes memory protected = hex"a1013a00010106";
         bytes memory commitment = abi.encodePacked(toAcc);
@@ -633,27 +637,27 @@ abstract contract UnivocityTestHelper is Test {
         });
     }
 
-    function _buildConsistencyReceipt1To2ES256(
+    /// @notice Same honest 1 -> 3 fold as _buildConsistencyReceipt1To3, signed
+    ///    ES256 instead of KS256.
+    function _buildConsistencyReceipt1To3ES256(
         bytes32 leaf0,
         bytes32 leaf1,
         uint256 es256Pk
     ) internal pure returns (ConsistencyReceipt memory) {
-        bytes32 parent = hashPosPair64(3, leaf0, leaf1);
+        bytes32 node2 = hashPosPair64(3, leaf0, leaf1);
         bytes32[] memory path0 = new bytes32[](1);
         path0[0] = leaf1;
         bytes32[][] memory paths = new bytes32[][](1);
         paths[0] = path0;
-        bytes32[] memory rightPeaksOnly = new bytes32[](1);
-        rightPeaksOnly[0] = leaf1;
-        bytes32[] memory toAcc = new bytes32[](2);
-        toAcc[0] = parent;
-        toAcc[1] = leaf1;
+        bytes32[] memory emptyRightPeaks = new bytes32[](0);
+        bytes32[] memory toAcc = new bytes32[](1);
+        toAcc[0] = node2;
         ConsistencyProof[] memory proofs = new ConsistencyProof[](1);
         proofs[0] = ConsistencyProof({
             treeSize1: 1,
-            treeSize2: 2,
+            treeSize2: 3,
             paths: paths,
-            rightPeaks: rightPeaksOnly
+            rightPeaks: emptyRightPeaks
         });
         bytes memory protected = hex"a10126";
         bytes memory commitment = abi.encodePacked(toAcc);
@@ -700,18 +704,19 @@ abstract contract UnivocityTestHelper is Test {
         );
     }
 
-    function _buildConsistencyReceipt0To2(bytes32 p0, bytes32 p1)
+    /// @notice Honest 0 -> 3 fold: MMR(0) has no peaks, so both leaves arrive
+    ///    as a single right peak (node2); no origin proofs needed.
+    function _buildConsistencyReceipt0To3(bytes32 p0, bytes32 p1)
         internal
         pure
         returns (ConsistencyReceipt memory)
     {
-        bytes32[] memory toAcc = new bytes32[](2);
+        bytes32[] memory toAcc = new bytes32[](1);
         toAcc[0] = hashPosPair64(3, p0, p1);
-        toAcc[1] = p1;
         ConsistencyProof[] memory proofs = new ConsistencyProof[](1);
         proofs[0] = ConsistencyProof({
             treeSize1: 0,
-            treeSize2: 2,
+            treeSize2: 3,
             paths: new bytes32[][](0),
             rightPeaks: toAcc
         });
@@ -729,54 +734,25 @@ abstract contract UnivocityTestHelper is Test {
         });
     }
 
-    function _buildConsistencyReceipt1To3(
-        bytes32 leaf0,
-        bytes32 leaf1,
-        bytes32 leaf2
-    ) internal returns (ConsistencyReceipt memory) {
-        bytes32[] memory path0 = _path2(leaf1, leaf2);
+    /// @notice Honest 1 -> 3 fold (correct shape and peak count) signed over
+    ///    the wrong payload, so every shape/peak-count check passes and the
+    ///    signature check is what fails.
+    function _buildConsistencyReceipt1To3WrongProof(bytes32 leaf1)
+        internal
+        pure
+        returns (ConsistencyReceipt memory)
+    {
+        bytes32[] memory path0 = new bytes32[](1);
+        path0[0] = leaf1;
         bytes32[][] memory paths = new bytes32[][](1);
         paths[0] = path0;
-        bytes32[] memory accFrom = new bytes32[](1);
-        accFrom[0] = leaf0;
-        commitmentHarness.setAccumulator(accFrom);
         bytes32[] memory emptyRightPeaks = new bytes32[](0);
-        bytes memory commitment =
-            commitmentHarness.getCommitment(0, paths, emptyRightPeaks);
         ConsistencyProof[] memory proofs = new ConsistencyProof[](1);
         proofs[0] = ConsistencyProof({
             treeSize1: 1,
             treeSize2: 3,
             paths: paths,
             rightPeaks: emptyRightPeaks
-        });
-        bytes memory protected = hex"a1013a00010106";
-        bytes memory sigStruct =
-            buildSigStructure(protected, abi.encodePacked(commitment));
-        (uint8 v, bytes32 r, bytes32 s) =
-            vm.sign(SIGNER_PK, keccak256(sigStruct));
-        return ConsistencyReceipt({
-            protectedHeader: protected,
-            signature: abi.encodePacked(r, s, v),
-            consistencyProofs: proofs,
-            delegationProof: _emptyDelegationProof()
-        });
-    }
-
-    function _buildConsistencyReceipt1To3WrongProof(
-        bytes32,
-        bytes32 leaf1,
-        bytes32 leaf2
-    ) internal view returns (ConsistencyReceipt memory) {
-        bytes32[] memory path0 = _path2(leaf1, leaf2);
-        bytes32[][] memory paths = new bytes32[][](1);
-        paths[0] = path0;
-        bytes32[] memory toAcc = new bytes32[](1);
-        toAcc[0] =
-            includedRootHarness.callIncludedRoot(0, keccak256("leaf0"), path0);
-        ConsistencyProof[] memory proofs = new ConsistencyProof[](1);
-        proofs[0] = ConsistencyProof({
-            treeSize1: 1, treeSize2: 3, paths: paths, rightPeaks: toAcc
         });
         bytes memory protected = hex"a1013a00010106";
         bytes memory wrongPayload = abi.encodePacked(keccak256("wrong"));
@@ -791,27 +767,34 @@ abstract contract UnivocityTestHelper is Test {
         });
     }
 
+    /// @notice Honest 1 -> 3 fold of leaf0 padded with a junk right peak, so
+    ///    the accumulator has two peaks where size 3 has one. The shape and
+    ///    fold checks pass; the rightPeaks-length check fires (expected 0,
+    ///    actual 1).
     function _buildConsistencyReceipt1To3WrongPeakCount(
         bytes32 leaf0,
-        bytes32 leaf1,
-        bytes32 leaf2
-    ) internal view returns (ConsistencyReceipt memory) {
-        bytes32 root3 = includedRootHarness.callIncludedRoot(
-                0, leaf0, _path2(leaf1, leaf2)
-            );
+        bytes32 leaf1
+    ) internal pure returns (ConsistencyReceipt memory) {
+        bytes32[] memory path0 = new bytes32[](1);
+        path0[0] = leaf1;
+        bytes32[][] memory paths = new bytes32[][](1);
+        paths[0] = path0;
+        bytes32 node2 = hashPosPair64(3, leaf0, leaf1);
         bytes32 junk = keccak256("junk");
-        bytes32[] memory rightPeaksWrong = new bytes32[](2);
-        rightPeaksWrong[0] = root3;
-        rightPeaksWrong[1] = junk;
+        bytes32[] memory rightPeaksWrong = new bytes32[](1);
+        rightPeaksWrong[0] = junk;
         ConsistencyProof[] memory proofs = new ConsistencyProof[](1);
         proofs[0] = ConsistencyProof({
-            treeSize1: 0,
+            treeSize1: 1,
             treeSize2: 3,
-            paths: new bytes32[][](0),
+            paths: paths,
             rightPeaks: rightPeaksWrong
         });
         bytes memory protected = hex"a1013a00010106";
-        bytes memory commitment = abi.encodePacked(rightPeaksWrong);
+        bytes32[] memory toAcc = new bytes32[](2);
+        toAcc[0] = node2;
+        toAcc[1] = junk;
+        bytes memory commitment = abi.encodePacked(toAcc);
         bytes memory sigStruct =
             buildSigStructure(protected, abi.encodePacked(commitment));
         (uint8 v, bytes32 r, bytes32 s) =
@@ -824,101 +807,27 @@ abstract contract UnivocityTestHelper is Test {
         });
     }
 
-    function _buildConsistencyReceipt2To3FromSinglePeak(
+    /// @notice Honest 3 -> 4 fold: node2 (sole peak of MMR(3)) stays a peak
+    ///    (empty path), and the new leaf arrives as the sole right peak.
+    function _buildConsistencyReceipt3To4(
         bytes32 leaf0,
         bytes32 leaf1,
         bytes32 leaf2
-    ) internal returns (ConsistencyReceipt memory) {
-        bytes32[] memory pathFromLeaf0 = _path1(leaf2);
+    ) internal pure returns (ConsistencyReceipt memory) {
+        bytes32 node2 = hashPosPair64(3, leaf0, leaf1);
         bytes32[][] memory paths = new bytes32[][](1);
-        paths[0] = pathFromLeaf0;
-        bytes32[] memory accFrom = new bytes32[](1);
-        accFrom[0] = hashPosPair64(3, leaf0, leaf1);
-        commitmentHarness.setAccumulator(accFrom);
+        paths[0] = new bytes32[](0);
         bytes32[] memory rightPeaks = new bytes32[](1);
         rightPeaks[0] = leaf2;
-        bytes memory commitment =
-            commitmentHarness.getCommitment(1, paths, rightPeaks);
         ConsistencyProof[] memory proofs = new ConsistencyProof[](1);
         proofs[0] = ConsistencyProof({
-            treeSize1: 2, treeSize2: 3, paths: paths, rightPeaks: rightPeaks
+            treeSize1: 3, treeSize2: 4, paths: paths, rightPeaks: rightPeaks
         });
         bytes memory protected = hex"a1013a00010106";
-        bytes memory sigStruct =
-            buildSigStructure(protected, abi.encodePacked(commitment));
-        (uint8 v, bytes32 r, bytes32 s) =
-            vm.sign(SIGNER_PK, keccak256(sigStruct));
-        return ConsistencyReceipt({
-            protectedHeader: protected,
-            signature: abi.encodePacked(r, s, v),
-            consistencyProofs: proofs,
-            delegationProof: _emptyDelegationProof()
-        });
-    }
-
-    function _buildConsistencyReceipt2To3FromTwoLeaves(
-        bytes32 leaf0,
-        bytes32 leaf1,
-        bytes32 leaf2
-    ) internal returns (ConsistencyReceipt memory) {
-        bytes32[] memory path0 = _path2(leaf1, leaf2);
-        bytes32[] memory path1 = _path2(leaf0, leaf2);
-        bytes32[][] memory paths = new bytes32[][](2);
-        paths[0] = path0;
-        paths[1] = path1;
-        bytes32[] memory accFrom = new bytes32[](2);
-        accFrom[0] = leaf0;
-        accFrom[1] = leaf1;
-        commitmentHarness.setAccumulator(accFrom);
-        bytes32[] memory emptyRightPeaks = new bytes32[](0);
-        bytes memory commitment =
-            commitmentHarness.getCommitment(1, paths, emptyRightPeaks);
-        ConsistencyProof[] memory proofs = new ConsistencyProof[](1);
-        proofs[0] = ConsistencyProof({
-            treeSize1: 2,
-            treeSize2: 3,
-            paths: paths,
-            rightPeaks: emptyRightPeaks
-        });
-        bytes memory protected = hex"a1013a00010106";
-        bytes memory sigStruct =
-            buildSigStructure(protected, abi.encodePacked(commitment));
-        (uint8 v, bytes32 r, bytes32 s) =
-            vm.sign(SIGNER_PK, keccak256(sigStruct));
-        return ConsistencyReceipt({
-            protectedHeader: protected,
-            signature: abi.encodePacked(r, s, v),
-            consistencyProofs: proofs,
-            delegationProof: _emptyDelegationProof()
-        });
-    }
-
-    function _buildConsistencyReceipt2To3(
-        bytes32 leaf0,
-        bytes32 leaf1,
-        bytes32 leaf2
-    ) internal returns (ConsistencyReceipt memory) {
-        bytes32 parent = hashPosPair64(3, leaf0, leaf1);
-        bytes32[] memory path0 = _path2(leaf1, leaf2);
-        bytes32[] memory path1 = _path2(parent, leaf2);
-        bytes32[][] memory paths = new bytes32[][](2);
-        paths[0] = path0;
-        paths[1] = path1;
-        bytes32[] memory accFrom = new bytes32[](2);
-        accFrom[0] = parent;
-        accFrom[1] = leaf1;
-        commitmentHarness.setAccumulator(accFrom);
-        bytes32[] memory emptyRightPeaks = new bytes32[](0);
-        bytes memory commitment =
-            commitmentHarness.getCommitment(1, paths, emptyRightPeaks);
-        ConsistencyProof[] memory proofs = new ConsistencyProof[](1);
-        proofs[0] = ConsistencyProof({
-            treeSize1: 2,
-            treeSize2: 3,
-            paths: paths,
-            rightPeaks: emptyRightPeaks
-        });
-        bytes memory protected = hex"a1013a00010106";
+        bytes32[] memory toAcc = new bytes32[](2);
+        toAcc[0] = node2;
+        toAcc[1] = leaf2;
+        bytes memory commitment = abi.encodePacked(toAcc);
         bytes memory sigStruct =
             buildSigStructure(protected, abi.encodePacked(commitment));
         (uint8 v, bytes32 r, bytes32 s) =

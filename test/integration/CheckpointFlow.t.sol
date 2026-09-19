@@ -70,7 +70,7 @@ contract MultiSealReceiptHarness is Test {
     ) external returns (ConsistencyReceipt memory) {
         bytes32[] memory initialAcc = new bytes32[](0);
         bytes32[] memory finalAcc =
-            verifyConsistencyProofChain(initialAcc, proofs);
+            verifyConsistencyProofChain(initialAcc, 0, proofs);
         bytes memory detached = buildDetachedPayloadCommitment(finalAcc);
         bytes memory sigStruct = buildSigStructure(protected, detached);
         (uint8 v, bytes32 r, bytes32 s) =
@@ -260,7 +260,10 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
         });
     }
 
-    function _buildConsistencyReceipt1To2(bytes32 leaf0, bytes32 leaf1)
+    /// @notice Honest 1 -> 3 fold: leaf0 is the sole peak of MMR(1); folding
+    ///    it with sibling leaf1 (path length 1) yields the sole peak of
+    ///    MMR(3), with no right peaks (MMR(3) has exactly one peak).
+    function _buildConsistencyReceipt1To3(bytes32 leaf0, bytes32 leaf1)
         internal
         returns (ConsistencyReceipt memory)
     {
@@ -268,19 +271,18 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
         path0[0] = leaf1;
         bytes32[][] memory paths = new bytes32[][](1);
         paths[0] = path0;
-        bytes32[] memory rightPeaksOnly = new bytes32[](1);
-        rightPeaksOnly[0] = leaf1;
+        bytes32[] memory emptyRightPeaks = new bytes32[](0);
         bytes32[] memory accFrom = new bytes32[](1);
         accFrom[0] = leaf0;
         commitmentHarness.setAccumulator(accFrom);
         bytes memory commitment =
-            commitmentHarness.getCommitment(0, paths, rightPeaksOnly);
+            commitmentHarness.getCommitment(0, paths, emptyRightPeaks);
         ConsistencyProof[] memory proofs = new ConsistencyProof[](1);
         proofs[0] = ConsistencyProof({
             treeSize1: 1,
-            treeSize2: 2,
+            treeSize2: 3,
             paths: paths,
-            rightPeaks: rightPeaksOnly
+            rightPeaks: emptyRightPeaks
         });
         bytes memory protected = hex"a1013a00010106";
         bytes memory sigStruct =
@@ -467,7 +469,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
         );
         bytes32 targetLeaf = _leafCommitment(IDTIMESTAMP_1, gTarget);
         ConsistencyReceipt memory consistency1 =
-            _buildConsistencyReceipt1To2(authLeaf0, targetLeaf);
+            _buildConsistencyReceipt1To3(authLeaf0, targetLeaf);
         vm.prank(BOOTSTRAP);
         univocity.publishCheckpoint(
             consistency1, _emptyInclusionProof(), IDTIMESTAMP_0, g0
@@ -515,7 +517,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
         );
         bytes32 targetLeaf = _leafCommitment(IDTIMESTAMP_1, gTarget);
         ConsistencyReceipt memory consistency1 =
-            _buildConsistencyReceipt1To2(authLeaf0, targetLeaf);
+            _buildConsistencyReceipt1To3(authLeaf0, targetLeaf);
         vm.prank(BOOTSTRAP);
         univocity.publishCheckpoint(
             consistency1, _emptyInclusionProof(), IDTIMESTAMP_0, g0
@@ -535,7 +537,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
         bytes32 leaf2 =
             0xcd2662154e6d76b2b2b92e70c0cac3ccf534f9b74eb5b89819ec509083d00a50;
         ConsistencyReceipt memory consistency1to2 =
-            _buildConsistencyReceipt1To2(peak1, leaf2);
+            _buildConsistencyReceipt1To3(peak1, leaf2);
         vm.prank(address(0xB0b));
         univocity.publishCheckpoint(
             consistency1to2,
@@ -544,7 +546,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
             gTarget
         );
 
-        assertEq(univocity.logState(TARGET_LOG).size, 2);
+        assertEq(univocity.logState(TARGET_LOG).size, 3);
     }
 
     /// @notice Publisher path: one receipt chains two per-seal consistency proofs
@@ -585,7 +587,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
         bytes8 idtimestamp2 = bytes8(uint64(2));
         bytes32 targetLeaf2 = _leafCommitment(idtimestamp2, gTarget);
         ConsistencyReceipt memory consistency1to2 =
-            _buildConsistencyReceipt1To2(authLeaf0, targetLeaf1);
+            _buildConsistencyReceipt1To3(authLeaf0, targetLeaf1);
         vm.prank(BOOTSTRAP);
         univocity.publishCheckpoint(
             consistency1to2, _emptyInclusionProof(), IDTIMESTAMP_0, g0
@@ -593,7 +595,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
 
         bytes32[] memory path = _path1(authLeaf0);
         ConsistencyReceipt memory chained =
-            _buildConsistencyReceipt0To2(targetLeaf1, targetLeaf2);
+            _buildConsistencyReceipt0To3(targetLeaf1, targetLeaf2);
         vm.prank(address(0x6001));
         univocity.publishCheckpoint(
             chained,
@@ -602,7 +604,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
             gTarget
         );
 
-        assertEq(univocity.logState(TARGET_LOG).size, 2);
+        assertEq(univocity.logState(TARGET_LOG).size, 3);
         assertEq(
             chained.consistencyProofs.length,
             2,
@@ -611,11 +613,13 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
         assertEq(chained.consistencyProofs[0].treeSize1, 0);
         assertEq(chained.consistencyProofs[0].treeSize2, 1);
         assertEq(chained.consistencyProofs[1].treeSize1, 1);
-        assertEq(chained.consistencyProofs[1].treeSize2, 2);
+        assertEq(chained.consistencyProofs[1].treeSize2, 3);
     }
 
-    /// @dev Build a receipt whose `consistencyProofs` chain size 0 → 1 → 2.
-    function _buildConsistencyReceipt0To2(bytes32 leaf1, bytes32 leaf2)
+    /// @dev Build a receipt whose `consistencyProofs` chain size 0 → 1 → 3
+    ///    (honest MMR sizes only; a single-seal 0 -> 2 or 1 -> 2 step is not
+    ///    a valid tree size).
+    function _buildConsistencyReceipt0To3(bytes32 leaf1, bytes32 leaf2)
         internal
         returns (ConsistencyReceipt memory)
     {
@@ -631,45 +635,14 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
         bytes32[][] memory paths = new bytes32[][](1);
         paths[0] = path1;
         proofs[1] = ConsistencyProof({
-            treeSize1: 1, treeSize2: 2, paths: paths, rightPeaks: _toAcc(leaf2)
+            treeSize1: 1,
+            treeSize2: 3,
+            paths: paths,
+            rightPeaks: new bytes32[](0)
         });
 
         return receiptHarness.buildSignedReceipt(
             proofs, hex"a1013a00010106", SIGNER_PK
         );
-    }
-
-    function _buildConsistencyReceipt1To3(
-        bytes32 leaf0,
-        bytes32 leaf1,
-        bytes32 leaf2
-    ) internal returns (ConsistencyReceipt memory) {
-        bytes32[] memory path0 = _path2(leaf1, leaf2);
-        bytes32[][] memory paths = new bytes32[][](1);
-        paths[0] = path0;
-        bytes32[] memory accFrom = new bytes32[](1);
-        accFrom[0] = leaf0;
-        commitmentHarness.setAccumulator(accFrom);
-        bytes32[] memory emptyRightPeaks = new bytes32[](0);
-        bytes memory commitment =
-            commitmentHarness.getCommitment(0, paths, emptyRightPeaks);
-        ConsistencyProof[] memory proofs = new ConsistencyProof[](1);
-        proofs[0] = ConsistencyProof({
-            treeSize1: 1,
-            treeSize2: 3,
-            paths: paths,
-            rightPeaks: emptyRightPeaks
-        });
-        bytes memory protected = hex"a1013a00010106";
-        bytes memory sigStruct =
-            buildSigStructure(protected, abi.encodePacked(commitment));
-        (uint8 v, bytes32 r, bytes32 s) =
-            vm.sign(SIGNER_PK, keccak256(sigStruct));
-        return ConsistencyReceipt({
-            protectedHeader: protected,
-            signature: abi.encodePacked(r, s, v),
-            consistencyProofs: proofs,
-            delegationProof: _emptyDelegationProof()
-        });
     }
 }

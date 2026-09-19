@@ -251,32 +251,38 @@ contract UnivocityHandler is Test {
         PublishGrant memory gLog =
             _publishGrant(logId, GRANT_DATA, GC_DATA_LOG, 0, 0, rootLogId, "");
         bytes32 leaf1 = _leafCommitment(idts, gLog);
-        ConsistencyReceipt memory consistency1to2 =
-            _buildConsistencyReceipt1To2(_authorityLeaf0, leaf1);
+        ConsistencyReceipt memory consistency1to3 =
+            _buildConsistencyReceipt1To3(_authorityLeaf0, leaf1);
         univocity.publishCheckpoint(
-            consistency1to2, _emptyInclusionProof(), bytes8(0), gAuth
+            consistency1to3, _emptyInclusionProof(), bytes8(0), gAuth
         );
 
         LogState memory s = univocity.logState(rootLogId);
         ghost_lastSize[rootLogId] = s.size;
     }
 
-    function _buildConsistencyReceipt1To2(bytes32 leaf0, bytes32 leaf1)
+    /// @notice Honest 1 -> 3 fold (see UnivocityTestHelper for the same
+    ///    shape): leaf0 is the sole peak of MMR(1); folding it with sibling
+    ///    leaf1 yields the sole peak of MMR(3), no right peaks.
+    function _buildConsistencyReceipt1To3(bytes32 leaf0, bytes32 leaf1)
         internal
         pure
         returns (ConsistencyReceipt memory)
     {
-        bytes32 parent = hashPosPair64(3, leaf0, leaf1);
+        bytes32 node2 = hashPosPair64(3, leaf0, leaf1);
         bytes32[] memory path0 = new bytes32[](1);
         path0[0] = leaf1;
         bytes32[][] memory paths = new bytes32[][](1);
         paths[0] = path0;
-        bytes32[] memory toAcc = new bytes32[](2);
-        toAcc[0] = parent;
-        toAcc[1] = leaf1;
+        bytes32[] memory emptyRightPeaks = new bytes32[](0);
+        bytes32[] memory toAcc = new bytes32[](1);
+        toAcc[0] = node2;
         ConsistencyProof[] memory proofs = new ConsistencyProof[](1);
         proofs[0] = ConsistencyProof({
-            treeSize1: 1, treeSize2: 2, paths: paths, rightPeaks: toAcc
+            treeSize1: 1,
+            treeSize2: 3,
+            paths: paths,
+            rightPeaks: emptyRightPeaks
         });
         bytes memory protected = hex"a1013a00010106";
         bytes memory commitment = abi.encodePacked(toAcc);

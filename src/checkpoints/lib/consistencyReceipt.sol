@@ -2,15 +2,33 @@
 pragma solidity ^0.8.24;
 
 import {ConsistencyProof} from "@univocity/interfaces/types.sol";
+import {IUnivocityErrors} from "@univocity/interfaces/IUnivocityErrors.sol";
 import {
-    consistentRootsMemory
+    checkConsistencyProofShape,
+    consistentRootsFromSize
 } from "@univocity/algorithms/consistentRoots.sol";
+import {peaks} from "@univocity/algorithms/peaks.sol";
 
 /// @notice Run the consistency proof chain from initial accumulator (memory).
 ///    Caller supplies pre-decoded proof payloads (calldata). Caller must copy
 ///    storage accumulator to memory before calling.
+///
+///    Every proof is folded from the accumulator it follows: the initial
+///    state for the first, the previous proof's output thereafter. The
+///    declared base of each proof must be the size of that accumulator, each
+///    proof must grow the tree, both sizes must be complete MMRs, and the
+///    paths must have the lengths the two sizes imply (the draft's SHOULD).
+///    `consistentRoots` alone checks only peak counts, which many sizes
+///    share, and hashes whatever path length it is given; without the size
+///    and shape checks a proof could re-home the anchored peaks at heights
+///    and positions the log never had, or re-anchor an unchanged
+///    accumulator at an inflated size (FOR-567 and follow-ups). An empty log
+///    is size 0 with no peaks; a first checkpoint is just the base-0 case of
+///    the same fold.
 /// @param initialAccumulator Peaks of the log state (tree-size before first
 ///    proof). Must be memory (copy from storage in caller if needed).
+/// @param initialSize Node count committed by initialAccumulator (0 when the
+///    log holds nothing yet).
 /// @param decodedProofs Pre-decoded consistency proof payloads (order
 ///    preserved). Passed as calldata; no copy of proof material.
 /// @return finalAccumulator Peaks after applying all proofs (memory). The
@@ -18,6 +36,7 @@ import {
 ///    for grant bounds and state update.
 function verifyConsistencyProofChain(
     bytes32[] memory initialAccumulator,
+    uint64 initialSize,
     ConsistencyProof[] calldata decodedProofs
 ) pure returns (bytes32[] memory finalAccumulator) {
     uint256 n = decodedProofs.length;
@@ -25,26 +44,41 @@ function verifyConsistencyProofChain(
         return new bytes32[](0);
     }
 
-    bytes32[] memory accMem;
-    bytes32[] memory accumulatorFrom;
+    bytes32[] memory accMem = initialAccumulator;
+    uint64 sizeFrom = initialSize;
 
     for (uint256 idx = 0; idx < n; idx++) {
         ConsistencyProof calldata p = decodedProofs[idx];
 
-        if (idx == 0) {
-            accumulatorFrom = initialAccumulator;
-        } else {
-            accumulatorFrom = accMem;
+        if (p.treeSize1 != sizeFrom) {
+            revert IUnivocityErrors.ConsistencyBaseMismatch(
+                sizeFrom, p.treeSize1
+            );
+        }
+        if (p.treeSize2 <= p.treeSize1) {
+            revert IUnivocityErrors.InvalidConsistencyProof();
         }
 
-        if (p.treeSize1 == 0) {
-            accMem = _copyPeaks(p.rightPeaks);
-        } else {
-            uint256 ifrom = uint256(p.treeSize1) - 1;
-            bytes32[] memory roots =
-                consistentRootsMemory(ifrom, accumulatorFrom, p.paths);
-            accMem = _concatAccumulator(roots, p.rightPeaks);
+        uint256 carried =
+            checkConsistencyProofShape(p.treeSize1, p.treeSize2, p.paths);
+        bytes32[] memory roots =
+            consistentRootsFromSize(p.treeSize1, accMem, p.paths);
+        // With path lengths pinned, origin peaks under one target peak must
+        // fold to the same value; a surplus root means inconsistent siblings.
+        if (roots.length != carried) {
+            revert IUnivocityErrors.ConsistencyPeakCountMismatch(
+                carried, roots.length
+            );
         }
+        uint256 expectedRight =
+            peaks(uint256(p.treeSize2) - 1).length - carried;
+        if (p.rightPeaks.length != expectedRight) {
+            revert IUnivocityErrors.ConsistencyPeakCountMismatch(
+                expectedRight, p.rightPeaks.length
+            );
+        }
+        accMem = _concatAccumulator(roots, p.rightPeaks);
+        sizeFrom = p.treeSize2;
     }
 
     return accMem;
@@ -68,18 +102,6 @@ function buildDetachedPayloadCommitment(bytes32[] memory accumulator)
 /// @notice MMR profile: verify a series of pre-decoded consistency proofs per
 ///    draft "Verifying the Receipt of consistency". No CBOR decode on-chain.
 ///    Aligns with algorithms as free functions (consistentRoots, includedRoot).
-
-/// @notice Copy rightPeaks from calldata to memory (only when treeSize1==0;
-///    we need a mutable accumulator for the chain).
-function _copyPeaks(bytes32[] calldata peaksIn)
-    pure
-    returns (bytes32[] memory out)
-{
-    out = new bytes32[](peaksIn.length);
-    for (uint256 i = 0; i < peaksIn.length; i++) {
-        out[i] = peaksIn[i];
-    }
-}
 
 /// @notice Concat roots then rightPeaks into one accumulator.
 function _concatAccumulator(
