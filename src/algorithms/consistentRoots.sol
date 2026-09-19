@@ -97,8 +97,9 @@ function consistentRootsForSizes(
     // Origin peaks below the split are all committed by the target peak of
     // height `split` (bit `split` itself is clear in `from`), so each path
     // must have length split - h and every path must prove the same root.
+    // Above, count and i advanced together; here only i advances, so
+    // i == count exactly at the first peak below the split.
     bytes32 root;
-    bool any;
     for (h = split; h > 0;) {
         h--;
         if ((from >> h) & 1 == 0) continue;
@@ -111,16 +112,15 @@ function consistentRootsForSizes(
         uint256 subtree = (uint256(1) << (h + 1)) - 1;
         bytes32 proven =
             includedRoot(offset + subtree - 1, accumulatorFrom[i], proofs[i]);
-        if (!any) {
+        if (i == count) {
             root = proven;
-            any = true;
         } else if (proven != root) {
             revert IUnivocityErrors.ConsistencyRootMismatch(i);
         }
         offset += subtree;
         i++;
     }
-    if (any) {
+    if (count < n) {
         roots[count++] = root;
     }
 
