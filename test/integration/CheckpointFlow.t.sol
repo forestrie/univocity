@@ -617,8 +617,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
     }
 
     /// @dev Build a receipt whose `consistencyProofs` chain size 0 → 1 → 3
-    ///    (valid MMR sizes only; a single-seal 0 -> 2 or 1 -> 2 step is not
-    ///    a valid tree size).
+    ///    (2 is not a complete MMR size, so no step may end there).
     function _buildConsistencyReceipt0To3(bytes32 leaf1, bytes32 leaf2)
         internal
         returns (ConsistencyReceipt memory)

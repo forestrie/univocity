@@ -78,8 +78,8 @@ function consistentRootsForSizes(
     uint256 i;
 
     // Origin peaks above the split are also peaks of the target. The path
-    // is not read; requiring it to be empty rejects unused material (shape,
-    // not safety).
+    // is not read; requiring it to be empty rejects unused material (a shape
+    // check: the result does not depend on it).
     uint256 h = bitLength(from);
     for (; h > split + 1;) {
         h--;
@@ -97,7 +97,8 @@ function consistentRootsForSizes(
     // Origin peaks below the split are all committed by the target peak of
     // height `split` (bit `split` itself is clear in `from`), so each path
     // must have length split - h and every path must prove the same root.
-    // `above` peaks were carried and i == above at the first peak below.
+    // The first `above` peaks were returned unchanged, so i == above at the
+    // first peak below the split.
     uint256 above = count;
     bytes32 root;
     for (h = split; h > 0;) {

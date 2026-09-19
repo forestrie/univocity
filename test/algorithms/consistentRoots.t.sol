@@ -33,9 +33,9 @@ contract ConsistentRootsHarness {
 }
 
 /// @title ConsistentRootsTest
-/// @notice Unit tests for consistentRoots consistency proof verification.
-/// @dev Test vectors generated from reference Python implementation using
-///    a 39-node canonical MMR.
+/// @notice Known-answer tests for consistentRootsForSizes.
+/// @dev Vectors generated from the reference Python implementation over the
+///    canonical 39-node MMR.
 contract ConsistentRootsTest is Test {
     ConsistentRootsHarness harness;
 
@@ -118,7 +118,7 @@ contract ConsistentRootsTest is Test {
         0xad104051c516812ea5874ca3ff06d0258303623d04307c41ec80a7a18b332ef8;
 
         bytes32[] memory result = harness.callConsistentRoots(4, 7, proofs);
-        // Both peaks prove to same root, so only 1 result (deduplicated)
+        // Both peaks prove the same root, so one root is returned
         assertEq(result.length, 1);
         assertEq(
             result[0],
@@ -356,7 +356,7 @@ contract ConsistentRootsTest is Test {
     // =
     function test_consistentRoots_emptyProof() public {
         // ifrom=2 -> ito=3: the height-1 peak is still a peak, so its path
-        // is empty and it is carried verbatim; leaf 3 arrives as a rightPeak.
+        // is empty and it is returned unchanged; leaf 3 arrives as a rightPeak.
         bytes32[] memory accFrom = new bytes32[](1);
         accFrom[0] =
         0xad104051c516812ea5874ca3ff06d0258303623d04307c41ec80a7a18b332ef8;

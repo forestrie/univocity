@@ -602,7 +602,7 @@ abstract contract UnivocityTestHelper is Test {
     /// @notice 1 -> 3 proof: leaf0 is the sole peak of MMR(1); proving
     ///    it with sibling leaf1 (path length 1) yields the sole peak of
     ///    MMR(3) (node2). No right peaks: MMR(3) has exactly one peak and it
-    ///    is fully carried from the origin peak.
+    ///    is proven from the origin peak.
     function _buildConsistencyReceipt1To3(bytes32 leaf0, bytes32 leaf1)
         internal
         pure
@@ -704,8 +704,8 @@ abstract contract UnivocityTestHelper is Test {
         );
     }
 
-    /// @notice 0 -> 3 proof: MMR(0) has no peaks, so both leaves arrive
-    ///    as a single right peak (node2); no origin proofs needed.
+    /// @notice 0 -> 3 proof: MMR(0) has no peaks, so there are no paths and
+    ///    the sole peak of MMR(3) (node2) arrives as a right peak.
     function _buildConsistencyReceipt0To3(bytes32 p0, bytes32 p1)
         internal
         pure
@@ -768,9 +768,9 @@ abstract contract UnivocityTestHelper is Test {
     }
 
     /// @notice 1 -> 3 proof for leaf0 padded with an extra right peak, so
-    ///    the accumulator has two peaks where size 3 has one. The shape and
-    ///    proof checks pass; the rightPeaks-length check fires (expected 0,
-    ///    actual 1).
+    ///    the accumulator has two peaks where size 3 has one. The path check
+    ///    passes; the rightPeaks count reverts ConsistencyPeakCountMismatch
+    ///    (expected 0, actual 1).
     function _buildConsistencyReceipt1To3WrongPeakCount(
         bytes32 leaf0,
         bytes32 leaf1

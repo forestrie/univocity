@@ -6,8 +6,8 @@ pragma solidity ^0.8.24;
 ///   tests build proofs with sibling values that are consistent by
 ///   construction — from the draft's inclusion_proof_path walk and
 ///   indexHeight only, never from the bitmap arithmetic under test — and
-///   check: well-formed proofs are accepted with the carried-root count the walk
-///   predicts; a single perturbed path length is rejected naming the peak;
+///   check: well-formed proofs are accepted with the number of proven roots
+///   the walk predicts; a single perturbed path length is rejected naming the peak;
 ///   a single perturbed sibling under a shared target peak is rejected; the
 ///   completeness identity mmrSizeForLeafCount(peaksBitmap(size)) == size
 ///   agrees with indexHeight.
@@ -79,7 +79,7 @@ contract ConsistencyShapeTest is Test {
     ///    merged chain continues and every peak in it shares each further
     ///    sibling. Chain values are computed with includedRoot on the path
     ///    prefix, so the construction is exactly what a real tree yields.
-    ///    Also returns the carried-root count the walk predicts.
+    ///    Also returns the number of proven roots the walk predicts.
     function _wellFormedProof(uint64 sizeFrom, uint64 sizeTo)
         internal
         view
@@ -159,15 +159,15 @@ contract ConsistencyShapeTest is Test {
         (bytes32[] memory roots, uint256 expectedRight) =
             harness.prove(sizeFrom, sizeTo, acc, proofs);
 
-        assertEq(roots.length, wantCarried, "carried roots");
+        assertEq(roots.length, wantCarried, "proven roots");
         assertEq(
             roots.length + expectedRight,
             peaks(uint256(sizeTo) - 1).length,
             "roots + right must cover every target peak"
         );
-        // Unchanged peaks (empty path) are carried verbatim, in order.
+        // Peaks with an empty path are returned unchanged, in order.
         for (uint256 k = 0; k < acc.length && proofs[k].length == 0; k++) {
-            assertEq(roots[k], acc[k], "unchanged peak carried");
+            assertEq(roots[k], acc[k], "unchanged peak returned");
         }
     }
 

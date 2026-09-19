@@ -409,14 +409,10 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
         );
     }
 
-    /// @notice A verified consistency proof chain always produces
-    ///    an accumulator of the correct length by construction (each proof's
-    ///    roots + rightPeaks are checked against the target peak count), so
-    ///    InvalidAccumulatorLength is unreachable via a submitted proof; the
-    ///    wrong-peak-count fixture is now caught earlier, by
-    ///    ConsistencyPeakCountMismatch from checkConsistencyProofShape /
-    ///    verifyConsistencyProofChain. Same intent (reject a padded
-    ///    accumulator), different (now unreachable) error name.
+    /// @notice A verified proof chain always yields an accumulator with the
+    ///    target's peak count, so InvalidAccumulatorLength cannot be reached
+    ///    by a submitted proof. A padded accumulator is rejected earlier,
+    ///    with ConsistencyPeakCountMismatch.
     function test_publishCheckpoint_revertsOnInvalidAccumulatorLength()
         public
     {
@@ -1442,12 +1438,10 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
 
     /// @notice Reverts when consistency receipt has invalid proof payload
     ///    (decoded: treeSize2=1 but rightPeaks empty so accMem length 0).
-    ///    Sign the payload the contract will use. The rightPeaks/target-peak
-    ///    mismatch is now caught inside proof-chain verification itself
-    ///    (ConsistencyPeakCountMismatch), before accumulator length is ever
-    ///    checked, so InvalidAccumulatorLength is unreachable via a
-    ///    submitted proof; same intent (reject a short accumulator), earlier
-    ///    (and more precise) error.
+    ///    Sign the payload the contract will use. A short accumulator is
+    ///    rejected inside proof-chain verification (ConsistencyPeakCount-
+    ///    Mismatch) before the accumulator length check, so
+    ///    InvalidAccumulatorLength cannot be reached by a submitted proof.
     function test_publishCheckpoint_revertsWhenConsistencyReceiptInvalidCose()
         public
     {

@@ -58,8 +58,9 @@ contract UnivocityConsistencyProofTest is UnivocityTestHelper {
     // --- accepted extension ------------------------------------------------
 
     /// @notice Extension of TEST_LOG from size 1 to 3: the stored peak is
-    ///    proven to the size-3 peak with the supplied sibling. Same shape as the declared-base-3
-    ///    case below, differing only in the declared base.
+    ///    proven to the size-3 peak with the supplied sibling. Same shape as
+    ///    the declared-base-3 case below, differing only in the declared
+    ///    base.
     function test_extend_declaredBaseMatchesStoredSize_succeeds() public {
         bytes32[][] memory paths = _paths1(_path1(keccak256("leaf1")));
         bytes32 root3 =
@@ -260,7 +261,7 @@ contract UnivocityConsistencyProofTest is UnivocityTestHelper {
     }
 
     /// @notice 1 -> 3 with a correct origin path plus a surplus rightPeak:
-    ///    MMR(3) has one peak, fully carried from the origin, so any
+    ///    MMR(3) has one peak, proven from the origin, so any
     ///    rightPeak reverts ConsistencyPeakCountMismatch(0, 1).
     function test_publishCheckpoint_surplusRightPeakAt1To3_reverts() public {
         bytes32[][] memory paths = _paths1(_path1(keccak256("leaf1")));

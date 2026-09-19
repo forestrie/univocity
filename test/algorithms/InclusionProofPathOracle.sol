@@ -3,11 +3,11 @@ pragma solidity ^0.8.24;
 
 // TEST-ONLY ORACLE. Position-only form of inclusion_proof_path from
 // draft-bryce-cose-receipts-mmr-profile, walked hop by hop exactly as the
-// draft writes it. The contract does not use this: checkConsistencyProofShape
-// derives the same path lengths from the peaks bitmaps in constant time. The
-// walk is kept here so fuzz tests can show the bitmap arithmetic agrees with
-// the draft's definition on random size pairs (ConsistencyShape.t.sol) and
-// so checkpoint tests can state expected lengths without hardcoding them.
+// draft writes it. The contract does not use this: consistentRootsForSizes
+// derives the same path lengths from the peaks bitmaps without walking. The
+// walk is kept so fuzz tests can show the bitmap arithmetic agrees with the
+// draft's definition on random size pairs (ConsistencyShape.t.sol) and so
+// checkpoint tests can state expected lengths without hardcoding them.
 
 import {indexHeight} from "@univocity/algorithms/binUtils.sol";
 

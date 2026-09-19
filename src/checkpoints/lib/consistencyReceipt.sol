@@ -18,9 +18,9 @@ import {
 ///    have the lengths the two sizes imply (the draft's SHOULD).
 ///    The draft's consistent_roots alone checks only peak counts, which
 ///    many sizes share, and hashes whatever path length it is given;
-///    without the size and shape checks a proof could re-home the anchored
-///    peaks at heights and positions the log never had, or re-anchor an
-///    unchanged accumulator at an inflated size (FOR-567 and follow-ups).
+///    without the size and shape checks a proof could place the anchored
+///    peaks at heights and positions the log never had, or anchor an
+///    unchanged accumulator at a larger size (FOR-567).
 ///    consistentRootsForSizes enforces the shape in the same pass as the
 ///    hashing. An empty log is size 0 with no peaks; a first checkpoint is
 ///    just the base-0 case of the same verification.
@@ -86,10 +86,6 @@ function buildDetachedPayloadCommitment(bytes32[] memory accumulator)
 {
     detachedPayload = abi.encodePacked(accumulator);
 }
-
-/// @notice MMR profile: verify a series of pre-decoded consistency proofs per
-///    draft "Verifying the Receipt of consistency". No CBOR decode on-chain.
-///    Aligns with algorithms as free functions (consistentRoots, includedRoot).
 
 /// @notice Concat roots then rightPeaks into one accumulator.
 function _concatAccumulator(
