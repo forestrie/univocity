@@ -599,7 +599,7 @@ abstract contract UnivocityTestHelper is Test {
         });
     }
 
-    /// @notice 1 -> 3 fold: leaf0 is the sole peak of MMR(1); folding
+    /// @notice 1 -> 3 proof: leaf0 is the sole peak of MMR(1); proving
     ///    it with sibling leaf1 (path length 1) yields the sole peak of
     ///    MMR(3) (node2). No right peaks: MMR(3) has exactly one peak and it
     ///    is fully carried from the origin peak.
@@ -637,7 +637,7 @@ abstract contract UnivocityTestHelper is Test {
         });
     }
 
-    /// @notice Same 1 -> 3 fold as _buildConsistencyReceipt1To3, signed
+    /// @notice Same 1 -> 3 proof as _buildConsistencyReceipt1To3, signed
     ///    ES256 instead of KS256.
     function _buildConsistencyReceipt1To3ES256(
         bytes32 leaf0,
@@ -704,7 +704,7 @@ abstract contract UnivocityTestHelper is Test {
         );
     }
 
-    /// @notice 0 -> 3 fold: MMR(0) has no peaks, so both leaves arrive
+    /// @notice 0 -> 3 proof: MMR(0) has no peaks, so both leaves arrive
     ///    as a single right peak (node2); no origin proofs needed.
     function _buildConsistencyReceipt0To3(bytes32 p0, bytes32 p1)
         internal
@@ -734,7 +734,7 @@ abstract contract UnivocityTestHelper is Test {
         });
     }
 
-    /// @notice 1 -> 3 fold (correct shape and peak count) signed over
+    /// @notice 1 -> 3 proof (correct shape and peak count) signed over
     ///    the wrong payload, so every shape/peak-count check passes and the
     ///    signature check is what fails.
     function _buildConsistencyReceipt1To3WrongProof(bytes32 leaf1)
@@ -767,9 +767,9 @@ abstract contract UnivocityTestHelper is Test {
         });
     }
 
-    /// @notice 1 -> 3 fold of leaf0 padded with an extra right peak, so
+    /// @notice 1 -> 3 proof for leaf0 padded with an extra right peak, so
     ///    the accumulator has two peaks where size 3 has one. The shape and
-    ///    fold checks pass; the rightPeaks-length check fires (expected 0,
+    ///    proof checks pass; the rightPeaks-length check fires (expected 0,
     ///    actual 1).
     function _buildConsistencyReceipt1To3WrongPeakCount(
         bytes32 leaf0,
@@ -807,7 +807,7 @@ abstract contract UnivocityTestHelper is Test {
         });
     }
 
-    /// @notice 3 -> 4 fold: node2 (sole peak of MMR(3)) stays a peak
+    /// @notice 3 -> 4 proof: node2 (sole peak of MMR(3)) stays a peak
     ///    (empty path), and the new leaf arrives as the sole right peak.
     function _buildConsistencyReceipt3To4(
         bytes32 leaf0,

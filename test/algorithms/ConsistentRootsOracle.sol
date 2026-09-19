@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 // TEST-ONLY ORACLE. The draft's consistent_roots exactly as written
-// (draft-bryce-cose-receipts-mmr-profile): fold each origin peak along
+// (draft-bryce-cose-receipts-mmr-profile): prove each origin peak along
 // whatever path it is given and collapse consecutive duplicate roots. It
 // performs no shape checks, which is why the contract no longer uses it
 // (see consistentRootsForSizes, pinned to the same KAT-39 vectors in

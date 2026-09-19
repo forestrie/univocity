@@ -409,7 +409,7 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
         );
     }
 
-    /// @notice A successful consistency-proof-chain fold now always produces
+    /// @notice A verified consistency proof chain always produces
     ///    an accumulator of the correct length by construction (each proof's
     ///    roots + rightPeaks are checked against the target peak count), so
     ///    InvalidAccumulatorLength is unreachable via a submitted proof; the
@@ -511,9 +511,9 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
         );
     }
 
-    /// @notice Well-formed 1 -> 3 fold, signed over the wrong
-    ///    payload: shape/peak-count checks all pass, so the fold succeeds and
-    ///    the signature check (over the real folded accumulator, not the
+    /// @notice Well-formed 1 -> 3 proof, signed over the wrong
+    ///    payload: shape/peak-count checks all pass, so the proof verifies and
+    ///    the signature check (over the proven accumulator, not the
     ///    signed "wrong" one) is what fails.
     function test_publishCheckpoint_revertsOnInvalidConsistencyProof() public {
         _publishFirstToTestLog(
@@ -1443,7 +1443,7 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
     /// @notice Reverts when consistency receipt has invalid proof payload
     ///    (decoded: treeSize2=1 but rightPeaks empty so accMem length 0).
     ///    Sign the payload the contract will use. The rightPeaks/target-peak
-    ///    mismatch is now caught inside the proof-chain fold itself
+    ///    mismatch is now caught inside proof-chain verification itself
     ///    (ConsistencyPeakCountMismatch), before accumulator length is ever
     ///    checked, so InvalidAccumulatorLength is unreachable via a
     ///    submitted proof; same intent (reject a short accumulator), earlier

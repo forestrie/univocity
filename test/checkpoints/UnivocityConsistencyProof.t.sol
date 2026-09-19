@@ -58,7 +58,7 @@ contract UnivocityConsistencyProofTest is UnivocityTestHelper {
     // --- accepted extension ------------------------------------------------
 
     /// @notice Extension of TEST_LOG from size 1 to 3: the stored peak is
-    ///    folded with the supplied sibling. Same shape as the declared-base-3
+    ///    proven to the size-3 peak with the supplied sibling. Same shape as the declared-base-3
     ///    case below, differing only in the declared base.
     function test_extend_declaredBaseMatchesStoredSize_succeeds() public {
         bytes32[][] memory paths = _paths1(_path1(keccak256("leaf1")));
@@ -110,14 +110,14 @@ contract UnivocityConsistencyProofTest is UnivocityTestHelper {
         public
     {
         bytes32[][] memory paths = _paths1(_path1(keccak256("sibling")));
-        // The value the fold would produce with PEAK1 taken as node index 2.
-        bytes32 folded =
+        // The root proven with PEAK1 taken as node index 2.
+        bytes32 proven =
             includedRootHarness.callIncludedRoot(2, PEAK1, paths[0]);
         ConsistencyProof[] memory proofs = new ConsistencyProof[](1);
         proofs[0] = _proof(3, 7, paths, new bytes32[](0));
 
         vm.expectRevert(_baseMismatch(1, 3));
-        _publishTestLog(_signReceipt(proofs, _toAcc(folded)));
+        _publishTestLog(_signReceipt(proofs, _toAcc(proven)));
 
         assertEq(univocity.logState(TEST_LOG_ID).size, 1);
         assertEq(univocity.logState(TEST_LOG_ID).accumulator[0], PEAK1);
@@ -131,7 +131,7 @@ contract UnivocityConsistencyProofTest is UnivocityTestHelper {
         bytes32 root3 =
             includedRootHarness.callIncludedRoot(0, PEAK1, paths0[0]);
         bytes32[][] memory paths1 = _paths1(_path1(keccak256("sibling")));
-        bytes32 folded =
+        bytes32 proven =
             includedRootHarness.callIncludedRoot(0, root3, paths1[0]);
 
         ConsistencyProof[] memory proofs = new ConsistencyProof[](2);
@@ -139,7 +139,7 @@ contract UnivocityConsistencyProofTest is UnivocityTestHelper {
         proofs[1] = _proof(1, 7, paths1, new bytes32[](0));
 
         vm.expectRevert(_baseMismatch(3, 1));
-        _publishTestLog(_signReceipt(proofs, _toAcc(folded)));
+        _publishTestLog(_signReceipt(proofs, _toAcc(proven)));
 
         assertEq(univocity.logState(TEST_LOG_ID).size, 1);
     }
@@ -152,15 +152,15 @@ contract UnivocityConsistencyProofTest is UnivocityTestHelper {
         bytes32[][] memory paths0 = _paths1(_path1(keccak256("leaf1")));
         bytes32 root3 =
             includedRootHarness.callIncludedRoot(0, PEAK1, paths0[0]);
-        // 3 -> 2 step: root3 folded with `sibling`, padded with a second peak.
+        // 3 -> 2 step: root3 proven with `sibling`, padded with a second peak.
         bytes32[][] memory paths1 = _paths1(_path1(sibling));
         bytes32 node =
             includedRootHarness.callIncludedRoot(2, root3, paths1[0]);
-        // 2 -> 7 step: both peaks fold to the same value.
+        // 2 -> 7 step: both peaks prove the same root.
         bytes32[][] memory paths2 = new bytes32[][](2);
         paths2[0] = _path1(sibling);
         paths2[1] = _path1(node);
-        bytes32 folded =
+        bytes32 proven =
             includedRootHarness.callIncludedRoot(0, node, paths2[0]);
 
         ConsistencyProof[] memory proofs = new ConsistencyProof[](3);
@@ -169,7 +169,7 @@ contract UnivocityConsistencyProofTest is UnivocityTestHelper {
         proofs[2] = _proof(2, 7, paths2, new bytes32[](0));
 
         vm.expectRevert(IUnivocityErrors.InvalidConsistencyProof.selector);
-        _publishTestLog(_signReceipt(proofs, _toAcc(folded)));
+        _publishTestLog(_signReceipt(proofs, _toAcc(proven)));
 
         assertEq(univocity.logState(TEST_LOG_ID).size, 1);
     }
@@ -195,8 +195,8 @@ contract UnivocityConsistencyProofTest is UnivocityTestHelper {
 
     /// @notice An empty path at 1 -> 3 reverts
     ///    ConsistencyPathLengthMismatch(0, 1, 0): the path for peak index 0
-    ///    must have length 1. With an empty path the fold would return the
-    ///    stored peak unchanged, so a receipt already published for size 1
+    ///    must have length 1. With an empty path the proven root would be
+    ///    the stored peak unchanged, so a receipt already published for size 1
     ///    would verify against a larger declared size.
     function test_publishCheckpoint_emptyPathAt1To3_reverts() public {
         bytes32[][] memory paths = _paths1(new bytes32[](0));
@@ -357,7 +357,7 @@ contract UnivocityConsistencyProofTest is UnivocityTestHelper {
 
     /// @notice Sign `finalAcc` as the detached payload with the KS256 root
     ///    key shared by both logs. The caller states the accumulator the
-    ///    fold will produce; a mismatch surfaces as a signature failure.
+    ///    proofs will produce; a mismatch surfaces as a signature failure.
     function _signReceipt(
         ConsistencyProof[] memory proofs,
         bytes32[] memory finalAcc

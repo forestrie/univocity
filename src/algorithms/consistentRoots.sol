@@ -5,8 +5,8 @@ pragma solidity ^0.8.24;
 // "Verifying the Receipt of consistency", with the proof shape the two sizes
 // imply enforced in the same pass (the draft's SHOULD on path lengths). For a
 // complete MMR the set bits of peaksBitmap(size) are the peak heights in
-// accumulator order, so the fold iterates that bitmap directly: no peak index
-// list, and no bookkeeping per hop beyond the hash itself.
+// accumulator order, so verification iterates that bitmap directly: no peak
+// index list, and no bookkeeping per hop beyond the hash itself.
 
 import {includedRoot} from "@univocity/algorithms/includedRoot.sol";
 import {
@@ -16,18 +16,19 @@ import {
 import {bitLength, popcount64} from "@univocity/algorithms/binUtils.sol";
 import {IUnivocityErrors} from "@univocity/interfaces/IUnivocityErrors.sol";
 
-/// @notice Fold the peaks of MMR(sizeFrom) into the peaks of MMR(sizeTo) that
-///    commit them, requiring the proof to have exactly the shape the two
-///    sizes imply.
+/// @notice Produce the peaks of MMR(sizeTo) that the proofs prove from the
+///    peaks of MMR(sizeFrom), requiring the proofs to have exactly the shape
+///    the two sizes imply.
 ///
 ///    Let `split` be the highest bit on which the two peaks bitmaps differ.
 ///    As sizeTo > sizeFrom the target has it and the origin does not. An
-///    origin peak above `split` is still a peak of the target: its path is
-///    empty and it is carried unchanged. Every origin peak below `split` is
-///    committed by the single target peak of height `split`: its path has
-///    length split - h, and all of them must fold to the same value. The
-///    target's remaining peaks lie below every origin peak, so they are new
-///    material the prover supplies as rightPeaks; their count is returned.
+///    origin peak above `split` is also a peak of the target: its path is
+///    empty and it is returned unchanged. Every origin peak below `split`
+///    is committed by the target peak of height `split`: its path has
+///    length split - h, and every such path must prove the same root. The
+///    target's remaining peaks lie below every origin peak, so no proof
+///    reaches them; the prover supplies them as rightPeaks, and their count
+///    is returned.
 ///
 ///    Only the target size must be complete: the origin is anchored state,
 ///    and every anchored size was itself a checked target.
@@ -35,8 +36,9 @@ import {IUnivocityErrors} from "@univocity/interfaces/IUnivocityErrors.sol";
 /// @param sizeTo Node count of the target state; caller ensures > sizeFrom.
 /// @param accumulatorFrom Peaks of MMR(sizeFrom), descending height.
 /// @param proofs One path per origin peak, in the same order (calldata).
-/// @return roots Peaks of MMR(sizeTo) that commit origin peaks, descending
-///    height: the unchanged peaks, then the one merged root if any.
+/// @return roots The peaks of MMR(sizeTo) proven from the origin peaks, in
+///    descending height: the unchanged peaks, then the one proven root if
+///    any.
 /// @return expectedRight Number of MMR(sizeTo) peaks the prover must supply
 ///    as rightPeaks.
 function consistentRootsForSizes(
@@ -86,7 +88,7 @@ function consistentRootsForSizes(
             );
         }
         if (h > split) {
-            // Still a peak of the target; the empty path is the identity.
+            // Also a peak of the target; the empty path proves it as is.
             roots[count++] = accumulatorFrom[i];
         } else {
             bytes32 root = includedRoot(

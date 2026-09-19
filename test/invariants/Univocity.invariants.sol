@@ -261,8 +261,8 @@ contract UnivocityHandler is Test {
         ghost_lastSize[rootLogId] = s.size;
     }
 
-    /// @notice 1 -> 3 fold (see UnivocityTestHelper for the same
-    ///    shape): leaf0 is the sole peak of MMR(1); folding it with sibling
+    /// @notice 1 -> 3 proof (see UnivocityTestHelper for the same
+    ///    shape): leaf0 is the sole peak of MMR(1); proving it with sibling
     ///    leaf1 yields the sole peak of MMR(3), no right peaks.
     function _buildConsistencyReceipt1To3(bytes32 leaf0, bytes32 leaf1)
         internal

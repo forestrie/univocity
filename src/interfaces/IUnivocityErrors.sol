@@ -55,8 +55,8 @@ interface IUnivocityErrors {
     ///    the declared sizes imply.
     error ConsistencyPeakCountMismatch(uint256 expected, uint256 actual);
     /// @notice Origin peak `peak` is committed by the same target peak as
-    ///    the origin peak before it, but its path folded to a different
-    ///    value: the supplied siblings are inconsistent.
+    ///    the origin peak before it, but its path proves a different root:
+    ///    the supplied siblings are inconsistent.
     error ConsistencyRootMismatch(uint256 peak);
     error InvalidSignatureChain();
     error InvalidReceiptInclusionProof();

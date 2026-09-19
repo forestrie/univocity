@@ -11,7 +11,7 @@ import {
 ///    Caller supplies pre-decoded proof payloads (calldata). Caller must copy
 ///    storage accumulator to memory before calling.
 ///
-///    Every proof is folded from the accumulator it follows: the initial
+///    Every proof is verified against the accumulator it follows: the initial
 ///    state for the first, the previous proof's output thereafter. The
 ///    declared base of each proof must be the size of that accumulator, each
 ///    proof must grow the tree to a complete MMR size, and the paths must
@@ -23,7 +23,7 @@ import {
 ///    unchanged accumulator at an inflated size (FOR-567 and follow-ups).
 ///    consistentRootsForSizes enforces the shape in the same pass as the
 ///    hashing. An empty log is size 0 with no peaks; a first checkpoint is
-///    just the base-0 case of the same fold.
+///    just the base-0 case of the same verification.
 /// @param initialAccumulator Peaks of the log state (tree-size before first
 ///    proof). Must be memory (copy from storage in caller if needed).
 /// @param initialSize Node count committed by initialAccumulator (0 when the

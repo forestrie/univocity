@@ -29,7 +29,7 @@ import {inclusionProofPathLength} from "./InclusionProofPathOracle.sol";
 /// @notice consistentRootsForSizes and includedRoot take calldata paths;
 ///    tests hold memory.
 contract ConsistencyShapeHarness {
-    function fold(
+    function prove(
         uint64 sizeFrom,
         uint64 sizeTo,
         bytes32[] memory acc,
@@ -65,7 +65,7 @@ contract ConsistencyShapeTest is Test {
         return uint64(mmrSizeForLeafCount(leaves));
     }
 
-    /// @notice The completeness test the fold applies to the target size.
+    /// @notice The completeness test the verifier applies to the target size.
     function _isComplete(uint256 size) internal pure returns (bool) {
         return mmrSizeForLeafCount(peaksBitmap(size)) == size;
     }
@@ -157,7 +157,7 @@ contract ConsistencyShapeTest is Test {
             uint256 wantCarried
         ) = _wellFormedProof(sizeFrom, sizeTo);
         (bytes32[] memory roots, uint256 expectedRight) =
-            harness.fold(sizeFrom, sizeTo, acc, proofs);
+            harness.prove(sizeFrom, sizeTo, acc, proofs);
 
         assertEq(roots.length, wantCarried, "carried roots");
         assertEq(
@@ -198,7 +198,7 @@ contract ConsistencyShapeTest is Test {
                 expected + 1
             )
         );
-        harness.fold(sizeFrom, sizeTo, acc, proofs);
+        harness.prove(sizeFrom, sizeTo, acc, proofs);
     }
 
     /// @notice When the two lowest origin peaks share a target peak, altering
@@ -230,7 +230,7 @@ contract ConsistencyShapeTest is Test {
                 IUnivocityErrors.ConsistencyRootMismatch.selector, n - 1
             )
         );
-        harness.fold(sizeFrom, sizeTo, acc, proofs);
+        harness.prove(sizeFrom, sizeTo, acc, proofs);
     }
 
     function testFuzz_completenessIdentityMatchesIndexHeight(uint64 size)
@@ -258,7 +258,7 @@ contract ConsistencyShapeTest is Test {
                     IUnivocityErrors.IncompleteTreeSize.selector, bad[i]
                 )
             );
-            harness.fold(0, bad[i], none, noProofs);
+            harness.prove(0, bad[i], none, noProofs);
         }
     }
 }

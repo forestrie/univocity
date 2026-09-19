@@ -912,9 +912,9 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
     }
 
     /// @notice Accumulator length must match expected peaks for size (MMR
-    ///    profile). Call after proof chain. The fold already pins the
-    ///    accumulator shape per proof (checkConsistencyProofShape), so this
-    ///    is defence in depth: it cannot fire for a chain the fold accepted.
+    ///    profile). Call after proof chain. consistentRootsForSizes already
+    ///    pins the accumulator shape per proof, so this is defence in depth:
+    ///    it cannot fire for a chain that verified.
     function _validateCheckpointAccumulatorLength(
         uint64 size,
         bytes32[] memory accumulator

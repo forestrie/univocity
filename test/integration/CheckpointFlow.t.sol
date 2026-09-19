@@ -260,7 +260,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
         });
     }
 
-    /// @notice 1 -> 3 fold: leaf0 is the sole peak of MMR(1); folding
+    /// @notice 1 -> 3 proof: leaf0 is the sole peak of MMR(1); proving
     ///    it with sibling leaf1 (path length 1) yields the sole peak of
     ///    MMR(3), with no right peaks (MMR(3) has exactly one peak).
     function _buildConsistencyReceipt1To3(bytes32 leaf0, bytes32 leaf1)
