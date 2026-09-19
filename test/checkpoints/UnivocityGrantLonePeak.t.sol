@@ -57,8 +57,7 @@ contract UnivocityGrantLonePeakTest is UnivocityTestHelper {
             paths: new bytes32[][](0),
             rightPeaks: acc
         });
-        bytes memory protected =
-            _consistencyProtectedHeader(ALG_KS256, 0, size);
+        bytes memory protected = _consistencyProtectedHeader(ALG_KS256, size);
         bytes memory sigStruct =
             buildSigStructure(protected, abi.encodePacked(acc));
         (uint8 v, bytes32 r, bytes32 s) =

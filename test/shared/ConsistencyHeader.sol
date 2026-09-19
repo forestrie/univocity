@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {
-    LABEL_TREE_SIZE_1,
-    LABEL_TREE_SIZE_2
-} from "@univocity/cosecbor/constants.sol";
+import {LABEL_TREE_SIZE_2} from "@univocity/cosecbor/constants.sol";
+
+// The vds (label 395) value the sealer emits for a checkpoint receipt
+// (go-merklelog massifs.CheckpointVDSConsistency). The contract does not
+// read it; fixtures carry it so the signed bytes match the sealer's.
+uint64 constant VDS_CONSISTENCY = 3;
 
 /// @notice Test-side encoders for the checkpoint receipt's protected header
 ///    (ADR-0066): deterministic CBOR (RFC 8949 section 4.2.1), keys in
@@ -42,10 +44,11 @@ function cborInt(int64 n) pure returns (bytes memory) {
     return u;
 }
 
-/// @notice Protected header {1: alg, tree-size-1: size1, tree-size-2:
-///    size2}. Canonical key order is by encoded key: 0x01, then the two
-///    five-byte negative labels bytewise.
-function consistencyProtectedHeader(int64 alg, uint64 size1, uint64 size2)
+/// @notice Protected header {1: alg, 395: vds, tree-size-2: size2}, the
+///    layout the sealer signs (go-merklelog checkpointsign.go). Canonical
+///    key order is by encoded key: 0x01, 0x19018b, then the five-byte
+///    negative label.
+function consistencyProtectedHeader(int64 alg, uint64 size2)
     pure
     returns (bytes memory)
 {
@@ -53,8 +56,8 @@ function consistencyProtectedHeader(int64 alg, uint64 size1, uint64 size2)
         hex"a3",
         hex"01",
         cborInt(alg),
-        cborInt(LABEL_TREE_SIZE_1),
-        cborUint(size1),
+        hex"19018b",
+        cborUint(VDS_CONSISTENCY),
         cborInt(LABEL_TREE_SIZE_2),
         cborUint(size2)
     );

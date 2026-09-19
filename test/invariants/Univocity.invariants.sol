@@ -150,7 +150,7 @@ contract UnivocityHandler is Test {
             paths: new bytes32[][](0),
             rightPeaks: accMem
         });
-        bytes memory protected = consistencyProtectedHeader(ALG_KS256, 0, 1);
+        bytes memory protected = consistencyProtectedHeader(ALG_KS256, 1);
         bytes memory commitment = abi.encodePacked(accMem);
         bytes memory sigStruct =
             buildSigStructure(protected, abi.encodePacked(commitment));
@@ -285,7 +285,7 @@ contract UnivocityHandler is Test {
             paths: paths,
             rightPeaks: emptyRightPeaks
         });
-        bytes memory protected = consistencyProtectedHeader(ALG_KS256, 1, 3);
+        bytes memory protected = consistencyProtectedHeader(ALG_KS256, 3);
         bytes memory commitment = abi.encodePacked(toAcc);
         bytes memory sigStruct =
             buildSigStructure(protected, abi.encodePacked(commitment));

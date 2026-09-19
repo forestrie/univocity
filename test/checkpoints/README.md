@@ -36,18 +36,19 @@ functionally grouped contracts:
   implies. Holds the regression routes for the base-0 / aliased-base /
   chain-break / shrinking-chain / empty-path / peak-count cases plus an
   1→3→4→7 chain. Also the ADR-0066 signed-size cases: the protected
-  header's `tree-size-1`/`tree-size-2` must equal the first proof's base and
-  the last proof's target (`ConsistencyReceiptSizeMismatch`), with the
+  header's `tree-size-2` must be present (`MissingSignedTreeSize`) and equal
+  the last proof's target (`ConsistencyReceiptSizeMismatch`); header
+  strictness (key order, duplicates, tags, indefinite lengths); and the
   first-checkpoint cases in `UnivocityFirstCheckpointSignedSizeTest`.
 
 - **UnivocitySignedSizeGas.t.sol** — Gas of `publishCheckpoint` for the
   first checkpoint and a 1→3 extension under the minimal, the sealer's and a
   padded protected header (`forge test --match-contract SignedSizeGas -vv`).
 
-Consistency-receipt fixtures sign the header `{1: alg, tree-size-1,
+Consistency-receipt fixtures sign the header `{1: alg, 395: 3,
 tree-size-2}` built by `_consistencyProtectedHeader` (encoder in
-`test/shared/ConsistencyHeader.sol`); delegation proofs and grant receipts
-keep alg-only headers.
+`test/shared/ConsistencyHeader.sol`, byte-identical to go-merklelog's);
+delegation proofs and grant receipts keep alg-only headers.
 
 Fixtures use valid MMR geometry only: valid sizes are 1, 3, 4, 7, 8, 10, 11,
 15 … (`indexHeight(size) == 0`); size 2 is not an MMR and the contract rejects

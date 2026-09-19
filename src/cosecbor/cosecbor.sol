@@ -32,6 +32,9 @@ error InvalidCoseCborStructure();
 error SignatureVerificationFailed();
 error ClaimNotFound(int64 key);
 error UnexpectedMajorType(uint8 actual, uint8 expected);
+/// @notice A protected header map carries the same key twice. Verifiers
+///    that read first and last occurrences would disagree on the value.
+error DuplicateHeaderLabel(int64 key);
 
 // ============ CBOR primitives (shared) ============
 
@@ -54,17 +57,19 @@ function readLength(WitnetBuffer.Buffer memory buf, uint8 additionalInfo)
     }
 }
 
+/// @notice Skip one data item. Only the definite-length forms of major
+///    types 0-5 are accepted: readLength rejects additional information
+///    28-31, so an indefinite-length item reverts, and a tag (6) or a
+///    simple value or float (7) reverts InvalidCoseCborStructure. Anything
+///    else would leave the cursor inside an item and the next key would
+///    be read from the middle of a value.
 function skipValue(WitnetBuffer.Buffer memory buf) pure {
     uint8 initialByte = buf.readUint8();
     uint8 majorType = initialByte >> 5;
     uint8 additionalInfo = initialByte & 0x1f;
 
     if (majorType == MAJOR_TYPE_UINT || majorType == MAJOR_TYPE_NEGINT) {
-        if (additionalInfo >= 24 && additionalInfo <= 27) {
-            uint64 bytesToSkip = uint64(1) << (additionalInfo - 24);
-            // forge-lint: disable-next-line(unsafe-typecast)
-            buf.cursor += uint32(bytesToSkip);
-        }
+        readLength(buf, additionalInfo);
     } else if (majorType == MAJOR_TYPE_BYTES || majorType == MAJOR_TYPE_STRING)
     {
         uint64 len = readLength(buf, additionalInfo);
@@ -80,6 +85,8 @@ function skipValue(WitnetBuffer.Buffer memory buf) pure {
         for (uint64 i = 0; i < len * 2; i++) {
             skipValue(buf);
         }
+    } else {
+        revert InvalidCoseCborStructure();
     }
 }
 
@@ -141,14 +148,18 @@ function readUint(WitnetBuffer.Buffer memory buf) pure returns (uint64) {
 
 // ============ CBOR: protected header labels ============
 
-/// @notice Position a buffer at the value stored under `label` in a
-///    protected header map. Reverts UnexpectedMajorType if the header is
-///    not a map and ClaimNotFound(label) if the label is absent. Values
-///    under other labels are skipped, so a header may carry labels this
-///    contract does not read.
+/// @notice Walk a protected header map and position a buffer at the value
+///    stored under `label`. The whole map is walked, in whatever key order
+///    it was encoded, so a key that appears twice reverts
+///    DuplicateHeaderLabel and any item the walk cannot skip reverts
+///    (see skipValue). A map declaring more pairs than its bytes could
+///    hold reverts InvalidCoseCborStructure before any key is read.
+///    Reverts UnexpectedMajorType if the header is not a map.
+/// @return found Whether `label` is present.
+/// @return buf Positioned at the value under `label` when found.
 function seekLabel(bytes memory protectedHeader, int64 label)
     pure
-    returns (WitnetBuffer.Buffer memory buf)
+    returns (bool found, WitnetBuffer.Buffer memory buf)
 {
     buf = WitnetBuffer.Buffer(protectedHeader, 0);
 
@@ -159,16 +170,26 @@ function seekLabel(bytes memory protectedHeader, int64 label)
     }
 
     uint64 mapLen = readLength(buf, initialByte & 0x1f);
+    // Every key and every value occupies at least one byte.
+    if (mapLen * 2 > protectedHeader.length) {
+        revert InvalidCoseCborStructure();
+    }
 
+    int64[] memory seen = new int64[](mapLen);
+    uint256 valueCursor;
     for (uint64 i = 0; i < mapLen; i++) {
         int64 key = readInteger(buf);
+        for (uint64 j = 0; j < i; j++) {
+            if (seen[j] == key) revert DuplicateHeaderLabel(key);
+        }
+        seen[i] = key;
         if (key == label) {
-            return buf;
+            found = true;
+            valueCursor = buf.cursor;
         }
         skipValue(buf);
     }
-
-    revert ClaimNotFound(label);
+    if (found) buf.cursor = valueCursor;
 }
 
 /// @notice The COSE alg (label 1) of a protected header.
@@ -176,18 +197,24 @@ function extractAlgorithm(bytes memory protectedHeader)
     pure
     returns (int64 alg)
 {
-    return readInteger(seekLabel(protectedHeader, 1));
+    (bool found, WitnetBuffer.Buffer memory buf) =
+        seekLabel(protectedHeader, 1);
+    if (!found) revert ClaimNotFound(1);
+    return readInteger(buf);
 }
 
-/// @notice The unsigned integer stored under `label` in a protected header.
-///    The value must be CBOR major type 0: a size is not an int64, and a
-///    negative or non-integer value under a size label reverts
-///    UnexpectedMajorType rather than being reinterpreted.
+/// @notice The unsigned integer stored under `label` in a protected
+///    header, and whether the label is present. The value must be CBOR
+///    major type 0: a size is not an int64, and a negative or non-integer
+///    value under a size label reverts UnexpectedMajorType rather than
+///    being reinterpreted.
 function extractUintLabel(bytes memory protectedHeader, int64 label)
     pure
-    returns (uint64)
+    returns (bool found, uint64 value)
 {
-    return readUint(seekLabel(protectedHeader, label));
+    WitnetBuffer.Buffer memory buf;
+    (found, buf) = seekLabel(protectedHeader, label);
+    if (found) value = readUint(buf);
 }
 
 // ============ COSE: Sig_structure and verification ============

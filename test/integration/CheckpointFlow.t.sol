@@ -247,7 +247,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
             paths: new bytes32[][](0),
             rightPeaks: accMem
         });
-        bytes memory protected = consistencyProtectedHeader(ALG_KS256, 0, 1);
+        bytes memory protected = consistencyProtectedHeader(ALG_KS256, 1);
         bytes memory commitment = abi.encodePacked(accMem);
         bytes memory sigStruct =
             buildSigStructure(protected, abi.encodePacked(commitment));
@@ -285,7 +285,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
             paths: paths,
             rightPeaks: emptyRightPeaks
         });
-        bytes memory protected = consistencyProtectedHeader(ALG_KS256, 1, 3);
+        bytes memory protected = consistencyProtectedHeader(ALG_KS256, 3);
         bytes memory sigStruct =
             buildSigStructure(protected, abi.encodePacked(commitment));
         (uint8 v, bytes32 r, bytes32 s) =
@@ -642,7 +642,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
         });
 
         return receiptHarness.buildSignedReceipt(
-            proofs, consistencyProtectedHeader(ALG_KS256, 0, 3), SIGNER_PK
+            proofs, consistencyProtectedHeader(ALG_KS256, 3), SIGNER_PK
         );
     }
 }

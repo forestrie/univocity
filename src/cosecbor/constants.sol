@@ -23,13 +23,15 @@ int64 constant ALG_KS256 = -65799;
 // instead of attempting a plain ES256 verify that can only fail late.
 int64 constant ALG_ES256_WEBAUTHN = -65800;
 
-// === Checkpoint receipt protected-header labels (ADR-0066) ===
-// tree-size-1 and tree-size-2 of a Receipt of Consistency, carried in the
-// protected header so the checkpoint signature covers them. Interim
-// private-use values derived as COSEPrivateStart (-65535) minus the next
-// conceptual protected-header slots after vds (395) and vdp (396). Registry:
+// === Checkpoint receipt protected-header label (ADR-0066) ===
+// tree-size-2 of a Receipt of Consistency, carried in the protected header
+// so the checkpoint signature covers it. tree-size-1 stays in the
+// unprotected consistency proof: the contract takes the base from its own
+// anchored size and never from the receipt. Interim private-use value
+// derived as COSEPrivateStart (-65535) minus 398, the conceptual
+// protected-header slot after vds (395), vdp (396) and 397 (-65932 was
+// allotted to tree-size-1 and withdrawn before use). Registry:
 // https://github.com/forestrie/protocol/blob/main/spec/label-registry.md
 // Decision:
 // https://github.com/forestrie/devdocs/blob/main/adr/adr-0066-sec-signed-checkpoint-size.md
-int64 constant LABEL_TREE_SIZE_1 = -65932;
 int64 constant LABEL_TREE_SIZE_2 = -65933;

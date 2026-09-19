@@ -13,17 +13,18 @@ pragma solidity ^0.8.24;
 ///   - an incomplete target size; empty paths; missing and surplus rightPeaks
 ///   - a 1 -> 3 -> 4 -> 7 chain that is accepted, with the accumulator
 ///     checked at each step
-///   ADR-0066: the protected header carries tree-size-1 and tree-size-2,
-///   so the checkpoint signature covers them, and the contract requires
-///   them to equal the first proof's treeSize1 and the last proof's
-///   treeSize2:
+///   ADR-0066: the protected header carries tree-size-2, so the
+///   checkpoint signature covers it, and the contract requires it to equal
+///   the last proof's treeSize2. tree-size-1 is not signed: each proof's
+///   base is pinned by the fold to the anchored size.
 ///   - a receipt signed for 7 -> 8 submitted as 7 -> 10 (same proof shape)
 ///   - 15 -> 16 submitted as 18 and 22 (three targets, one shape)
-///   - a signed base that is not the first proof's base
-///   - headers missing either label, or carrying a negative size
-///   - a two-proof receipt signed for the ends of its chain, and for an
-///     intermediate size
-///   - the sealer's header shape with vds present
+///   - a header without the label, or carrying a negative size
+///   - a two-proof receipt signed for the size its chain reaches, and for
+///     the intermediate size
+///   - header keys in any order; duplicate keys, a tag, an
+///     indefinite-length item, a simple value, and an over-declared map
+///     length rejected
 ///   - a first checkpoint signed for size 1 submitted at 2^64 - 1 and at the
 ///     other one-peak sizes (second contract)
 ///   Split per test/checkpoints/README.md.
@@ -38,17 +39,21 @@ import {IUnivocityErrors} from "@univocity/interfaces/IUnivocityErrors.sol";
 import {hashPosPair64} from "@univocity/algorithms/binUtils.sol";
 import {
     ALG_KS256,
-    LABEL_TREE_SIZE_1,
     LABEL_TREE_SIZE_2,
     MAJOR_TYPE_UINT,
     MAJOR_TYPE_NEGINT
 } from "@univocity/cosecbor/constants.sol";
 import {
     buildSigStructure,
-    ClaimNotFound,
+    DuplicateHeaderLabel,
+    InvalidCoseCborStructure,
     UnexpectedMajorType
 } from "@univocity/cosecbor/cosecbor.sol";
-import {cborInt, cborUint} from "../shared/ConsistencyHeader.sol";
+import {
+    cborInt,
+    cborUint,
+    VDS_CONSISTENCY
+} from "../shared/ConsistencyHeader.sol";
 import {
     inclusionProofPathLength
 } from "../algorithms/InclusionProofPathOracle.sol";
@@ -420,32 +425,8 @@ contract UnivocityConsistencyProofTest is UnivocityTestHelper {
         assertEq(univocity.logState(TEST_LOG_ID).size, 16);
     }
 
-    /// @notice The signed tree-size-1 must be the first proof's treeSize1.
-    ///    Proofs declaring 1 -> 3 under a header signed for 0 -> 3 revert
-    ///    ConsistencyReceiptSizeMismatch(1, 0) after the fold has accepted
-    ///    the proof against the anchored size.
-    function test_publishCheckpoint_signedBaseDiffersFromDeclared_reverts()
-        public
-    {
-        bytes32[][] memory paths = _paths1(_path1(keccak256("leaf1")));
-        bytes32 root3 =
-            includedRootHarness.callIncludedRoot(0, PEAK1, paths[0]);
-        ConsistencyProof[] memory proofs = new ConsistencyProof[](1);
-        proofs[0] = _proof(1, 3, paths, new bytes32[](0));
-
-        vm.expectRevert(sizeMismatch(1, 0));
-        _publishTestLog(
-            _signReceiptWithHeader(
-                proofs,
-                _toAcc(root3),
-                _consistencyProtectedHeader(ALG_KS256, 0, 3)
-            )
-        );
-        assertEq(univocity.logState(TEST_LOG_ID).size, 1);
-    }
-
     /// @notice The alg-only header receipts carried before ADR-0066 reverts
-    ///    ClaimNotFound(tree-size-2): both labels are required.
+    ///    MissingSignedTreeSize: the label is required.
     function test_publishCheckpoint_headerWithoutTreeSize2_reverts() public {
         bytes32[][] memory paths = _paths1(_path1(keccak256("leaf1")));
         bytes32 root3 =
@@ -455,35 +436,8 @@ contract UnivocityConsistencyProofTest is UnivocityTestHelper {
         bytes memory algOnly = abi.encodePacked(hex"a101", cborInt(ALG_KS256));
         assertEq(algOnly, hex"a1013a00010106");
 
-        vm.expectRevert(
-            abi.encodeWithSelector(ClaimNotFound.selector, LABEL_TREE_SIZE_2)
-        );
+        vm.expectRevert(IUnivocityErrors.MissingSignedTreeSize.selector);
         _publishTestLog(_signReceiptWithHeader(proofs, _toAcc(root3), algOnly));
-        assertEq(univocity.logState(TEST_LOG_ID).size, 1);
-    }
-
-    /// @notice A header carrying tree-size-2 but not tree-size-1 reverts
-    ///    ClaimNotFound(tree-size-1).
-    function test_publishCheckpoint_headerWithoutTreeSize1_reverts() public {
-        bytes32[][] memory paths = _paths1(_path1(keccak256("leaf1")));
-        bytes32 root3 =
-            includedRootHarness.callIncludedRoot(0, PEAK1, paths[0]);
-        ConsistencyProof[] memory proofs = new ConsistencyProof[](1);
-        proofs[0] = _proof(1, 3, paths, new bytes32[](0));
-        bytes memory size2Only = abi.encodePacked(
-            hex"a2",
-            hex"01",
-            cborInt(ALG_KS256),
-            cborInt(LABEL_TREE_SIZE_2),
-            cborUint(3)
-        );
-
-        vm.expectRevert(
-            abi.encodeWithSelector(ClaimNotFound.selector, LABEL_TREE_SIZE_1)
-        );
-        _publishTestLog(
-            _signReceiptWithHeader(proofs, _toAcc(root3), size2Only)
-        );
         assertEq(univocity.logState(TEST_LOG_ID).size, 1);
     }
 
@@ -497,11 +451,9 @@ contract UnivocityConsistencyProofTest is UnivocityTestHelper {
         ConsistencyProof[] memory proofs = new ConsistencyProof[](1);
         proofs[0] = _proof(1, 3, paths, new bytes32[](0));
         bytes memory negative = abi.encodePacked(
-            hex"a3",
+            hex"a2",
             hex"01",
             cborInt(ALG_KS256),
-            cborInt(LABEL_TREE_SIZE_1),
-            cborUint(1),
             cborInt(LABEL_TREE_SIZE_2),
             cborInt(-3)
         );
@@ -520,11 +472,12 @@ contract UnivocityConsistencyProofTest is UnivocityTestHelper {
     }
 
     /// @notice A receipt carrying two proofs, 1 -> 3 and 3 -> 4, is signed
-    ///    for the ends of its chain, (1, 4) (ADR-0066 D2). Signed for (1, 3)
-    ///    it reverts with the last proof's target; signed for (3, 4) with
-    ///    the first proof's base. The intermediate size 3 is pinned by the
-    ///    fold, not the header.
-    function test_publishCheckpoint_chainInOneReceipt_signedForChainEnds()
+    ///    for the size its chain reaches, 4. Signed for the intermediate
+    ///    size 3 it reverts ConsistencyReceiptSizeMismatch(4, 3). The base
+    ///    of each proof is pinned by the fold, not the header, which is
+    ///    what lets the publisher relay several sealed steps under the
+    ///    head checkpoint's signature.
+    function test_publishCheckpoint_chainInOneReceipt_signedForFinalSize()
         public
     {
         bytes32 leaf1 = keccak256("leaf1");
@@ -538,13 +491,7 @@ contract UnivocityConsistencyProofTest is UnivocityTestHelper {
         vm.expectRevert(sizeMismatch(4, 3));
         _publishTestLog(
             _signReceiptWithHeader(
-                proofs, acc4, _consistencyProtectedHeader(ALG_KS256, 1, 3)
-            )
-        );
-        vm.expectRevert(sizeMismatch(1, 3));
-        _publishTestLog(
-            _signReceiptWithHeader(
-                proofs, acc4, _consistencyProtectedHeader(ALG_KS256, 3, 4)
+                proofs, acc4, _consistencyProtectedHeader(ALG_KS256, 3)
             )
         );
         assertEq(univocity.logState(TEST_LOG_ID).size, 1);
@@ -555,29 +502,140 @@ contract UnivocityConsistencyProofTest is UnivocityTestHelper {
         assertEq(univocity.logState(TEST_LOG_ID).accumulator[1], leaf3);
     }
 
-    /// @notice The sealer's header also carries vds (395: 1). Labels the
-    ///    contract does not read are skipped and the sizes are found.
-    function test_publishCheckpoint_headerWithVds_succeeds() public {
-        bytes32[][] memory paths = _paths1(_path1(keccak256("leaf1")));
-        bytes32 root3 =
-            includedRootHarness.callIncludedRoot(0, PEAK1, paths[0]);
-        ConsistencyProof[] memory proofs = new ConsistencyProof[](1);
-        proofs[0] = _proof(1, 3, paths, new bytes32[](0));
-        bytes memory withVds = abi.encodePacked(
+    /// @notice Keys are found in whatever order the map encodes them:
+    ///    {tree-size-2, 395, 1} is accepted as {1, 395, tree-size-2} is.
+    function test_publishCheckpoint_headerKeyOrder_succeeds() public {
+        (ConsistencyProof[] memory proofs, bytes32 root3) = _proof1To3();
+        bytes memory reversed = abi.encodePacked(
+            hex"a3",
+            cborInt(LABEL_TREE_SIZE_2),
+            cborUint(3),
+            hex"19018b",
+            cborUint(VDS_CONSISTENCY),
+            hex"01",
+            cborInt(ALG_KS256)
+        );
+
+        _publishTestLog(
+            _signReceiptWithHeader(proofs, _toAcc(root3), reversed)
+        );
+        assertEq(univocity.logState(TEST_LOG_ID).size, 3);
+        assertEq(univocity.logState(TEST_LOG_ID).accumulator[0], root3);
+    }
+
+    /// @notice tree-size-2 appearing twice, {.., ts2: 3, ts2: 10}, reverts
+    ///    DuplicateHeaderLabel(-65933): a verifier reading the last
+    ///    occurrence would anchor 10 where this contract reads 3.
+    function test_publishCheckpoint_duplicateTreeSize2_reverts() public {
+        (ConsistencyProof[] memory proofs, bytes32 root3) = _proof1To3();
+        bytes memory header = abi.encodePacked(
+            hex"a3",
+            hex"01",
+            cborInt(ALG_KS256),
+            cborInt(LABEL_TREE_SIZE_2),
+            cborUint(3),
+            cborInt(LABEL_TREE_SIZE_2),
+            cborUint(10)
+        );
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                DuplicateHeaderLabel.selector, LABEL_TREE_SIZE_2
+            )
+        );
+        _publishTestLog(_signReceiptWithHeader(proofs, _toAcc(root3), header));
+        assertEq(univocity.logState(TEST_LOG_ID).size, 1);
+    }
+
+    /// @notice A duplicate of a label the contract does not read (395)
+    ///    reverts the same way: the header is not well-formed CBOR and
+    ///    strict decoders reject it.
+    function test_publishCheckpoint_duplicateUnreadLabel_reverts() public {
+        (ConsistencyProof[] memory proofs, bytes32 root3) = _proof1To3();
+        bytes memory header = abi.encodePacked(
             hex"a4",
             hex"01",
             cborInt(ALG_KS256),
             hex"19018b",
-            hex"01",
-            cborInt(LABEL_TREE_SIZE_1),
-            cborUint(1),
+            cborUint(3),
+            hex"19018b",
+            cborUint(3),
             cborInt(LABEL_TREE_SIZE_2),
             cborUint(3)
         );
 
-        _publishTestLog(_signReceiptWithHeader(proofs, _toAcc(root3), withVds));
-        assertEq(univocity.logState(TEST_LOG_ID).size, 3);
-        assertEq(univocity.logState(TEST_LOG_ID).accumulator[0], root3);
+        vm.expectRevert(
+            abi.encodeWithSelector(DuplicateHeaderLabel.selector, int64(395))
+        );
+        _publishTestLog(_signReceiptWithHeader(proofs, _toAcc(root3), header));
+        assertEq(univocity.logState(TEST_LOG_ID).size, 1);
+    }
+
+    /// @notice A tagged size (tag 0 over 3) reverts InvalidCoseCborStructure:
+    ///    the walk skips only definite-length major types 0-5.
+    function test_publishCheckpoint_taggedTreeSize2_reverts() public {
+        (ConsistencyProof[] memory proofs, bytes32 root3) = _proof1To3();
+        bytes memory header = abi.encodePacked(
+            hex"a2",
+            hex"01",
+            cborInt(ALG_KS256),
+            cborInt(LABEL_TREE_SIZE_2),
+            hex"c0",
+            cborUint(3)
+        );
+
+        vm.expectRevert(InvalidCoseCborStructure.selector);
+        _publishTestLog(_signReceiptWithHeader(proofs, _toAcc(root3), header));
+        assertEq(univocity.logState(TEST_LOG_ID).size, 1);
+    }
+
+    /// @notice An indefinite-length bstr (5f .. ff) under an unread label
+    ///    reverts InvalidCoseCborStructure, as does a simple value (f6).
+    function test_publishCheckpoint_indefiniteOrSimpleItem_reverts() public {
+        (ConsistencyProof[] memory proofs, bytes32 root3) = _proof1To3();
+        bytes memory indefinite = abi.encodePacked(
+            hex"a3",
+            hex"01",
+            cborInt(ALG_KS256),
+            hex"04",
+            hex"5f4101ff",
+            cborInt(LABEL_TREE_SIZE_2),
+            cborUint(3)
+        );
+        vm.expectRevert(InvalidCoseCborStructure.selector);
+        _publishTestLog(
+            _signReceiptWithHeader(proofs, _toAcc(root3), indefinite)
+        );
+
+        bytes memory simple = abi.encodePacked(
+            hex"a3",
+            hex"01",
+            cborInt(ALG_KS256),
+            hex"04",
+            hex"f6",
+            cborInt(LABEL_TREE_SIZE_2),
+            cborUint(3)
+        );
+        vm.expectRevert(InvalidCoseCborStructure.selector);
+        _publishTestLog(_signReceiptWithHeader(proofs, _toAcc(root3), simple));
+        assertEq(univocity.logState(TEST_LOG_ID).size, 1);
+    }
+
+    /// @notice A map declaring more pairs than its bytes hold reverts
+    ///    InvalidCoseCborStructure before any key is read.
+    function test_publishCheckpoint_overDeclaredMapLength_reverts() public {
+        (ConsistencyProof[] memory proofs, bytes32 root3) = _proof1To3();
+        bytes memory header = abi.encodePacked(
+            hex"b8ff",
+            hex"01",
+            cborInt(ALG_KS256),
+            cborInt(LABEL_TREE_SIZE_2),
+            cborUint(3)
+        );
+
+        vm.expectRevert(InvalidCoseCborStructure.selector);
+        _publishTestLog(_signReceiptWithHeader(proofs, _toAcc(root3), header));
+        assertEq(univocity.logState(TEST_LOG_ID).size, 1);
     }
 
     // --- fixtures ----------------------------------------------------------
@@ -599,6 +657,18 @@ contract UnivocityConsistencyProofTest is UnivocityTestHelper {
         _publishTestLog(_signReceipt(b, _toAcc(root7)));
         assertEq(univocity.logState(TEST_LOG_ID).size, 7);
         assertEq(univocity.logState(TEST_LOG_ID).accumulator[0], root7);
+    }
+
+    /// @notice The 1 -> 3 proof for TEST_LOG and the root it proves.
+    function _proof1To3()
+        internal
+        view
+        returns (ConsistencyProof[] memory proofs, bytes32 root3)
+    {
+        bytes32[][] memory paths = _paths1(_path1(keccak256("leaf1")));
+        root3 = includedRootHarness.callIncludedRoot(0, PEAK1, paths[0]);
+        proofs = new ConsistencyProof[](1);
+        proofs[0] = _proof(1, 3, paths, new bytes32[](0));
     }
 
     function _acc2(bytes32 a, bytes32 b)
@@ -658,9 +728,7 @@ contract UnivocityConsistencyProofTest is UnivocityTestHelper {
             proofs,
             finalAcc,
             _consistencyProtectedHeader(
-                ALG_KS256,
-                proofs[0].treeSize1,
-                proofs[proofs.length - 1].treeSize2
+                ALG_KS256, proofs[proofs.length - 1].treeSize2
             )
         );
     }
@@ -748,7 +816,7 @@ contract UnivocityFirstCheckpointSignedSizeTest is UnivocityTestHelper {
             paths: new bytes32[][](0),
             rightPeaks: _toAcc(PEAK1)
         });
-        bytes memory protected = _consistencyProtectedHeader(ALG_KS256, 0, 1);
+        bytes memory protected = _consistencyProtectedHeader(ALG_KS256, 1);
         bytes memory sigStruct =
             buildSigStructure(protected, abi.encodePacked(_toAcc(PEAK1)));
         (uint8 v, bytes32 r, bytes32 s) =
