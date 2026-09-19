@@ -95,37 +95,54 @@ function consistentRootsForSizes(
     }
 
     // Origin peaks below the split are all committed by the target peak of
-    // height `split` (bit `split` itself is clear in `from`), so each path
-    // must have length split - h and every path must prove the same root.
-    // Above, count and i advanced together; here only i advances, so
-    // i == count exactly at the first peak below the split.
-    bytes32 root;
-    for (h = split; h > 0;) {
-        h--;
-        if ((from >> h) & 1 == 0) continue;
-        uint256 expected = split - h;
-        if (proofs[i].length != expected) {
-            revert IUnivocityErrors.ConsistencyPathLengthMismatch(
-                i, expected, proofs[i].length
-            );
-        }
-        uint256 subtree = (uint256(1) << (h + 1)) - 1;
-        bytes32 proven =
-            includedRoot(offset + subtree - 1, accumulatorFrom[i], proofs[i]);
-        if (i == count) {
-            root = proven;
-        } else if (proven != root) {
-            revert IUnivocityErrors.ConsistencyRootMismatch(i);
-        }
-        offset += subtree;
-        i++;
-    }
-    if (count < n) {
+    // height `split` (bit `split` itself is clear in `from`). The highest of
+    // them proves that root; every lower one must prove the same value.
+    uint256 below = from & ((uint256(1) << split) - 1);
+    if (below != 0) {
+        h = bitLength(below) - 1;
+        bytes32 root =
+            _proveToSplit(h, split, offset, i, accumulatorFrom, proofs);
         roots[count++] = root;
+        offset += (uint256(1) << (h + 1)) - 1;
+        i++;
+        for (; h > 0;) {
+            h--;
+            if ((from >> h) & 1 == 0) continue;
+            if (
+                _proveToSplit(h, split, offset, i, accumulatorFrom, proofs)
+                    != root
+            ) {
+                revert IUnivocityErrors.ConsistencyRootMismatch(i);
+            }
+            offset += (uint256(1) << (h + 1)) - 1;
+            i++;
+        }
     }
 
     assembly {
         mstore(roots, count)
     }
     expectedRight = popcount64(to) - count;
+}
+
+/// @dev Prove origin peak `i`, of height `h` with `offset` nodes before its
+///    subtree, to the target peak of height `split`. Its path must have
+///    exactly split - h siblings.
+function _proveToSplit(
+    uint256 h,
+    uint256 split,
+    uint256 offset,
+    uint256 i,
+    bytes32[] memory accumulatorFrom,
+    bytes32[][] calldata proofs
+) pure returns (bytes32) {
+    uint256 expected = split - h;
+    if (proofs[i].length != expected) {
+        revert IUnivocityErrors.ConsistencyPathLengthMismatch(
+            i, expected, proofs[i].length
+        );
+    }
+    return includedRoot(
+        offset + (uint256(1) << (h + 1)) - 2, accumulatorFrom[i], proofs[i]
+    );
 }
