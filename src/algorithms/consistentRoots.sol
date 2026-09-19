@@ -72,38 +72,58 @@ function consistentRootsForSizes(
     uint256 split = bitLength(from ^ to) - 1;
     roots = new bytes32[](n);
     uint256 count;
-    bool merged;
     // Nodes preceding the current origin peak's subtree; a peak of height h
     // sits at offset + 2^(h+1) - 2 and its subtree has 2^(h+1) - 1 nodes.
     uint256 offset;
     uint256 i;
-    for (uint256 h = bitLength(from); h > 0;) {
+
+    // Origin peaks above the split are also peaks of the target. The path
+    // is not read; requiring it to be empty rejects unused material (shape,
+    // not safety).
+    uint256 h = bitLength(from);
+    for (; h > split + 1;) {
         h--;
         if ((from >> h) & 1 == 0) continue;
-        uint256 subtree = (uint256(1) << (h + 1)) - 1;
-        uint256 expected = h > split ? 0 : split - h;
+        if (proofs[i].length != 0) {
+            revert IUnivocityErrors.ConsistencyPathLengthMismatch(
+                i, 0, proofs[i].length
+            );
+        }
+        roots[count++] = accumulatorFrom[i];
+        offset += (uint256(1) << (h + 1)) - 1;
+        i++;
+    }
+
+    // Origin peaks below the split are all committed by the target peak of
+    // height `split` (bit `split` itself is clear in `from`), so each path
+    // must have length split - h and every path must prove the same root.
+    bytes32 root;
+    bool any;
+    for (h = split; h > 0;) {
+        h--;
+        if ((from >> h) & 1 == 0) continue;
+        uint256 expected = split - h;
         if (proofs[i].length != expected) {
             revert IUnivocityErrors.ConsistencyPathLengthMismatch(
                 i, expected, proofs[i].length
             );
         }
-        if (h > split) {
-            // Also a peak of the target; the empty path proves it as is.
-            roots[count++] = accumulatorFrom[i];
-        } else {
-            bytes32 root = includedRoot(
-                offset + subtree - 1, accumulatorFrom[i], proofs[i]
-            );
-            if (!merged) {
-                roots[count++] = root;
-                merged = true;
-            } else if (roots[count - 1] != root) {
-                revert IUnivocityErrors.ConsistencyRootMismatch(i);
-            }
+        uint256 subtree = (uint256(1) << (h + 1)) - 1;
+        bytes32 proven =
+            includedRoot(offset + subtree - 1, accumulatorFrom[i], proofs[i]);
+        if (!any) {
+            root = proven;
+            any = true;
+        } else if (proven != root) {
+            revert IUnivocityErrors.ConsistencyRootMismatch(i);
         }
         offset += subtree;
         i++;
     }
+    if (any) {
+        roots[count++] = root;
+    }
+
     assembly {
         mstore(roots, count)
     }
