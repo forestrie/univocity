@@ -33,7 +33,11 @@ contract BuildSafeRootBootstrap is Script {
 
     bytes32 internal constant AUTHORITY_LOG_ID = keccak256("authority-log");
     bytes8 internal constant IDTIMESTAMP_AUTH = bytes8(0);
-    bytes internal constant PROTECTED_HEADER = hex"a1013a00010106";
+    /// @notice Protected header of the root's first checkpoint receipt:
+    ///    {1: alg, tree-size-1: 0, tree-size-2: 1} (ADR-0066). The sizes
+    ///    are signed; the contract requires them to match the proof.
+    bytes internal constant PROTECTED_HEADER =
+        hex"a3013a000101063a0001018b003a0001018c01";
     uint256 internal constant GRANT_ROOT = GF_CREATE | GF_EXTEND | GF_AUTH_LOG;
 
     function run() external {

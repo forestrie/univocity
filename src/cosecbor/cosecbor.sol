@@ -130,13 +130,27 @@ function encodeBstr(bytes memory data) pure returns (bytes memory) {
     }
 }
 
-// ============ CBOR: extract algorithm from protected header ============
+function readUint(WitnetBuffer.Buffer memory buf) pure returns (uint64) {
+    uint8 initialByte = buf.readUint8();
+    uint8 majorType = initialByte >> 5;
+    if (majorType != MAJOR_TYPE_UINT) {
+        revert UnexpectedMajorType(majorType, MAJOR_TYPE_UINT);
+    }
+    return readLength(buf, initialByte & 0x1f);
+}
 
-function extractAlgorithm(bytes memory protectedHeader)
+// ============ CBOR: protected header labels ============
+
+/// @notice Position a buffer at the value stored under `label` in a
+///    protected header map. Reverts UnexpectedMajorType if the header is
+///    not a map and ClaimNotFound(label) if the label is absent. Values
+///    under other labels are skipped, so a header may carry labels this
+///    contract does not read.
+function seekLabel(bytes memory protectedHeader, int64 label)
     pure
-    returns (int64 alg)
+    returns (WitnetBuffer.Buffer memory buf)
 {
-    WitnetBuffer.Buffer memory buf = WitnetBuffer.Buffer(protectedHeader, 0);
+    buf = WitnetBuffer.Buffer(protectedHeader, 0);
 
     uint8 initialByte = buf.readUint8();
     uint8 majorType = initialByte >> 5;
@@ -148,14 +162,32 @@ function extractAlgorithm(bytes memory protectedHeader)
 
     for (uint64 i = 0; i < mapLen; i++) {
         int64 key = readInteger(buf);
-        if (key == 1) {
-            return readInteger(buf);
-        } else {
-            skipValue(buf);
+        if (key == label) {
+            return buf;
         }
+        skipValue(buf);
     }
 
-    revert ClaimNotFound(1);
+    revert ClaimNotFound(label);
+}
+
+/// @notice The COSE alg (label 1) of a protected header.
+function extractAlgorithm(bytes memory protectedHeader)
+    pure
+    returns (int64 alg)
+{
+    return readInteger(seekLabel(protectedHeader, 1));
+}
+
+/// @notice The unsigned integer stored under `label` in a protected header.
+///    The value must be CBOR major type 0: a size is not an int64, and a
+///    negative or non-integer value under a size label reverts
+///    UnexpectedMajorType rather than being reinterpreted.
+function extractUintLabel(bytes memory protectedHeader, int64 label)
+    pure
+    returns (uint64)
+{
+    return readUint(seekLabel(protectedHeader, label));
 }
 
 // ============ COSE: Sig_structure and verification ============

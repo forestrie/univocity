@@ -28,10 +28,13 @@ import {IUnivocityErrors} from "@univocity/interfaces/IUnivocityErrors.sol";
 import {
     ALG_ES256,
     ALG_ES256_WEBAUTHN,
-    ALG_KS256
+    ALG_KS256,
+    LABEL_TREE_SIZE_1,
+    LABEL_TREE_SIZE_2
 } from "@univocity/cosecbor/constants.sol";
 import {
     extractAlgorithm,
+    extractUintLabel,
     verifyES256DetachedPayload,
     verifyKS256DetachedPayload,
     UnsupportedAlgorithm
@@ -429,6 +432,7 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
         // the root has authorized that key via a KS256 delegation proof (BYOK).
         _checkDelegationAlgConstraints(grant, delegationProof);
         int64 alg = extractAlgorithm(consistencyParts.protectedHeader);
+        _verifySignedTreeSizes(consistencyParts, claimedSize);
 
         // NOTICE: verification failures always revert
         if (alg == ALG_ES256) {
@@ -457,6 +461,39 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
         }
 
         revert UnsupportedAlgorithm(alg);
+    }
+
+    /// @notice The sizes the receipt's protected header carries (signed,
+    ///    ADR-0066 D5.5) must be the sizes the proofs declare: tree-size-1
+    ///    the first proof's treeSize1, which the fold has already pinned to
+    ///    the anchored size, and tree-size-2 the last proof's treeSize2,
+    ///    which is the size stored. The signature covers only the header
+    ///    and the accumulator; the proofs' sizes are calldata. Whenever no
+    ///    origin peak is folded the fold cannot tell target sizes with the
+    ///    same proof shape apart, so without this check a signed first
+    ///    checkpoint publishes at any one-peak size (2^64 - 1 included) and
+    ///    a signed 7 -> 8 publishes as 7 -> 10, from the same calldata.
+    ///    Runs before the signature check: a header that fails here is
+    ///    never worth verifying, and one that passes is then verified.
+    /// @dev Labels:
+    /// https://github.com/forestrie/devdocs/blob/main/adr/adr-0066-sec-signed-checkpoint-size.md
+    function _verifySignedTreeSizes(
+        ConsistencyReceipt calldata consistencyParts,
+        uint64 claimedSize
+    ) internal pure {
+        uint64 signedSize2 = extractUintLabel(
+            consistencyParts.protectedHeader, LABEL_TREE_SIZE_2
+        );
+        if (signedSize2 != claimedSize) {
+            revert ConsistencyReceiptSizeMismatch(claimedSize, signedSize2);
+        }
+        uint64 signedSize1 = extractUintLabel(
+            consistencyParts.protectedHeader, LABEL_TREE_SIZE_1
+        );
+        uint64 declaredSize1 = consistencyParts.consistencyProofs[0].treeSize1;
+        if (signedSize1 != declaredSize1) {
+            revert ConsistencyReceiptSizeMismatch(declaredSize1, signedSize1);
+        }
     }
 
     /// @notice Fail-closed coupling of the grant's alg-policy flag band

@@ -28,6 +28,10 @@ import {ImutableUnivocity} from "@univocity/contracts/ImutableUnivocity.sol";
 import {hashPosPair64} from "@univocity/algorithms/binUtils.sol";
 import {includedRoot} from "@univocity/algorithms/includedRoot.sol";
 import {ALG_ES256, ALG_KS256} from "@univocity/cosecbor/constants.sol";
+import {
+    cborUint,
+    consistencyProtectedHeader
+} from "../shared/ConsistencyHeader.sol";
 import {buildSigStructure} from "@univocity/cosecbor/cosecbor.sol";
 import {
     buildDetachedPayloadCommitment,
@@ -399,7 +403,7 @@ abstract contract UnivocityTestHelper is Test {
     {
         ConsistencyProof[] memory proofs = new ConsistencyProof[](1);
         proofs[0] = _decodedPayload0To1(accMem[0]);
-        bytes memory protected = hex"a1013a00010106";
+        bytes memory protected = _consistencyProtectedHeader(ALG_KS256, 0, 1);
         bytes memory commitment = abi.encodePacked(accMem);
         bytes memory sigStruct =
             buildSigStructure(protected, abi.encodePacked(commitment));
@@ -570,7 +574,7 @@ abstract contract UnivocityTestHelper is Test {
             paths: new bytes32[][](0),
             rightPeaks: new bytes32[](0)
         });
-        bytes memory protected = hex"a1013a00010106";
+        bytes memory protected = _consistencyProtectedHeader(ALG_KS256, 0, 0);
         bytes memory commitment = abi.encodePacked();
         bytes memory sigStruct =
             buildSigStructure(protected, abi.encodePacked(commitment));
@@ -623,7 +627,7 @@ abstract contract UnivocityTestHelper is Test {
             paths: paths,
             rightPeaks: emptyRightPeaks
         });
-        bytes memory protected = hex"a1013a00010106";
+        bytes memory protected = _consistencyProtectedHeader(ALG_KS256, 1, 3);
         bytes memory commitment = abi.encodePacked(toAcc);
         bytes memory sigStruct =
             buildSigStructure(protected, abi.encodePacked(commitment));
@@ -659,7 +663,7 @@ abstract contract UnivocityTestHelper is Test {
             paths: paths,
             rightPeaks: emptyRightPeaks
         });
-        bytes memory protected = hex"a10126";
+        bytes memory protected = _consistencyProtectedHeader(ALG_ES256, 1, 3);
         bytes memory commitment = abi.encodePacked(toAcc);
         bytes memory sigStruct =
             buildSigStructure(protected, abi.encodePacked(commitment));
@@ -720,7 +724,7 @@ abstract contract UnivocityTestHelper is Test {
             paths: new bytes32[][](0),
             rightPeaks: toAcc
         });
-        bytes memory protected = hex"a1013a00010106";
+        bytes memory protected = _consistencyProtectedHeader(ALG_KS256, 0, 3);
         bytes memory commitment = abi.encodePacked(toAcc);
         bytes memory sigStruct =
             buildSigStructure(protected, abi.encodePacked(commitment));
@@ -754,7 +758,7 @@ abstract contract UnivocityTestHelper is Test {
             paths: paths,
             rightPeaks: emptyRightPeaks
         });
-        bytes memory protected = hex"a1013a00010106";
+        bytes memory protected = _consistencyProtectedHeader(ALG_KS256, 1, 3);
         bytes memory wrongPayload = abi.encodePacked(keccak256("wrong"));
         bytes memory sigStruct = buildSigStructure(protected, wrongPayload);
         (uint8 v, bytes32 r, bytes32 s) =
@@ -790,7 +794,7 @@ abstract contract UnivocityTestHelper is Test {
             paths: paths,
             rightPeaks: rightPeaksWrong
         });
-        bytes memory protected = hex"a1013a00010106";
+        bytes memory protected = _consistencyProtectedHeader(ALG_KS256, 1, 3);
         bytes32[] memory toAcc = new bytes32[](2);
         toAcc[0] = node2;
         toAcc[1] = extra;
@@ -823,7 +827,7 @@ abstract contract UnivocityTestHelper is Test {
         proofs[0] = ConsistencyProof({
             treeSize1: 3, treeSize2: 4, paths: paths, rightPeaks: rightPeaks
         });
-        bytes memory protected = hex"a1013a00010106";
+        bytes memory protected = _consistencyProtectedHeader(ALG_KS256, 3, 4);
         bytes32[] memory toAcc = new bytes32[](2);
         toAcc[0] = node2;
         toAcc[1] = leaf2;
@@ -974,13 +978,20 @@ abstract contract UnivocityTestHelper is Test {
         inclusionProof = new bytes32[](0);
     }
 
+    /// @notice Protected header a checkpoint receipt is signed under:
+    ///    {1: alg, tree-size-1: size1, tree-size-2: size2} (ADR-0066).
+    ///    Fixtures pass the sizes their proofs declare; a test that wants
+    ///    the header to disagree with the proofs builds it directly.
+    function _consistencyProtectedHeader(int64 alg, uint64 size1, uint64 size2)
+        internal
+        pure
+        returns (bytes memory)
+    {
+        return consistencyProtectedHeader(alg, size1, size2);
+    }
+
     function _uintCbor(uint64 n) internal pure returns (bytes memory) {
-        // forge-lint: disable-next-line(unsafe-typecast)
-        if (n < 24) return abi.encodePacked(bytes1(uint8(n)));
-        // forge-lint: disable-next-line(unsafe-typecast)
-        if (n < 256) return abi.encodePacked(hex"18", bytes1(uint8(n)));
-        // forge-lint: disable-next-line(unsafe-typecast)
-        return abi.encodePacked(hex"19", bytes2(uint16(n)));
+        return cborUint(n);
     }
 
     function _cborBstr(bytes memory data)
@@ -1066,7 +1077,7 @@ abstract contract UnivocityTestHelper is Test {
     ) internal pure returns (ConsistencyReceipt memory) {
         ConsistencyProof[] memory proofs = new ConsistencyProof[](1);
         proofs[0] = _decodedPayload0To1(accMem[0]);
-        bytes memory protected = hex"a10126";
+        bytes memory protected = _consistencyProtectedHeader(ALG_ES256, 0, 1);
         bytes memory commitment = abi.encodePacked(accMem);
         bytes memory sigStruct =
             buildSigStructure(protected, abi.encodePacked(commitment));

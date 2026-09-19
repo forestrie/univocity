@@ -484,7 +484,7 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
     /// @notice Empty consistency proof chain reverts InvalidConsistencyProof.
     function test_publishCheckpoint_revertsOnEmptyConsistencyProofs() public {
         ConsistencyReceipt memory emptyProofs = ConsistencyReceipt({
-            protectedHeader: hex"a1013a00010106",
+            protectedHeader: _consistencyProtectedHeader(ALG_KS256, 0, 0),
             signature: hex"",
             consistencyProofs: new ConsistencyProof[](0),
             delegationProof: _emptyDelegationProof()
@@ -1463,12 +1463,13 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
         });
         bytes32 commitment = sha256(abi.encodePacked());
         bytes memory sigStruct = buildSigStructure(
-            hex"a1013a00010106", abi.encodePacked(commitment)
+            _consistencyProtectedHeader(ALG_KS256, 0, 1),
+            abi.encodePacked(commitment)
         );
         (uint8 v, bytes32 r, bytes32 s) =
             vm.sign(SIGNER_PK, keccak256(sigStruct));
         ConsistencyReceipt memory invalidReceipt = ConsistencyReceipt({
-            protectedHeader: hex"a1013a00010106",
+            protectedHeader: _consistencyProtectedHeader(ALG_KS256, 0, 1),
             signature: abi.encodePacked(r, s, v),
             consistencyProofs: proofs,
             delegationProof: DelegationProof({

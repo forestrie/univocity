@@ -245,7 +245,7 @@ contract UnivocityEIP1271Test is UnivocityTestHelper {
         ConsistencyProof[] memory proofs = new ConsistencyProof[](1);
         proofs[0] = _decodedPayload0To1(accMem[0]);
         return ConsistencyReceipt({
-            protectedHeader: hex"a1013a00010106",
+            protectedHeader: _consistencyProtectedHeader(ALG_KS256, 0, 1),
             signature: signature,
             consistencyProofs: proofs,
             delegationProof: _emptyDelegationProof()
@@ -259,7 +259,8 @@ contract UnivocityEIP1271Test is UnivocityTestHelper {
     {
         bytes memory commitment = abi.encodePacked(accMem);
         bytes memory sigStruct = buildSigStructure(
-            hex"a1013a00010106", abi.encodePacked(commitment)
+            _consistencyProtectedHeader(ALG_KS256, 0, 1),
+            abi.encodePacked(commitment)
         );
         return keccak256(sigStruct);
     }

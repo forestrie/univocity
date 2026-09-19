@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {Test} from "forge-std/Test.sol";
 import {ImutableUnivocity} from "@univocity/contracts/ImutableUnivocity.sol";
 import {ALG_KS256} from "@univocity/cosecbor/constants.sol";
+import {consistencyProtectedHeader} from "../shared/ConsistencyHeader.sol";
 import {buildSigStructure} from "@univocity/cosecbor/cosecbor.sol";
 import {IUnivocity} from "@univocity/interfaces/IUnivocity.sol";
 import {
@@ -149,7 +150,7 @@ contract UnivocityHandler is Test {
             paths: new bytes32[][](0),
             rightPeaks: accMem
         });
-        bytes memory protected = hex"a1013a00010106";
+        bytes memory protected = consistencyProtectedHeader(ALG_KS256, 0, 1);
         bytes memory commitment = abi.encodePacked(accMem);
         bytes memory sigStruct =
             buildSigStructure(protected, abi.encodePacked(commitment));
@@ -284,7 +285,7 @@ contract UnivocityHandler is Test {
             paths: paths,
             rightPeaks: emptyRightPeaks
         });
-        bytes memory protected = hex"a1013a00010106";
+        bytes memory protected = consistencyProtectedHeader(ALG_KS256, 1, 3);
         bytes memory commitment = abi.encodePacked(toAcc);
         bytes memory sigStruct =
             buildSigStructure(protected, abi.encodePacked(commitment));
