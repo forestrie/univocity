@@ -9,14 +9,19 @@ pragma solidity ^0.8.24;
 ///   check: well-formed proofs are accepted with the carried-root count the walk
 ///   predicts; a single perturbed path length is rejected naming the peak;
 ///   a single perturbed sibling under a shared target peak is rejected; the
-///   isCompleteMMR closed form agrees with indexHeight.
+///   completeness identity mmrSizeForLeafCount(peaksBitmap(size)) == size
+///   agrees with indexHeight.
 
 import {Test} from "forge-std/Test.sol";
 import {
     consistentRootsForSizes
 } from "@univocity/algorithms/consistentRoots.sol";
-import {isCompleteMMR, peaks} from "@univocity/algorithms/peaks.sol";
-import {indexHeight, popcount64} from "@univocity/algorithms/binUtils.sol";
+import {
+    mmrSizeForLeafCount,
+    peaks,
+    peaksBitmap
+} from "@univocity/algorithms/peaks.sol";
+import {indexHeight} from "@univocity/algorithms/binUtils.sol";
 import {IUnivocityErrors} from "@univocity/interfaces/IUnivocityErrors.sol";
 import {includedRoot} from "@univocity/algorithms/includedRoot.sol";
 import {inclusionProofPathLength} from "./InclusionProofPathOracle.sol";
@@ -57,7 +62,12 @@ contract ConsistencyShapeTest is Test {
 
     /// @notice Node count of the complete MMR with `leaves` leaves.
     function _mmrSize(uint256 leaves) internal pure returns (uint64) {
-        return uint64(2 * leaves - popcount64(leaves));
+        return uint64(mmrSizeForLeafCount(leaves));
+    }
+
+    /// @notice The completeness test the fold applies to the target size.
+    function _isComplete(uint256 size) internal pure returns (bool) {
+        return mmrSizeForLeafCount(peaksBitmap(size)) == size;
     }
 
     /// @notice A well-formed proof for sizeFrom -> sizeTo built from the draft
@@ -223,11 +233,11 @@ contract ConsistencyShapeTest is Test {
         harness.fold(sizeFrom, sizeTo, acc, proofs);
     }
 
-    function testFuzz_isCompleteMMRMatchesIndexHeight(uint64 size)
+    function testFuzz_completenessIdentityMatchesIndexHeight(uint64 size)
         public
         pure
     {
-        assertEq(isCompleteMMR(size), indexHeight(size) == 0);
+        assertEq(_isComplete(size), indexHeight(size) == 0);
     }
 
     function testFuzz_everyLeafCountGivesACompleteSize(uint64 leaves)
@@ -235,7 +245,7 @@ contract ConsistencyShapeTest is Test {
         pure
     {
         leaves = uint64(bound(leaves, 0, MAX_LEAVES));
-        assertTrue(isCompleteMMR(_mmrSize(leaves)));
+        assertTrue(_isComplete(_mmrSize(leaves)));
     }
 
     function test_incompleteTargetRejected() public {
