@@ -23,8 +23,9 @@ pragma solidity ^0.8.24;
 ///   - a two-proof receipt signed for the size its chain reaches, and for
 ///     the intermediate size
 ///   - header keys in any order; duplicate keys, a tag, an
-///     indefinite-length item, a simple value, a key beyond int64 and an
-///     over-declared map length rejected
+///     indefinite-length item, a simple value, a key beyond int64, a
+///     non-shortest argument, trailing bytes and an over-declared map
+///     length rejected
 ///   - a first checkpoint signed for size 1 submitted at 2^64 - 1 and at the
 ///     other one-peak sizes (second contract)
 ///   Split per test/checkpoints/README.md.
@@ -642,6 +643,34 @@ contract UnivocityConsistencyProofTest is UnivocityTestHelper {
             )
         );
         _publishTestLog(_signReceiptWithHeader(proofs, _toAcc(root3), header));
+        assertEq(univocity.logState(TEST_LOG_ID).size, 1);
+    }
+
+    /// @notice Non-canonical encodings of an otherwise valid header
+    ///    revert: the size in a wider argument than it needs, and a
+    ///    trailing byte after the map. Both are rejected by the Go decoder;
+    ///    accepting either would anchor a checkpoint it does not read.
+    function test_publishCheckpoint_nonCanonicalHeader_reverts() public {
+        (ConsistencyProof[] memory proofs, bytes32 root3) = _proof1To3();
+        bytes memory wideSize = abi.encodePacked(
+            hex"a2",
+            hex"01",
+            cborInt(ALG_KS256),
+            cborInt(LABEL_TREE_SIZE_2),
+            hex"1803"
+        );
+        vm.expectRevert(InvalidCoseCborStructure.selector);
+        _publishTestLog(
+            _signReceiptWithHeader(proofs, _toAcc(root3), wideSize)
+        );
+
+        bytes memory trailing = abi.encodePacked(
+            _consistencyProtectedHeader(ALG_KS256, 3), hex"00"
+        );
+        vm.expectRevert(InvalidCoseCborStructure.selector);
+        _publishTestLog(
+            _signReceiptWithHeader(proofs, _toAcc(root3), trailing)
+        );
         assertEq(univocity.logState(TEST_LOG_ID).size, 1);
     }
 

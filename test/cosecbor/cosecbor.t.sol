@@ -413,6 +413,154 @@ contract CoseCborTest is Test {
         assertEq(size, 8);
     }
 
+    /// @notice Arguments must be in shortest form: a size, label, alg or
+    ///    map length written with a wider argument than it needs reverts
+    ///    InvalidCoseCborStructure, as the Go decoder's canonical check
+    ///    rejects the same bytes. The shortest encodings at each width
+    ///    boundary are accepted.
+    function test_readLength_nonShortestForm_reverts() public {
+        bytes[6] memory bad = [
+            // size 8 as 18 08, 19 0008, 1a 00000008, 1b 00..08
+            _sizeBytes(hex"1808"),
+            _sizeBytes(hex"190008"),
+            _sizeBytes(hex"1a00000008"),
+            _sizeBytes(hex"1b0000000000000008"),
+            // label -65933 as 3b 000000000001018c; alg -7 as 38 06
+            abi.encodePacked(
+                hex"a2",
+                hex"01",
+                cborInt(ALG_ES256),
+                hex"3b000000000001018c",
+                hex"08"
+            ),
+            abi.encodePacked(
+                hex"a2",
+                hex"01",
+                hex"3806",
+                cborInt(LABEL_TREE_SIZE_2),
+                hex"08"
+            )
+        ];
+        for (uint256 i = 0; i < bad.length; i++) {
+            vm.expectRevert(InvalidCoseCborStructure.selector);
+            extractHelper.callExtractUintLabel(bad[i], LABEL_TREE_SIZE_2);
+        }
+        // map length 2 as b8 02
+        bytes memory mapWide = abi.encodePacked(
+            hex"b802",
+            hex"01",
+            cborInt(ALG_ES256),
+            cborInt(LABEL_TREE_SIZE_2),
+            hex"08"
+        );
+        vm.expectRevert(InvalidCoseCborStructure.selector);
+        extractHelper.callExtractUintLabel(mapWide, LABEL_TREE_SIZE_2);
+
+        uint64[4] memory edges = [uint64(24), 256, 65536, 1 << 32];
+        for (uint256 i = 0; i < edges.length; i++) {
+            (bool found, uint64 size) = extractUintLabel(
+                _sizeBytes(cborUint(edges[i])), LABEL_TREE_SIZE_2
+            );
+            assertTrue(found);
+            assertEq(size, edges[i]);
+        }
+    }
+
+    /// @notice The map must consume the whole header: bytes after the
+    ///    last pair, or a map declaring fewer pairs than it carries, revert
+    ///    InvalidCoseCborStructure. The second form would otherwise hide a
+    ///    repeated tree-size-2 from the duplicate check.
+    function test_seekLabel_headerNotFullyConsumed_reverts() public {
+        bytes memory trailing = abi.encodePacked(
+            consistencyProtectedHeader(ALG_ES256, 8),
+            hex"a1",
+            cborInt(LABEL_TREE_SIZE_2),
+            hex"1903e8"
+        );
+        vm.expectRevert(InvalidCoseCborStructure.selector);
+        extractHelper.callExtractUintLabel(trailing, LABEL_TREE_SIZE_2);
+
+        bytes memory underDeclared = abi.encodePacked(
+            hex"a2",
+            hex"01",
+            cborInt(ALG_ES256),
+            cborInt(LABEL_TREE_SIZE_2),
+            hex"08",
+            cborInt(LABEL_TREE_SIZE_2),
+            hex"1903e8"
+        );
+        vm.expectRevert(InvalidCoseCborStructure.selector);
+        extractHelper.callExtractUintLabel(underDeclared, LABEL_TREE_SIZE_2);
+    }
+
+    /// @notice A string whose declared length exceeds the remaining bytes
+    ///    reverts rather than being skipped by its length modulo 2^32: with
+    ///    length 2^32 the walk would otherwise read the string's content
+    ///    as the next pair and report tree-size-2 = 1000.
+    function test_skipValue_stringLengthBeyondHeader_reverts() public {
+        bytes memory bstr2pow32 = abi.encodePacked(
+            hex"a3",
+            hex"01",
+            cborInt(ALG_ES256),
+            hex"02",
+            hex"5b0000000100000000",
+            cborInt(LABEL_TREE_SIZE_2),
+            hex"1903e8"
+        );
+        vm.expectRevert(InvalidCoseCborStructure.selector);
+        extractHelper.callExtractUintLabel(bstr2pow32, LABEL_TREE_SIZE_2);
+
+        bytes memory oversizedTrailing = abi.encodePacked(
+            hex"a2", cborInt(LABEL_TREE_SIZE_2), hex"08", hex"01", hex"58ff"
+        );
+        vm.expectRevert(InvalidCoseCborStructure.selector);
+        extractHelper.callExtractUintLabel(
+            oversizedTrailing, LABEL_TREE_SIZE_2
+        );
+    }
+
+    /// @notice A header that ends before an expected item reverts rather
+    ///    than reading a zero from past the end of the data.
+    function test_readInitialByte_truncatedHeader_reverts() public {
+        vm.expectRevert(InvalidCoseCborStructure.selector);
+        extractHelper.callExtractUintLabel(
+            abi.encodePacked(hex"a1", cborInt(LABEL_TREE_SIZE_2)),
+            LABEL_TREE_SIZE_2
+        );
+        vm.expectRevert(InvalidCoseCborStructure.selector);
+        extractHelper.callExtractAlgorithm(hex"a101");
+        vm.expectRevert(InvalidCoseCborStructure.selector);
+        extractHelper.callExtractAlgorithm(hex"");
+    }
+
+    /// @notice A declared map length of 2^63 or more reverts
+    ///    InvalidCoseCborStructure, not an arithmetic panic.
+    function test_seekLabel_hugeMapLength_revertsTyped() public {
+        vm.expectRevert(InvalidCoseCborStructure.selector);
+        extractHelper.callExtractUintLabel(
+            hex"bb8000000000000000", LABEL_TREE_SIZE_2
+        );
+        vm.expectRevert(InvalidCoseCborStructure.selector);
+        extractHelper.callExtractUintLabel(
+            hex"bbffffffffffffffff", LABEL_TREE_SIZE_2
+        );
+    }
+
+    /// @notice {1: alg, tree-size-2: <size bytes verbatim>}.
+    function _sizeBytes(bytes memory size)
+        internal
+        pure
+        returns (bytes memory)
+    {
+        return abi.encodePacked(
+            hex"a2",
+            hex"01",
+            cborInt(ALG_ES256),
+            cborInt(LABEL_TREE_SIZE_2),
+            size
+        );
+    }
+
     /// @notice {1: alg, 4: item, tree-size-2: 8} with `item` verbatim.
     function _withUnread(bytes memory item)
         internal

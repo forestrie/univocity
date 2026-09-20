@@ -42,23 +42,45 @@ error IntegerOutOfRange(uint64 magnitude);
 
 // ============ CBOR primitives (shared) ============
 
+/// @notice Read the initial byte of the next item, reverting when the
+///    buffer is exhausted. WitnetBuffer.readUint8 alone reads one byte
+///    past the end of the data rather than reverting.
+function readInitialByte(WitnetBuffer.Buffer memory buf) pure returns (uint8) {
+    if (buf.cursor >= buf.data.length) revert InvalidCoseCborStructure();
+    return buf.readUint8();
+}
+
+/// @notice Read a CBOR argument (integer value or length) in its
+///    shortest form only (RFC 8949 section 4.2.1): an argument that would
+///    fit a shorter encoding, or the reserved and indefinite additional
+///    information values 28-31, reverts InvalidCoseCborStructure. The
+///    sealer's encoder is deterministic and the Go decoder rejects the
+///    same bytes; accepting a longer form here would anchor a checkpoint
+///    that verifier does not read.
 function readLength(WitnetBuffer.Buffer memory buf, uint8 additionalInfo)
     pure
     returns (uint64)
 {
     if (additionalInfo < 24) {
         return additionalInfo;
-    } else if (additionalInfo == 24) {
-        return buf.readUint8();
+    }
+    uint64 value;
+    if (additionalInfo == 24) {
+        value = buf.readUint8();
+        if (value < 24) revert InvalidCoseCborStructure();
     } else if (additionalInfo == 25) {
-        return buf.readUint16();
+        value = buf.readUint16();
+        if (value < 1 << 8) revert InvalidCoseCborStructure();
     } else if (additionalInfo == 26) {
-        return buf.readUint32();
+        value = buf.readUint32();
+        if (value < 1 << 16) revert InvalidCoseCborStructure();
     } else if (additionalInfo == 27) {
-        return buf.readUint64();
+        value = buf.readUint64();
+        if (value < 1 << 32) revert InvalidCoseCborStructure();
     } else {
         revert InvalidCoseCborStructure();
     }
+    return value;
 }
 
 /// @notice Skip one data item. Only the definite-length forms of major
@@ -68,7 +90,7 @@ function readLength(WitnetBuffer.Buffer memory buf, uint8 additionalInfo)
 ///    else would leave the cursor inside an item and the next key would
 ///    be read from the middle of a value.
 function skipValue(WitnetBuffer.Buffer memory buf) pure {
-    uint8 initialByte = buf.readUint8();
+    uint8 initialByte = readInitialByte(buf);
     uint8 majorType = initialByte >> 5;
     uint8 additionalInfo = initialByte & 0x1f;
 
@@ -76,9 +98,15 @@ function skipValue(WitnetBuffer.Buffer memory buf) pure {
         readLength(buf, additionalInfo);
     } else if (majorType == MAJOR_TYPE_BYTES || majorType == MAJOR_TYPE_STRING)
     {
+        // A declared length beyond the remaining bytes is rejected here
+        // rather than truncated: a narrowing cast of the length would
+        // leave the cursor inside the string and the next key would be
+        // read from its content.
         uint64 len = readLength(buf, additionalInfo);
-        // forge-lint: disable-next-line(unsafe-typecast)
-        buf.cursor += uint32(len);
+        if (len > buf.data.length - buf.cursor) {
+            revert InvalidCoseCborStructure();
+        }
+        buf.cursor += len;
     } else if (majorType == MAJOR_TYPE_ARRAY) {
         uint64 len = readLength(buf, additionalInfo);
         for (uint64 i = 0; i < len; i++) {
@@ -99,7 +127,7 @@ function skipValue(WitnetBuffer.Buffer memory buf) pure {
 ///    a 64-bit unsigned key would otherwise read as a negative label that
 ///    other decoders do not see.
 function readInteger(WitnetBuffer.Buffer memory buf) pure returns (int64) {
-    uint8 initialByte = buf.readUint8();
+    uint8 initialByte = readInitialByte(buf);
     uint8 majorType = initialByte >> 5;
     uint8 additionalInfo = initialByte & 0x1f;
 
@@ -121,10 +149,11 @@ function readBytes(WitnetBuffer.Buffer memory buf)
     pure
     returns (bytes memory)
 {
-    uint8 initialByte = buf.readUint8();
+    uint8 initialByte = readInitialByte(buf);
     uint8 majorType = initialByte >> 5;
     if (majorType != MAJOR_TYPE_BYTES) revert InvalidCoseCborStructure();
     uint64 len = readLength(buf, initialByte & 0x1f);
+    if (len > buf.data.length - buf.cursor) revert InvalidCoseCborStructure();
     // forge-lint: disable-next-line(unsafe-typecast)
     return buf.read(uint32(len));
 }
@@ -147,7 +176,7 @@ function encodeBstr(bytes memory data) pure returns (bytes memory) {
 }
 
 function readUint(WitnetBuffer.Buffer memory buf) pure returns (uint64) {
-    uint8 initialByte = buf.readUint8();
+    uint8 initialByte = readInitialByte(buf);
     uint8 majorType = initialByte >> 5;
     if (majorType != MAJOR_TYPE_UINT) {
         revert UnexpectedMajorType(majorType, MAJOR_TYPE_UINT);
@@ -162,7 +191,10 @@ function readUint(WitnetBuffer.Buffer memory buf) pure returns (uint64) {
 ///    it was encoded, so a key that appears twice reverts
 ///    DuplicateHeaderLabel and any item the walk cannot skip reverts
 ///    (see skipValue). A map declaring more pairs than its bytes could
-///    hold reverts InvalidCoseCborStructure before any key is read.
+///    hold reverts InvalidCoseCborStructure before any key is read, and
+///    so does a header with bytes after the map's last pair: the whole
+///    header is signed, so every byte of it must be part of the map the
+///    verifiers read.
 ///    Reverts UnexpectedMajorType if the header is not a map.
 /// @return found Whether `label` is present.
 /// @return buf Positioned at the value under `label` when found.
@@ -172,7 +204,7 @@ function seekLabel(bytes memory protectedHeader, int64 label)
 {
     buf = WitnetBuffer.Buffer(protectedHeader, 0);
 
-    uint8 initialByte = buf.readUint8();
+    uint8 initialByte = readInitialByte(buf);
     uint8 majorType = initialByte >> 5;
     if (majorType != MAJOR_TYPE_MAP) {
         revert UnexpectedMajorType(majorType, MAJOR_TYPE_MAP);
@@ -180,7 +212,7 @@ function seekLabel(bytes memory protectedHeader, int64 label)
 
     uint64 mapLen = readLength(buf, initialByte & 0x1f);
     // Every key and every value occupies at least one byte.
-    if (mapLen * 2 > protectedHeader.length) {
+    if (uint256(mapLen) * 2 > protectedHeader.length) {
         revert InvalidCoseCborStructure();
     }
 
@@ -197,6 +229,9 @@ function seekLabel(bytes memory protectedHeader, int64 label)
             valueCursor = buf.cursor;
         }
         skipValue(buf);
+    }
+    if (buf.cursor != protectedHeader.length) {
+        revert InvalidCoseCborStructure();
     }
     if (found) buf.cursor = valueCursor;
 }
