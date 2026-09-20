@@ -89,20 +89,24 @@ function readLength(WitnetBuffer.Buffer memory buf, uint8 additionalInfo)
     return value;
 }
 
-/// @notice Skip one data item. Definite-length forms of major types 0-5
-///    and the argument-only forms of major type 7 (simple values and
-///    floats) are skipped; readLength rejects additional information
-///    28-31, so an indefinite-length item reverts, and a tag (6) reverts
-///    InvalidCoseCborStructure. Anything else would leave the cursor
-///    inside an item and the next key would be read from the middle of
-///    a value. A float's width is not checked for minimality: no label
-///    the contract reads is a float, and the value is never decoded.
-function skipValue(WitnetBuffer.Buffer memory buf) pure {
+/// @notice Skip the value under a protected-header label the contract does
+///    not read, accepting only the value types ADR-0066 D9 allows there: an
+///    integer, a byte string, a text string that is valid UTF-8, the simple
+///    values false, true and null, and a float in the shortest form that
+///    preserves its value. Everything else reverts InvalidCoseCborStructure:
+///    arrays and maps, tags, undefined and every other simple value, a float
+///    with a shorter exact form, invalid UTF-8, and any malformed or
+///    truncated item. The header is signed whole and read by label, so a
+///    value type on which decoders could disagree is excluded rather than
+///    tolerated; a header the contract accepts must be re-verifiable by
+///    every conformant decoder.
+function skipUnreadLabelValue(WitnetBuffer.Buffer memory buf) pure {
     uint8 initialByte = readInitialByte(buf);
     uint8 majorType = initialByte >> 5;
     uint8 additionalInfo = initialByte & 0x1f;
 
     if (majorType == MAJOR_TYPE_UINT || majorType == MAJOR_TYPE_NEGINT) {
+        // readLength rejects a non-shortest argument.
         readLength(buf, additionalInfo);
     } else if (majorType == MAJOR_TYPE_BYTES || majorType == MAJOR_TYPE_STRING)
     {
@@ -114,43 +118,145 @@ function skipValue(WitnetBuffer.Buffer memory buf) pure {
         if (len > buf.data.length - buf.cursor) {
             revert InvalidCoseCborStructure();
         }
+        if (
+            majorType == MAJOR_TYPE_STRING
+                && !isValidUtf8(buf.data, buf.cursor, len)
+        ) {
+            revert InvalidCoseCborStructure();
+        }
         buf.cursor += len;
-    } else if (majorType == MAJOR_TYPE_ARRAY) {
-        uint64 len = readLength(buf, additionalInfo);
-        for (uint64 i = 0; i < len; i++) {
-            skipValue(buf);
-        }
-    } else if (majorType == MAJOR_TYPE_MAP) {
-        uint64 len = readLength(buf, additionalInfo);
-        for (uint64 i = 0; i < len * 2; i++) {
-            skipValue(buf);
-        }
     } else if (majorType == MAJOR_TYPE_SIMPLE) {
-        if (additionalInfo < 24) {
-            // Simple values 0-23 (false, true, null, undefined among them)
-            // are the initial byte alone.
-            return;
-        }
-        if (additionalInfo == 24) {
-            // Simple values 32-255 in one following byte; 0-31 in this
-            // form are not well-formed (RFC 8949 section 3.3).
-            if (readInitialByte(buf) < 32) revert InvalidCoseCborStructure();
+        if (
+            additionalInfo == SIMPLE_FALSE || additionalInfo == SIMPLE_TRUE
+                || additionalInfo == SIMPLE_NULL
+        ) {
             return;
         }
         if (additionalInfo >= 25 && additionalInfo <= 27) {
-            // Half, single or double float: 2, 4 or 8 bytes follow.
             uint256 width = uint256(1) << (additionalInfo - 24);
             if (width > buf.data.length - buf.cursor) {
                 revert InvalidCoseCborStructure();
             }
-            buf.cursor += width;
+            if (additionalInfo == 25) {
+                if (!halfIsShortest(buf.readUint16())) {
+                    revert InvalidCoseCborStructure();
+                }
+            } else if (additionalInfo == 26) {
+                if (singleHasShorterForm(buf.readUint32())) {
+                    revert InvalidCoseCborStructure();
+                }
+            } else {
+                if (doubleHasShorterForm(buf.readUint64())) {
+                    revert InvalidCoseCborStructure();
+                }
+            }
             return;
         }
-        // 28-30 reserved, 31 is the break code of an indefinite item.
+        // undefined (23), the other simple values 0-19, two-byte simple
+        // values (24), reserved 28-30 and the break code 31.
         revert InvalidCoseCborStructure();
     } else {
+        // Arrays, maps and tags carry no meaning under an unread label.
         revert InvalidCoseCborStructure();
     }
+}
+
+/// @dev Simple values of major type 7 (RFC 8949 section 3.3).
+uint8 constant SIMPLE_FALSE = 20;
+uint8 constant SIMPLE_TRUE = 21;
+uint8 constant SIMPLE_NULL = 22;
+
+/// @notice A half float is in shortest form by construction; the one
+///    exception is NaN, which deterministic encoders emit as 0x7e00 only.
+function halfIsShortest(uint16 h) pure returns (bool) {
+    if ((h & 0x7c00) == 0x7c00 && (h & 0x03ff) != 0) return h == 0x7e00;
+    return true;
+}
+
+/// @notice True when a single-precision float has an exact half-precision
+///    form, so a deterministic encoder would not have used four bytes.
+///    NaN and the infinities always have one (0x7e00, 0x7c00, 0xfc00).
+function singleHasShorterForm(uint32 f) pure returns (bool) {
+    uint32 exp = (f >> 23) & 0xff;
+    uint32 mant = f & 0x7fffff;
+    if (exp == 0xff) return true;
+    if (exp == 0) return mant == 0;
+    int32 e = int32(exp) - 127;
+    // A normal half holds exponents -14..15 with a 10-bit mantissa.
+    if (e >= -14 && e <= 15) return (mant & 0x1fff) == 0;
+    // A subnormal half holds multiples of 2^-24; the mantissa must be
+    // zero below that bit.
+    if (e >= -24 && e < -14) {
+        uint32 k = 13 + uint32(-14 - e);
+        return (mant & ((uint32(1) << k) - 1)) == 0;
+    }
+    return false;
+}
+
+/// @notice True when a double-precision float has an exact single- or
+///    half-precision form, so a deterministic encoder would not have used
+///    eight bytes.
+function doubleHasShorterForm(uint64 d) pure returns (bool) {
+    uint64 exp = (d >> 52) & 0x7ff;
+    uint64 mant = d & 0xfffffffffffff;
+    if (exp == 0x7ff) return true;
+    if (exp == 0) return mant == 0;
+    int64 e = int64(exp) - 1023;
+    // A normal single holds exponents -126..127 with a 23-bit mantissa.
+    if (e >= -126 && e <= 127) return (mant & 0x1fffffff) == 0;
+    // A subnormal single holds multiples of 2^-149.
+    if (e >= -149 && e < -126) {
+        uint64 k = 29 + uint64(-126 - e);
+        return (mant & ((uint64(1) << k) - 1)) == 0;
+    }
+    return false;
+}
+
+/// @notice True when `data[start .. start + len)` is well-formed UTF-8: no
+///    overlong forms, no surrogates, nothing above U+10FFFF, no truncated
+///    sequence.
+function isValidUtf8(bytes memory data, uint256 start, uint256 len)
+    pure
+    returns (bool)
+{
+    uint256 i = start;
+    uint256 end = start + len;
+    while (i < end) {
+        uint8 b = uint8(data[i]);
+        if (b < 0x80) {
+            i++;
+            continue;
+        }
+        uint256 n;
+        uint32 cp;
+        uint32 min;
+        if (b >= 0xc2 && b <= 0xdf) {
+            n = 1;
+            cp = b & 0x1f;
+            min = 0x80;
+        } else if (b >= 0xe0 && b <= 0xef) {
+            n = 2;
+            cp = b & 0x0f;
+            min = 0x800;
+        } else if (b >= 0xf0 && b <= 0xf4) {
+            n = 3;
+            cp = b & 0x07;
+            min = 0x10000;
+        } else {
+            return false;
+        }
+        if (i + n >= end) return false;
+        for (uint256 j = 1; j <= n; j++) {
+            uint8 c = uint8(data[i + j]);
+            if ((c & 0xc0) != 0x80) return false;
+            cp = (cp << 6) | (c & 0x3f);
+        }
+        if (cp < min || cp > 0x10ffff || (cp >= 0xd800 && cp <= 0xdfff)) {
+            return false;
+        }
+        i += n + 1;
+    }
+    return true;
 }
 
 /// @notice Compare two encoded keys of a map held in `data`, in the
@@ -242,7 +348,7 @@ function readUint(WitnetBuffer.Buffer memory buf) pure returns (uint64) {
 ///    keys must be in canonical order (RFC 8949 section 4.2.1), so a key
 ///    that appears twice reverts DuplicateHeaderLabel, a key out of place
 ///    reverts HeaderLabelOrder, and any item the walk cannot skip reverts
-///    (see skipValue). A map declaring more pairs than its bytes could
+///    (see skipUnreadLabelValue). A map declaring more pairs than its bytes could
 ///    hold reverts InvalidCoseCborStructure before any key is read, and
 ///    so does a header with bytes after the map's last pair: the whole
 ///    header is signed, so every byte of it must be part of the map the
@@ -295,7 +401,7 @@ function seekLabels(bytes memory protectedHeader, int64 labelA, int64 labelB)
             foundB = true;
             cursorB = buf.cursor;
         }
-        skipValue(buf);
+        skipUnreadLabelValue(buf);
     }
     if (buf.cursor != protectedHeader.length) {
         revert InvalidCoseCborStructure();
