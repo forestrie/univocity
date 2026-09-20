@@ -3,10 +3,13 @@ pragma solidity ^0.8.24;
 
 // Consistency between two MMR states, per draft-bryce-cose-receipts-mmr-profile
 // "Verifying the Receipt of consistency", with the proof shape the two sizes
-// imply enforced in the same pass (the draft's SHOULD on path lengths). For a
-// complete MMR the set bits of peaksBitmap(size) are the peak heights in
-// accumulator order, so verification iterates that bitmap directly: no peak
-// index list, and no bookkeeping per hop beyond the hash itself.
+// imply enforced in the same pass. The draft's next revision states the
+// path-length check as a MUST for receipts of consistency (ADR-0066 D5.2);
+// this implementation already requires it. For a complete MMR the set bits
+// of peaksBitmap(size) are the peak heights in accumulator order, so
+// verification iterates that bitmap directly: no peak index list, and no
+// bookkeeping per hop beyond the hash itself. Exposition with diagrams and
+// worked examples: docs/consistent-roots.md.
 
 import {includedRoot} from "@univocity/algorithms/includedRoot.sol";
 import {
@@ -20,18 +23,30 @@ import {IUnivocityErrors} from "@univocity/interfaces/IUnivocityErrors.sol";
 ///    peaks of MMR(sizeFrom), requiring the proofs to have exactly the shape
 ///    the two sizes imply.
 ///
-///    Let `split` be the highest bit on which the two peaks bitmaps differ.
-///    As sizeTo > sizeFrom the target has it and the origin does not. An
-///    origin peak above `split` is also a peak of the target: its path is
-///    empty and it is returned unchanged. Every origin peak below `split`
-///    is committed by the target peak of height `split`: its path has
-///    length split - h, and every such path must prove the same root. The
-///    target's remaining peaks lie below every origin peak, so no proof
-///    reaches them; the prover supplies them as rightPeaks, and their count
-///    is returned.
+///    Let `splitHeight` be the highest bit on which the two peaks bitmaps
+///    differ. As sizeTo > sizeFrom the target has it and the origin does
+///    not. Bitmaps big-endian, so they read left to right like the
+///    accumulator; the origin 7 leaves (size 11) to the target 12 leaves
+///    (size 22):
+///
+///        from  0 1 1 1     peaks h2 h1 h0
+///        to    1 1 0 0     peaks h3 h2
+///        xor   1 0 1 1
+///              ^ splitHeight = 3
+///
+///    An origin peak above `splitHeight` is also a peak of the target: its
+///    path is empty and it is returned unchanged. Every origin peak below
+///    `splitHeight` is buried under the target peak of that height: its
+///    path has length splitHeight - h, and every such path must prove the
+///    same root (here all three, with paths of 1, 2 and 3). The target's
+///    remaining peaks lie below every origin peak, so no proof reaches
+///    them; the prover supplies them as rightPeaks, and their count is
+///    returned (here one, h2).
 ///
 ///    Only the target size must be complete: the origin is anchored state,
 ///    and every anchored size was itself a checked target.
+///    See docs/consistent-roots.md for the exposition and the case with an
+///    unchanged origin peak.
 /// @param sizeFrom Node count of the origin state (0 for an empty log).
 /// @param sizeTo Node count of the target state; caller ensures > sizeFrom.
 /// @param accumulatorFrom Peaks of MMR(sizeFrom), descending height.
@@ -40,7 +55,8 @@ import {IUnivocityErrors} from "@univocity/interfaces/IUnivocityErrors.sol";
 ///    descending height: the unchanged peaks, then the one proven root if
 ///    any.
 /// @return expectedRight Number of MMR(sizeTo) peaks the prover must supply
-///    as rightPeaks.
+///    as rightPeaks: the target peaks below the split other than the split
+///    peak itself (docs/consistent-roots.md, "The split").
 function consistentRootsForSizes(
     uint64 sizeFrom,
     uint64 sizeTo,
@@ -69,11 +85,17 @@ function consistentRootsForSizes(
         return (new bytes32[](0), popcount64(to));
     }
 
-    uint256 split = bitLength(from ^ to) - 1;
+    // splitHeight is a height: that of the lowest target peak taller than
+    // every origin peak it buries. Origin peaks are compared with it by
+    // their own height h, and a buried peak's path climbs splitHeight - h
+    // levels to reach it.
+    uint256 splitHeight = bitLength(from ^ to) - 1;
     roots = new bytes32[](n);
     uint256 count;
-    // Nodes preceding the current origin peak's subtree; a peak of height h
-    // sits at offset + 2^(h+1) - 2 and its subtree has 2^(h+1) - 1 nodes.
+    // Node count of every subtree to the left of the current origin peak.
+    // A peak of height h roots a subtree of 2^(h+1) - 1 nodes, so its node
+    // index is offset + 2^(h+1) - 2; after it, offset grows by its subtree
+    // so the next peak's index is right.
     uint256 offset;
     uint256 i;
 
@@ -81,8 +103,9 @@ function consistentRootsForSizes(
     // is not read; requiring it to be empty rejects unused material (a shape
     // check: the result does not depend on it).
     uint256 h = bitLength(from);
-    for (; h > split + 1;) {
+    for (; h > splitHeight + 1;) {
         h--;
+        // No origin peak of height h.
         if ((from >> h) & 1 == 0) continue;
         if (proofs[i].length != 0) {
             revert IUnivocityErrors.ConsistencyPathLengthMismatch(
@@ -90,21 +113,26 @@ function consistentRootsForSizes(
             );
         }
         roots[count++] = accumulatorFrom[i];
+        // Step over this peak's whole subtree: it is unchanged in the
+        // target, so the next origin peak's subtree starts right after it.
         offset += (uint256(1) << (h + 1)) - 1;
         i++;
     }
 
-    // Origin peaks below the split are all committed by the target peak of
-    // height `split` (bit `split` itself is clear in `from`), so each path
-    // must have length split - h and every path must prove the same root.
+    // Origin peaks below the split are all buried under the target peak of
+    // height splitHeight (that bit is clear in `from`), so each path must
+    // have length splitHeight - h and every path must prove the same root.
     // The first `above` peaks were returned unchanged, so i == above at the
     // first peak below the split.
     uint256 above = count;
     bytes32 root;
-    for (h = split; h > 0;) {
+    for (h = splitHeight; h > 0;) {
         h--;
+        // No origin peak of height h.
         if ((from >> h) & 1 == 0) continue;
-        uint256 expected = split - h;
+        // The path length is the height climbed from this origin peak to
+        // the target peak that buries it: one sibling per level.
+        uint256 expected = splitHeight - h;
         if (proofs[i].length != expected) {
             revert IUnivocityErrors.ConsistencyPathLengthMismatch(
                 i, expected, proofs[i].length

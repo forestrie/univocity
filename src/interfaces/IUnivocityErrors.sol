@@ -42,6 +42,16 @@ interface IUnivocityErrors {
     ///    the size it follows: the anchored size for the first proof, the
     ///    previous proof's treeSize2 thereafter (FOR-567).
     error ConsistencyBaseMismatch(uint64 expected, uint64 declared);
+    /// @notice The receipt's protected header carries no tree-size-2
+    ///    (label -65933, ADR-0066). Distinct from a wrong value: an absent
+    ///    label is a sealer that does not emit it.
+    error MissingSignedTreeSize();
+    /// @notice The tree-size-2 carried in the receipt's protected header
+    ///    (signed, ADR-0066) differs from the last proof's treeSize2, the
+    ///    size the contract would store. Without this the same signed
+    ///    header and accumulator would be accepted at every complete size
+    ///    sharing the proof shape (any first checkpoint; 7 -> 8 as 7 -> 10).
+    error ConsistencyReceiptSizeMismatch(uint64 declared, uint64 signed);
     /// @notice A proof's declared target size (treeSize2) is not a complete
     ///    MMR (size != 2L - popcount(L)), so no MMR has that many nodes.
     error IncompleteTreeSize(uint64 size);

@@ -25,7 +25,11 @@ import {
 contract BootstrapEs256Root is Script {
     bytes32 internal constant AUTHORITY_LOG_ID = keccak256("authority-log");
     bytes8 internal constant IDTIMESTAMP_AUTH = bytes8(0);
-    bytes internal constant PROTECTED_HEADER = hex"a10126";
+    /// @notice Protected header of the root's first checkpoint receipt:
+    ///    {1: alg, 395: 3, tree-size-2: 1} (ADR-0066), the layout the
+    ///    sealer signs. The size is signed; the contract requires it to
+    ///    match the proof's treeSize2.
+    bytes internal constant PROTECTED_HEADER = hex"a3012619018b033a0001018c01";
     uint256 internal constant GRANT_ROOT = GF_CREATE | GF_EXTEND | GF_AUTH_LOG;
 
     function run() external {

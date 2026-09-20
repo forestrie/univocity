@@ -28,10 +28,12 @@ import {IUnivocityErrors} from "@univocity/interfaces/IUnivocityErrors.sol";
 import {
     ALG_ES256,
     ALG_ES256_WEBAUTHN,
-    ALG_KS256
+    ALG_KS256,
+    LABEL_TREE_SIZE_2
 } from "@univocity/cosecbor/constants.sol";
 import {
     extractAlgorithm,
+    extractAlgorithmAndUintLabel,
     verifyES256DetachedPayload,
     verifyKS256DetachedPayload,
     UnsupportedAlgorithm
@@ -428,7 +430,11 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
         // publishes ES256 consistency receipts signed by an ephemeral delegate once
         // the root has authorized that key via a KS256 delegation proof (BYOK).
         _checkDelegationAlgConstraints(grant, delegationProof);
-        int64 alg = extractAlgorithm(consistencyParts.protectedHeader);
+        (bool sizeFound, int64 alg, uint64 signedSize2) = extractAlgorithmAndUintLabel(
+            consistencyParts.protectedHeader, LABEL_TREE_SIZE_2
+        );
+        if (!sizeFound) revert MissingSignedTreeSize();
+        _verifySignedTreeSize(signedSize2, claimedSize);
 
         // NOTICE: verification failures always revert
         if (alg == ALG_ES256) {
@@ -457,6 +463,34 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
         }
 
         revert UnsupportedAlgorithm(alg);
+    }
+
+    /// @notice The tree-size-2 the receipt's protected header carries
+    ///    (signed, ADR-0066 D5.5) must be the last proof's treeSize2, the
+    ///    size the contract stores. The signature covers only the header
+    ///    and the accumulator; the proofs' sizes are calldata. Whenever no
+    ///    origin peak is folded the fold cannot tell target sizes with the
+    ///    same proof shape apart, so without this check a signed first
+    ///    checkpoint publishes at any one-peak size (2^64 - 1 included) and
+    ///    a signed 7 -> 8 publishes as 7 -> 10, from the same calldata.
+    ///    tree-size-1 is not signed and not compared: each proof's base is
+    ///    pinned by the fold to the anchored size (verifyConsistencyProofChain),
+    ///    which is the only base the contract accepts; the publisher may
+    ///    relay or re-base proofs under the head checkpoint's signature.
+    ///    Runs before the signature check: a header that fails here is
+    ///    never worth verifying, and one that passes is then verified.
+    ///    The caller reads alg and tree-size-2 from one walk of the header
+    ///    (extractAlgorithmAndUintLabel) and reverts MissingSignedTreeSize
+    ///    when the label is absent; this check is the equality.
+    /// @dev Labels:
+    /// https://github.com/forestrie/devdocs/blob/main/adr/adr-0066-sec-signed-checkpoint-size.md
+    function _verifySignedTreeSize(uint64 signedSize2, uint64 claimedSize)
+        internal
+        pure
+    {
+        if (signedSize2 != claimedSize) {
+            revert ConsistencyReceiptSizeMismatch(claimedSize, signedSize2);
+        }
     }
 
     /// @notice Fail-closed coupling of the grant's alg-policy flag band
