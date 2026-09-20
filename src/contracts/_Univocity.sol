@@ -33,7 +33,7 @@ import {
 } from "@univocity/cosecbor/constants.sol";
 import {
     extractAlgorithm,
-    extractUintLabel,
+    extractAlgorithmAndUintLabel,
     verifyES256DetachedPayload,
     verifyKS256DetachedPayload,
     UnsupportedAlgorithm
@@ -430,8 +430,10 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
         // publishes ES256 consistency receipts signed by an ephemeral delegate once
         // the root has authorized that key via a KS256 delegation proof (BYOK).
         _checkDelegationAlgConstraints(grant, delegationProof);
-        int64 alg = extractAlgorithm(consistencyParts.protectedHeader);
-        _verifySignedTreeSize(consistencyParts.protectedHeader, claimedSize);
+        (int64 alg, bool sizeFound, uint64 signedSize2) = extractAlgorithmAndUintLabel(
+            consistencyParts.protectedHeader, LABEL_TREE_SIZE_2
+        );
+        _verifySignedTreeSize(sizeFound, signedSize2, claimedSize);
 
         // NOTICE: verification failures always revert
         if (alg == ALG_ES256) {
@@ -476,14 +478,15 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
     ///    relay or re-base proofs under the head checkpoint's signature.
     ///    Runs before the signature check: a header that fails here is
     ///    never worth verifying, and one that passes is then verified.
+    ///    The header is walked once for alg and tree-size-2 together
+    ///    (extractAlgorithmAndUintLabel).
     /// @dev Labels:
     /// https://github.com/forestrie/devdocs/blob/main/adr/adr-0066-sec-signed-checkpoint-size.md
     function _verifySignedTreeSize(
-        bytes calldata protectedHeader,
+        bool found,
+        uint64 signedSize2,
         uint64 claimedSize
     ) internal pure {
-        (bool found, uint64 signedSize2) =
-            extractUintLabel(protectedHeader, LABEL_TREE_SIZE_2);
         if (!found) revert MissingSignedTreeSize();
         if (signedSize2 != claimedSize) {
             revert ConsistencyReceiptSizeMismatch(claimedSize, signedSize2);

@@ -237,26 +237,28 @@ function readUint(WitnetBuffer.Buffer memory buf) pure returns (uint64) {
 
 // ============ CBOR: protected header labels ============
 
-/// @notice Walk a protected header map and position a buffer at the value
-///    stored under `label`. The whole map is walked and its keys must be
-///    in canonical order (RFC 8949 section 4.2.1), so a key that appears
-///    twice reverts DuplicateHeaderLabel, a key out of place reverts
-///    HeaderLabelOrder, and any item the walk cannot skip reverts (see
-///    skipValue). A map declaring more pairs than its bytes could hold
-///    reverts InvalidCoseCborStructure before any key is read, and so
-///    does a header with bytes after the map's last pair: the whole
+/// @notice Walk a protected header map once and record where the values
+///    under `labelA` and `labelB` start. The whole map is walked and its
+///    keys must be in canonical order (RFC 8949 section 4.2.1), so a key
+///    that appears twice reverts DuplicateHeaderLabel, a key out of place
+///    reverts HeaderLabelOrder, and any item the walk cannot skip reverts
+///    (see skipValue). A map declaring more pairs than its bytes could
+///    hold reverts InvalidCoseCborStructure before any key is read, and
+///    so does a header with bytes after the map's last pair: the whole
 ///    header is signed, so every byte of it must be part of the map the
 ///    verifiers read. The order check is what makes the contract accept
 ///    exactly the headers the sealer's deterministic encoder produces
 ///    and the Go decoder's canonical check admits.
 ///    Reverts UnexpectedMajorType if the header is not a map.
-/// @return found Whether `label` is present.
-/// @return buf Positioned at the value under `label` when found.
-function seekLabel(bytes memory protectedHeader, int64 label)
+/// @return foundA Whether `labelA` is present.
+/// @return cursorA Offset of the value under `labelA` when found.
+/// @return foundB Whether `labelB` is present.
+/// @return cursorB Offset of the value under `labelB` when found.
+function seekLabels(bytes memory protectedHeader, int64 labelA, int64 labelB)
     pure
-    returns (bool found, WitnetBuffer.Buffer memory buf)
+    returns (bool foundA, uint256 cursorA, bool foundB, uint256 cursorB)
 {
-    buf = WitnetBuffer.Buffer(protectedHeader, 0);
+    WitnetBuffer.Buffer memory buf = WitnetBuffer.Buffer(protectedHeader, 0);
 
     uint8 initialByte = readInitialByte(buf);
     uint8 majorType = initialByte >> 5;
@@ -270,7 +272,6 @@ function seekLabel(bytes memory protectedHeader, int64 label)
         revert InvalidCoseCborStructure();
     }
 
-    uint256 valueCursor;
     uint256 prevKeyStart;
     uint256 prevKeyLen;
     for (uint64 i = 0; i < mapLen; i++) {
@@ -286,16 +287,32 @@ function seekLabel(bytes memory protectedHeader, int64 label)
         }
         prevKeyStart = keyStart;
         prevKeyLen = keyLen;
-        if (key == label) {
-            found = true;
-            valueCursor = buf.cursor;
+        if (key == labelA) {
+            foundA = true;
+            cursorA = buf.cursor;
+        }
+        if (key == labelB) {
+            foundB = true;
+            cursorB = buf.cursor;
         }
         skipValue(buf);
     }
     if (buf.cursor != protectedHeader.length) {
         revert InvalidCoseCborStructure();
     }
-    if (found) buf.cursor = valueCursor;
+}
+
+/// @notice seekLabels for one label: position a buffer at the value
+///    stored under `label`, with the same strictness.
+/// @return found Whether `label` is present.
+/// @return buf Positioned at the value under `label` when found.
+function seekLabel(bytes memory protectedHeader, int64 label)
+    pure
+    returns (bool found, WitnetBuffer.Buffer memory buf)
+{
+    uint256 cursor;
+    (found, cursor,,) = seekLabels(protectedHeader, label, label);
+    buf = WitnetBuffer.Buffer(protectedHeader, cursor);
 }
 
 /// @notice The COSE alg (label 1) of a protected header.
@@ -321,6 +338,25 @@ function extractUintLabel(bytes memory protectedHeader, int64 label)
     WitnetBuffer.Buffer memory buf;
     (found, buf) = seekLabel(protectedHeader, label);
     if (found) value = readUint(buf);
+}
+
+/// @notice The COSE alg (label 1) and the unsigned integer under `label`
+///    from one walk of the protected header. Same results and reverts as
+///    extractAlgorithm followed by extractUintLabel, at the cost of one
+///    walk rather than two: the checkpoint receipt is parsed for both on
+///    every publish.
+function extractAlgorithmAndUintLabel(
+    bytes memory protectedHeader,
+    int64 label
+) pure returns (int64 alg, bool found, uint64 value) {
+    (bool algFound, uint256 algCursor, bool valueFound, uint256 valueCursor) =
+        seekLabels(protectedHeader, 1, label);
+    if (!algFound) revert ClaimNotFound(1);
+    alg = readInteger(WitnetBuffer.Buffer(protectedHeader, algCursor));
+    found = valueFound;
+    if (found) {
+        value = readUint(WitnetBuffer.Buffer(protectedHeader, valueCursor));
+    }
 }
 
 // ============ COSE: Sig_structure and verification ============

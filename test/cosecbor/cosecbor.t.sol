@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {
     buildSigStructure,
     extractAlgorithm,
+    extractAlgorithmAndUintLabel,
     extractUintLabel,
     verifyKS256,
     ClaimNotFound,
@@ -44,6 +45,14 @@ contract CoseCborExtractAlgorithmHelper {
         returns (bool, uint64)
     {
         return extractUintLabel(d, label);
+    }
+
+    function callExtractBoth(bytes calldata d, int64 label)
+        external
+        pure
+        returns (int64, bool, uint64)
+    {
+        return extractAlgorithmAndUintLabel(d, label);
     }
 }
 
@@ -649,6 +658,57 @@ contract CoseCborTest is Test {
         vm.expectRevert(InvalidCoseCborStructure.selector);
         extractHelper.callExtractUintLabel(
             hex"bbffffffffffffffff", LABEL_TREE_SIZE_2
+        );
+    }
+
+    /// @notice One walk returns the same alg and size as two, reports an
+    ///    absent size the same way, and reverts the same way when alg is
+    ///    absent, whichever label comes first in the map.
+    function test_extractAlgorithmAndUintLabel_matchesTwoWalks() public {
+        bytes memory sealer = consistencyProtectedHeader(ALG_KS256, 8);
+        (int64 alg, bool found, uint64 size) =
+            extractAlgorithmAndUintLabel(sealer, LABEL_TREE_SIZE_2);
+        assertEq(alg, ALG_KS256);
+        assertTrue(found);
+        assertEq(size, 8);
+        assertEq(alg, extractAlgorithm(sealer));
+        (bool found2, uint64 size2) =
+            extractUintLabel(sealer, LABEL_TREE_SIZE_2);
+        assertEq(found, found2);
+        assertEq(size, size2);
+
+        (alg, found, size) =
+            extractAlgorithmAndUintLabel(hex"a10126", LABEL_TREE_SIZE_2);
+        assertEq(alg, ALG_ES256);
+        assertFalse(found);
+        assertEq(size, 0);
+
+        // alg after the size in the map is a canonical-order failure, but
+        // the size label ahead of a one-byte unread key is not: {1, 4, ts2}
+        // and {1, ts2} both read; a header with no alg reverts.
+        vm.expectRevert(
+            abi.encodeWithSelector(ClaimNotFound.selector, int64(1))
+        );
+        extractHelper.callExtractBoth(
+            abi.encodePacked(hex"a1", cborInt(LABEL_TREE_SIZE_2), hex"08"),
+            LABEL_TREE_SIZE_2
+        );
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                UnexpectedMajorType.selector,
+                MAJOR_TYPE_NEGINT,
+                MAJOR_TYPE_UINT
+            )
+        );
+        extractHelper.callExtractBoth(
+            abi.encodePacked(
+                hex"a2",
+                hex"01",
+                cborInt(ALG_ES256),
+                cborInt(LABEL_TREE_SIZE_2),
+                cborInt(-3)
+            ),
+            LABEL_TREE_SIZE_2
         );
     }
 
