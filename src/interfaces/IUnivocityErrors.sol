@@ -38,6 +38,26 @@ interface IUnivocityErrors {
 
     // Proofs
     error InvalidConsistencyProof();
+    /// @notice A consistency proof declared a base (treeSize1) other than
+    ///    the size it follows: the anchored size for the first proof, the
+    ///    previous proof's treeSize2 thereafter (FOR-567).
+    error ConsistencyBaseMismatch(uint64 expected, uint64 declared);
+    /// @notice A proof's declared target size (treeSize2) is not a complete
+    ///    MMR (size != 2L - popcount(L)), so no MMR has that many nodes.
+    error IncompleteTreeSize(uint64 size);
+    /// @notice Consistency proof path `peak` (position in the origin
+    ///    accumulator) has a length other than the one the two declared
+    ///    sizes imply (draft inclusion_proof_path).
+    error ConsistencyPathLengthMismatch(
+        uint256 peak, uint256 expected, uint256 actual
+    );
+    /// @notice A proof, accumulator or rightPeaks count differs from what
+    ///    the declared sizes imply.
+    error ConsistencyPeakCountMismatch(uint256 expected, uint256 actual);
+    /// @notice Origin peak `peak` is committed by the same target peak as
+    ///    the origin peak before it, but its path proves a different root:
+    ///    the supplied siblings are inconsistent.
+    error ConsistencyRootMismatch(uint256 peak);
     error InvalidSignatureChain();
     error InvalidReceiptInclusionProof();
 

@@ -30,6 +30,18 @@ functionally grouped contracts:
 
 - **UnivocityMisc.t.sol** — Error coverage matrix and similar.
 
+- **UnivocityConsistencyProof.t.sol** — Consistency proof chain shape: every
+  proof must start at the anchored size (FOR-567), grow, declare complete MMR
+  sizes, and carry paths of the length the draft's `inclusion_proof_path`
+  implies. Holds the regression routes for the base-0 / aliased-base /
+  chain-break / shrinking-chain / empty-path / peak-count cases plus an
+  1→3→4→7 chain.
+
+Fixtures use valid MMR geometry only: valid sizes are 1, 3, 4, 7, 8, 10, 11,
+15 … (`indexHeight(size) == 0`); size 2 is not an MMR and the contract rejects
+it. The authority log after `_publishBootstrapAndSecondCheckpoint` is at size
+3 with accumulator `[hashPosPair64(3, leaf0, leaf1)]`.
+
 Optional future splits (when adding tests or reducing Univocity.t.sol further):
-- Consistency proof chain and receipt/grant decode → `UnivocityConsistencyProof.t.sol`
+- Receipt/grant decode → `UnivocityReceiptDecode.t.sol`
 - Delegation / ES256 recovery → `UnivocityDelegation.t.sol`

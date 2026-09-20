@@ -78,8 +78,8 @@ contract UnivocityStateAndEventsTest is UnivocityTestHelper, IUnivocityEvents {
 
         bytes32 leaf2 =
             0xcd2662154e6d76b2b2b92e70c0cac3ccf534f9b74eb5b89819ec509083d00a50;
-        ConsistencyReceipt memory consistency1to2 =
-            _buildConsistencyReceipt1To2(peak1, leaf2);
+        ConsistencyReceipt memory consistency1to3 =
+            _buildConsistencyReceipt1To3(peak1, leaf2);
         bytes32[] memory path2 = _path1(authorityLeaf0);
         PublishGrant memory g = _publishGrant(
             TEST_LOG_ID,
@@ -91,12 +91,12 @@ contract UnivocityStateAndEventsTest is UnivocityTestHelper, IUnivocityEvents {
             abi.encodePacked(KS256_SIGNER)
         );
         univocity.publishCheckpoint(
-            consistency1to2,
+            consistency1to3,
             _buildPaymentInclusionProof(1, path2),
             IDTIMESTAMP_TEST,
             g
         );
 
-        assertEq(univocity.logState(TEST_LOG_ID).size, 2);
+        assertEq(univocity.logState(TEST_LOG_ID).size, 3);
     }
 }

@@ -2,11 +2,16 @@
 pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
-import {consistentRoots} from "@univocity/algorithms/consistentRoots.sol";
+import {
+    consistentRootsForSizes
+} from "@univocity/algorithms/consistentRoots.sol";
+import {IUnivocityErrors} from "@univocity/interfaces/IUnivocityErrors.sol";
 
 /// @title ConsistentRootsHarness
-/// @notice Harness contract to expose consistentRoots for testing.
-/// @dev Uses storage for accumulatorFrom as required by the function.
+/// @notice Exposes consistentRootsForSizes (calldata proofs) to tests. The
+///    accumulator is staged in storage so the KAT vectors read as they did
+///    for the draft's storage-based consistent_roots; sizes are node counts
+///    (the KAT comments name MMR indices: size = index + 1).
 contract ConsistentRootsHarness {
     bytes32[] public accumulator;
 
@@ -17,19 +22,20 @@ contract ConsistentRootsHarness {
         }
     }
 
-    function callConsistentRoots(uint256 ifrom, bytes32[][] calldata proofs)
-        external
-        view
-        returns (bytes32[] memory)
-    {
-        return consistentRoots(ifrom, accumulator, proofs);
+    function callConsistentRoots(
+        uint64 sizeFrom,
+        uint64 sizeTo,
+        bytes32[][] calldata proofs
+    ) external view returns (bytes32[] memory roots) {
+        (roots,) =
+            consistentRootsForSizes(sizeFrom, sizeTo, accumulator, proofs);
     }
 }
 
 /// @title ConsistentRootsTest
-/// @notice Unit tests for consistentRoots consistency proof verification.
-/// @dev Test vectors generated from reference Python implementation using
-///    a 39-node canonical MMR.
+/// @notice Known-answer tests for consistentRootsForSizes.
+/// @dev Vectors generated from the reference Python implementation over the
+///    canonical 39-node MMR.
 contract ConsistentRootsTest is Test {
     ConsistentRootsHarness harness;
 
@@ -54,7 +60,7 @@ contract ConsistentRootsTest is Test {
         proofs[0][0] =
         0xcd2662154e6d76b2b2b92e70c0cac3ccf534f9b74eb5b89819ec509083d00a50;
 
-        bytes32[] memory result = harness.callConsistentRoots(0, proofs);
+        bytes32[] memory result = harness.callConsistentRoots(1, 3, proofs);
         assertEq(result.length, 1);
         assertEq(
             result[0],
@@ -79,7 +85,7 @@ contract ConsistentRootsTest is Test {
         proofs[0][0] =
         0x9a18d3bc0a7d505ef45f985992270914cc02b44c91ccabba448c546a4b70f0f0;
 
-        bytes32[] memory result = harness.callConsistentRoots(2, proofs);
+        bytes32[] memory result = harness.callConsistentRoots(3, 7, proofs);
         assertEq(result.length, 1);
         assertEq(
             result[0],
@@ -111,8 +117,8 @@ contract ConsistentRootsTest is Test {
         proofs[1][1] =
         0xad104051c516812ea5874ca3ff06d0258303623d04307c41ec80a7a18b332ef8;
 
-        bytes32[] memory result = harness.callConsistentRoots(3, proofs);
-        // Both peaks prove to same root, so only 1 result (deduplicated)
+        bytes32[] memory result = harness.callConsistentRoots(4, 7, proofs);
+        // Both peaks prove the same root, so one root is returned
         assertEq(result.length, 1);
         assertEq(
             result[0],
@@ -137,7 +143,7 @@ contract ConsistentRootsTest is Test {
         proofs[0][0] =
         0x508326f17c5f2769338cb00105faba3bf7862ca1e5c9f63ba2287e1f3cf2807a;
 
-        bytes32[] memory result = harness.callConsistentRoots(6, proofs);
+        bytes32[] memory result = harness.callConsistentRoots(7, 15, proofs);
         assertEq(result.length, 1);
         assertEq(
             result[0],
@@ -171,7 +177,7 @@ contract ConsistentRootsTest is Test {
         proofs[1][2] =
         0x827f3213c1de0d4c6277caccc1eeca325e45dfe2c65adce1943774218db61f88;
 
-        bytes32[] memory result = harness.callConsistentRoots(7, proofs);
+        bytes32[] memory result = harness.callConsistentRoots(8, 15, proofs);
         assertEq(result.length, 1);
         assertEq(
             result[0],
@@ -212,7 +218,7 @@ contract ConsistentRootsTest is Test {
         proofs[2][2] =
         0x827f3213c1de0d4c6277caccc1eeca325e45dfe2c65adce1943774218db61f88;
 
-        bytes32[] memory result = harness.callConsistentRoots(10, proofs);
+        bytes32[] memory result = harness.callConsistentRoots(11, 15, proofs);
         assertEq(result.length, 1);
         assertEq(
             result[0],
@@ -237,7 +243,7 @@ contract ConsistentRootsTest is Test {
         proofs[0][0] =
         0x77651b3eec6774e62545ae04900c39a32841e2b4bac80e2ba93755115252aae1;
 
-        bytes32[] memory result = harness.callConsistentRoots(14, proofs);
+        bytes32[] memory result = harness.callConsistentRoots(15, 31, proofs);
         assertEq(result.length, 1);
         assertEq(
             result[0],
@@ -290,7 +296,7 @@ contract ConsistentRootsTest is Test {
         proofs[3][3] =
         0x78b2b4162eb2c58b229288bbcb5b7d97c7a1154eed3161905fb0f180eba6f112;
 
-        bytes32[] memory result = harness.callConsistentRoots(25, proofs);
+        bytes32[] memory result = harness.callConsistentRoots(26, 39, proofs);
         assertEq(result.length, 1);
         assertEq(
             result[0],
@@ -317,8 +323,12 @@ contract ConsistentRootsTest is Test {
         proofs[0] = new bytes32[](0);
         proofs[1] = new bytes32[](0);
 
-        vm.expectRevert("Peak count mismatch");
-        harness.callConsistentRoots(0, proofs);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IUnivocityErrors.ConsistencyPeakCountMismatch.selector, 1, 2
+            )
+        );
+        harness.callConsistentRoots(1, 3, proofs);
     }
 
     function test_consistentRoots_revert_proofCountMismatch() public {
@@ -331,17 +341,22 @@ contract ConsistentRootsTest is Test {
         proofs[0] = new bytes32[](0);
         proofs[1] = new bytes32[](0);
 
-        vm.expectRevert("Proof count mismatch");
-        harness.callConsistentRoots(0, proofs);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IUnivocityErrors.ConsistencyPeakCountMismatch.selector, 1, 2
+            )
+        );
+        harness.callConsistentRoots(1, 3, proofs);
     }
 
     // ========================================================================
     // =
-    // Empty proof (peak already at target)
+    // Empty proof (peak stays a peak: 3 -> 4, node 2 is unchanged)
     // ========================================================================
     // =
     function test_consistentRoots_emptyProof() public {
-        // ifrom=2, same as target - empty proof returns the peak itself
+        // ifrom=2 -> ito=3: the height-1 peak is still a peak, so its path
+        // is empty and it is returned unchanged; leaf 3 arrives as a rightPeak.
         bytes32[] memory accFrom = new bytes32[](1);
         accFrom[0] =
         0xad104051c516812ea5874ca3ff06d0258303623d04307c41ec80a7a18b332ef8;
@@ -350,7 +365,7 @@ contract ConsistentRootsTest is Test {
         bytes32[][] memory proofs = new bytes32[][](1);
         proofs[0] = new bytes32[](0);
 
-        bytes32[] memory result = harness.callConsistentRoots(2, proofs);
+        bytes32[] memory result = harness.callConsistentRoots(3, 4, proofs);
         assertEq(result.length, 1);
         assertEq(
             result[0],

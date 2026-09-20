@@ -133,7 +133,7 @@ contract UnivocityGrantRequirementsTest is UnivocityTestHelper {
             )
         );
         ConsistencyReceipt memory consistency0 =
-            _buildConsistencyReceipt0To2(leaf0, leaf1);
+            _buildConsistencyReceipt0To3(leaf0, leaf1);
         fresh.publishCheckpoint(
             consistency0,
             _buildPaymentInclusionProof(0, _path1(leaf1)),
@@ -142,7 +142,7 @@ contract UnivocityGrantRequirementsTest is UnivocityTestHelper {
         );
         bytes32 leaf2 = keccak256("third");
         ConsistencyReceipt memory consistency1 =
-            _buildConsistencyReceipt2To3(leaf0, leaf1, leaf2);
+            _buildConsistencyReceipt3To4(leaf0, leaf1, leaf2);
         PublishGrant memory gWrong = _publishGrant(
             AUTHORITY_LOG_ID,
             GF_CREATE | GF_AUTH,
@@ -221,7 +221,7 @@ contract UnivocityGrantRequirementsTest is UnivocityTestHelper {
         );
         bytes32 leaf1 = keccak256("second");
         ConsistencyReceipt memory consistency1 =
-            _buildConsistencyReceipt1To2(leaf0, leaf1);
+            _buildConsistencyReceipt1To3(leaf0, leaf1);
         PublishGrant memory gNoExtend = _publishGrant(
             AUTHORITY_LOG_ID,
             GF_CREATE | GF_AUTH,

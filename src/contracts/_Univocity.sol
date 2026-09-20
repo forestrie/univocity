@@ -51,7 +51,8 @@ import {
     LibLogState,
     _leafCommitment
 } from "@univocity/algorithms/lib/LibLogState.sol";
-import {peaks} from "@univocity/algorithms/peaks.sol";
+import {peaksBitmap} from "@univocity/algorithms/peaks.sol";
+import {popcount64} from "@univocity/algorithms/binUtils.sol";
 
 /// @title _Univocity
 /// @notice Abstract base for Univocity-style transparency contracts (plan 0027).
@@ -194,7 +195,7 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
         }
         bytes32[] memory initialAcc = _accumulatorToMemory(log);
         bytes32[] memory accMem = verifyConsistencyProofChain(
-            initialAcc, consistencyParts.consistencyProofs
+            initialAcc, currentSize, consistencyParts.consistencyProofs
         );
         _validateCheckpointAccumulatorLength(claimedSize, accMem);
 
@@ -911,12 +912,14 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
     }
 
     /// @notice Accumulator length must match expected peaks for size (MMR
-    ///    profile). Call after proof chain.
+    ///    profile). Call after proof chain. consistentRootsForSizes already
+    ///    pins the accumulator shape per proof, so this is defence in depth:
+    ///    it cannot fire for a chain that verified.
     function _validateCheckpointAccumulatorLength(
         uint64 size,
         bytes32[] memory accumulator
     ) private pure {
-        uint256 expectedPeaks = size == 0 ? 0 : peaks(uint256(size) - 1).length;
+        uint256 expectedPeaks = popcount64(peaksBitmap(size));
         if (accumulator.length != expectedPeaks) {
             revert InvalidAccumulatorLength(expectedPeaks, accumulator.length);
         }

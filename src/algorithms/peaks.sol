@@ -35,6 +35,17 @@ function peaksBitmap(uint256 mmrSize) pure returns (uint256) {
     return peakMap;
 }
 
+/// @notice Node count of the complete MMR with `leaves` leaves:
+///    2 * leaves - popcount(leaves). Every leaf adds itself plus one
+///    interior node per binary carry, and each peak is a carry that has not
+///    happened. Because peaksBitmap rounds an incomplete size down to the
+///    largest complete MMR below it, `mmrSizeForLeafCount(peaksBitmap(size))
+///    == size` holds exactly for complete sizes (go-merklelog's
+///    FirstMMRSize / the draft's complete_mmr, in closed form).
+function mmrSizeForLeafCount(uint256 leaves) pure returns (uint256) {
+    return 2 * leaves - popcount64(leaves);
+}
+
 /// @notice Returns the number of leaves in the largest valid MMR with size <= mmrSize.
 /// @dev Matches go-merklelog/mmr LeafCount(size) = PeaksBitmap(size).
 /// @param mmrSize Number of nodes in the MMR (last index + 1).
