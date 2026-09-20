@@ -38,7 +38,7 @@ functionally grouped contracts:
   1→3→4→7 chain. Also the ADR-0066 signed-size cases: the protected
   header's `tree-size-2` must be present (`MissingSignedTreeSize`) and equal
   the last proof's target (`ConsistencyReceiptSizeMismatch`); header
-  strictness (key order, duplicates, tags, indefinite lengths); and the
+  strictness (canonical key order, duplicates, tags, indefinite lengths, shortest form, full consumption); and the
   first-checkpoint cases in `UnivocityFirstCheckpointSignedSizeTest`.
 
 - **UnivocitySignedSizeGas.t.sol** — Gas of `publishCheckpoint` for the

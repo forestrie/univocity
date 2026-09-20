@@ -9,6 +9,7 @@ import {
     verifyKS256,
     ClaimNotFound,
     DuplicateHeaderLabel,
+    HeaderLabelOrder,
     IntegerOutOfRange,
     InvalidCoseCborStructure,
     UnexpectedMajorType
@@ -194,28 +195,97 @@ contract CoseCborTest is Test {
     }
 
     /// @notice Labels the contract does not read are skipped, whatever
-    ///    their value type (uint, bstr, nested array), and key order does
-    ///    not matter.
-    function test_extractUintLabel_skipsUnreadLabelsAnyOrder() public pure {
+    ///    their value type (uint, bstr, nested array, simple value, float),
+    ///    when the keys are in canonical order.
+    function test_extractUintLabel_skipsUnreadLabels() public pure {
         bytes memory protected = abi.encodePacked(
-            hex"a5",
-            cborInt(LABEL_TREE_SIZE_2),
-            cborUint(100000),
+            hex"a7",
+            hex"01",
+            cborInt(ALG_ES256),
+            hex"04",
+            hex"820102",
+            hex"07",
+            hex"f4",
+            hex"08",
+            hex"f93c00",
+            hex"19018b",
+            hex"03",
             hex"1903e8",
             hex"5820",
             keccak256("opaque"),
-            hex"19018b",
-            hex"03",
-            hex"04",
-            hex"820102",
-            hex"01",
-            cborInt(ALG_ES256)
+            cborInt(LABEL_TREE_SIZE_2),
+            cborUint(100000)
         );
         (bool found, uint64 size) =
             extractUintLabel(protected, LABEL_TREE_SIZE_2);
         assertTrue(found);
         assertEq(size, 100000);
         assertEq(extractAlgorithm(protected), ALG_ES256);
+    }
+
+    /// @notice Keys must be in canonical order: shorter encoding first,
+    ///    then bytewise. The sealer's header reversed reverts
+    ///    HeaderLabelOrder naming the first key out of place, and so does
+    ///    a longer-encoded key ahead of a shorter one.
+    function test_extractUintLabel_keyOrder_reverts() public {
+        bytes memory reversed = abi.encodePacked(
+            hex"a3",
+            cborInt(LABEL_TREE_SIZE_2),
+            cborUint(8),
+            hex"19018b",
+            hex"03",
+            hex"01",
+            cborInt(ALG_ES256)
+        );
+        vm.expectRevert(
+            abi.encodeWithSelector(HeaderLabelOrder.selector, int64(395))
+        );
+        extractHelper.callExtractUintLabel(reversed, LABEL_TREE_SIZE_2);
+
+        // 395 (three bytes) ahead of 4 (one byte).
+        bytes memory longerFirst = abi.encodePacked(
+            hex"a3",
+            hex"01",
+            cborInt(ALG_ES256),
+            hex"19018b",
+            hex"03",
+            hex"04",
+            hex"00"
+        );
+        vm.expectRevert(
+            abi.encodeWithSelector(HeaderLabelOrder.selector, int64(4))
+        );
+        extractHelper.callExtractAlgorithm(longerFirst);
+
+        // Same length, bytewise: -65933 (3a0001018c) ahead of -65932
+        // (3a0001018b).
+        bytes memory bytewise = abi.encodePacked(
+            hex"a3",
+            hex"01",
+            cborInt(ALG_ES256),
+            cborInt(LABEL_TREE_SIZE_2),
+            cborUint(8),
+            hex"3a0001018b",
+            cborUint(1)
+        );
+        vm.expectRevert(
+            abi.encodeWithSelector(HeaderLabelOrder.selector, int64(-65932))
+        );
+        extractHelper.callExtractUintLabel(bytewise, LABEL_TREE_SIZE_2);
+
+        // The two labels in canonical order are accepted.
+        bytes memory both = abi.encodePacked(
+            hex"a3",
+            hex"01",
+            cborInt(ALG_ES256),
+            hex"3a0001018b",
+            cborUint(1),
+            cborInt(LABEL_TREE_SIZE_2),
+            cborUint(8)
+        );
+        (bool found, uint64 size) = extractUintLabel(both, LABEL_TREE_SIZE_2);
+        assertTrue(found);
+        assertEq(size, 8);
     }
 
     /// @notice An absent label is reported, not reverted: the caller
@@ -273,9 +343,8 @@ contract CoseCborTest is Test {
     }
 
     /// @notice A repeated key reverts DuplicateHeaderLabel(key), whether it
-    ///    is the label sought, alg, or one the contract does not read; the
-    ///    whole map is walked so a duplicate after the sought label is
-    ///    still found.
+    ///    is the label sought, alg, or one the contract does not read. With
+    ///    canonical order enforced a duplicate is always adjacent.
     function test_extractUintLabel_duplicateKey_reverts() public {
         bytes memory dupSize = abi.encodePacked(
             hex"a3",
@@ -297,10 +366,10 @@ contract CoseCborTest is Test {
             hex"a3",
             hex"01",
             cborInt(ALG_ES256),
-            cborInt(LABEL_TREE_SIZE_2),
-            cborUint(8),
             hex"01",
-            cborInt(ALG_KS256)
+            cborInt(ALG_KS256),
+            cborInt(LABEL_TREE_SIZE_2),
+            cborUint(8)
         );
         vm.expectRevert(
             abi.encodeWithSelector(DuplicateHeaderLabel.selector, int64(1))
@@ -313,10 +382,10 @@ contract CoseCborTest is Test {
             cborInt(ALG_ES256),
             hex"19018b",
             hex"03",
-            cborInt(LABEL_TREE_SIZE_2),
-            cborUint(8),
             hex"19018b",
-            hex"03"
+            hex"03",
+            cborInt(LABEL_TREE_SIZE_2),
+            cborUint(8)
         );
         vm.expectRevert(
             abi.encodeWithSelector(DuplicateHeaderLabel.selector, int64(395))
@@ -325,22 +394,59 @@ contract CoseCborTest is Test {
     }
 
     /// @notice Items the walk cannot skip revert InvalidCoseCborStructure:
-    ///    a tag (c0), a simple value (f6), a float (f93c00), an
-    ///    indefinite-length bstr (5f..ff) or map (bf..ff), and an integer
-    ///    with reserved additional information (1c).
+    ///    a tag (c0), an indefinite-length bstr (5f..ff) or map (bf..ff),
+    ///    an integer with reserved additional information (1c), a simple
+    ///    value below 32 in two-byte form (f810), a reserved major-type-7
+    ///    form (fc) and a bare break code (ff).
     function test_extractUintLabel_nonDefiniteItems_revert() public {
-        bytes[6] memory bad = [
+        bytes[7] memory bad = [
             _withUnread(hex"c008"),
-            _withUnread(hex"f6"),
-            _withUnread(hex"f93c00"),
             _withUnread(hex"5f4101ff"),
             _withUnread(hex"bf0101ff"),
-            _withUnread(hex"1c")
+            _withUnread(hex"1c"),
+            _withUnread(hex"f810"),
+            _withUnread(hex"fc"),
+            _withUnread(hex"ff")
         ];
         for (uint256 i = 0; i < bad.length; i++) {
             vm.expectRevert(InvalidCoseCborStructure.selector);
             extractHelper.callExtractUintLabel(bad[i], LABEL_TREE_SIZE_2);
         }
+    }
+
+    /// @notice Major type 7 values under an unread label are skipped:
+    ///    false, true, null, undefined, a two-byte simple value, and half,
+    ///    single and double floats. The Go decoder accepts these too; a
+    ///    sealer that adds such a label must not make its checkpoints
+    ///    unpublishable.
+    function test_extractUintLabel_simpleAndFloatItems_skipped() public pure {
+        bytes[8] memory items = [
+            bytes(hex"f4"),
+            bytes(hex"f5"),
+            bytes(hex"f6"),
+            bytes(hex"f7"),
+            bytes(hex"f820"),
+            bytes(hex"f94800"),
+            bytes(hex"fa47c35000"),
+            bytes(hex"fb4010000000000000")
+        ];
+        for (uint256 i = 0; i < items.length; i++) {
+            (bool found, uint64 size) =
+                extractUintLabel(_withUnread(items[i]), LABEL_TREE_SIZE_2);
+            assertTrue(found);
+            assertEq(size, 8);
+        }
+        // A float truncated by the header's end reverts.
+    }
+
+    function test_extractUintLabel_truncatedFloat_reverts() public {
+        vm.expectRevert(InvalidCoseCborStructure.selector);
+        extractHelper.callExtractUintLabel(
+            abi.encodePacked(
+                hex"a2", hex"01", cborInt(ALG_ES256), hex"04", hex"fb00"
+            ),
+            LABEL_TREE_SIZE_2
+        );
     }
 
     /// @notice A map declaring more pairs than its bytes could hold
@@ -401,12 +507,12 @@ contract CoseCborTest is Test {
         // The largest magnitudes that do fit are read normally.
         bytes memory edge = abi.encodePacked(
             hex"a3",
+            cborInt(LABEL_TREE_SIZE_2),
+            cborUint(8),
             hex"1b7fffffffffffffff",
             hex"00",
             hex"3b7fffffffffffffff",
-            hex"00",
-            cborInt(LABEL_TREE_SIZE_2),
-            cborUint(8)
+            hex"00"
         );
         (bool found, uint64 size) = extractUintLabel(edge, LABEL_TREE_SIZE_2);
         assertTrue(found);
@@ -511,7 +617,7 @@ contract CoseCborTest is Test {
         extractHelper.callExtractUintLabel(bstr2pow32, LABEL_TREE_SIZE_2);
 
         bytes memory oversizedTrailing = abi.encodePacked(
-            hex"a2", cborInt(LABEL_TREE_SIZE_2), hex"08", hex"01", hex"58ff"
+            hex"a2", hex"01", hex"58ff", cborInt(LABEL_TREE_SIZE_2), hex"08"
         );
         vm.expectRevert(InvalidCoseCborStructure.selector);
         extractHelper.callExtractUintLabel(

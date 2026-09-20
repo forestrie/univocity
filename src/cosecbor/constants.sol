@@ -11,6 +11,8 @@ uint8 constant MAJOR_TYPE_BYTES = 2;
 uint8 constant MAJOR_TYPE_STRING = 3;
 uint8 constant MAJOR_TYPE_ARRAY = 4;
 uint8 constant MAJOR_TYPE_MAP = 5;
+uint8 constant MAJOR_TYPE_TAG = 6;
+uint8 constant MAJOR_TYPE_SIMPLE = 7;
 
 // === COSE algorithm IDs (ES256 RFC 9053; KS256 private use) ===
 int64 constant ALG_ES256 = -7;

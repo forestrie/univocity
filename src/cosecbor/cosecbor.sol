@@ -8,6 +8,7 @@ import {
     MAJOR_TYPE_STRING,
     MAJOR_TYPE_ARRAY,
     MAJOR_TYPE_MAP,
+    MAJOR_TYPE_SIMPLE,
     ALG_ES256,
     ALG_KS256
 } from "@univocity/cosecbor/constants.sol";
@@ -35,6 +36,11 @@ error UnexpectedMajorType(uint8 actual, uint8 expected);
 /// @notice A protected header map carries the same key twice. Verifiers
 ///    that read first and last occurrences would disagree on the value.
 error DuplicateHeaderLabel(int64 key);
+/// @notice A protected header map's keys are not in canonical order
+///    (RFC 8949 section 4.2.1: shorter encoding first, then bytewise).
+///    The sealer's encoder sorts them and the Go decoder rejects any
+///    other order; `key` is the first key found out of place.
+error HeaderLabelOrder(int64 key);
 /// @notice A CBOR integer whose magnitude does not fit int64 where a COSE
 ///    label or algorithm id is expected. Read through a wrapping cast,
 ///    2^64 - 65933 would alias the tree-size-2 label.
@@ -83,12 +89,14 @@ function readLength(WitnetBuffer.Buffer memory buf, uint8 additionalInfo)
     return value;
 }
 
-/// @notice Skip one data item. Only the definite-length forms of major
-///    types 0-5 are accepted: readLength rejects additional information
-///    28-31, so an indefinite-length item reverts, and a tag (6) or a
-///    simple value or float (7) reverts InvalidCoseCborStructure. Anything
-///    else would leave the cursor inside an item and the next key would
-///    be read from the middle of a value.
+/// @notice Skip one data item. Definite-length forms of major types 0-5
+///    and the argument-only forms of major type 7 (simple values and
+///    floats) are skipped; readLength rejects additional information
+///    28-31, so an indefinite-length item reverts, and a tag (6) reverts
+///    InvalidCoseCborStructure. Anything else would leave the cursor
+///    inside an item and the next key would be read from the middle of
+///    a value. A float's width is not checked for minimality: no label
+///    the contract reads is a float, and the value is never decoded.
 function skipValue(WitnetBuffer.Buffer memory buf) pure {
     uint8 initialByte = readInitialByte(buf);
     uint8 majorType = initialByte >> 5;
@@ -117,9 +125,52 @@ function skipValue(WitnetBuffer.Buffer memory buf) pure {
         for (uint64 i = 0; i < len * 2; i++) {
             skipValue(buf);
         }
+    } else if (majorType == MAJOR_TYPE_SIMPLE) {
+        if (additionalInfo < 24) {
+            // Simple values 0-23 (false, true, null, undefined among them)
+            // are the initial byte alone.
+            return;
+        }
+        if (additionalInfo == 24) {
+            // Simple values 32-255 in one following byte; 0-31 in this
+            // form are not well-formed (RFC 8949 section 3.3).
+            if (readInitialByte(buf) < 32) revert InvalidCoseCborStructure();
+            return;
+        }
+        if (additionalInfo >= 25 && additionalInfo <= 27) {
+            // Half, single or double float: 2, 4 or 8 bytes follow.
+            uint256 width = uint256(1) << (additionalInfo - 24);
+            if (width > buf.data.length - buf.cursor) {
+                revert InvalidCoseCborStructure();
+            }
+            buf.cursor += width;
+            return;
+        }
+        // 28-30 reserved, 31 is the break code of an indefinite item.
+        revert InvalidCoseCborStructure();
     } else {
         revert InvalidCoseCborStructure();
     }
+}
+
+/// @notice Compare two encoded keys of a map held in `data`, in the
+///    RFC 8949 section 4.2.1 order: the shorter encoding sorts first, equal
+///    lengths compare bytewise. Returns -1, 0 or 1 as the first key sorts
+///    before, equal to, or after the second.
+function compareEncodedKeys(
+    bytes memory data,
+    uint256 aStart,
+    uint256 aLen,
+    uint256 bStart,
+    uint256 bLen
+) pure returns (int8) {
+    if (aLen != bLen) return aLen < bLen ? int8(-1) : int8(1);
+    for (uint256 i = 0; i < aLen; i++) {
+        bytes1 x = data[aStart + i];
+        bytes1 y = data[bStart + i];
+        if (x != y) return x < y ? int8(-1) : int8(1);
+    }
+    return 0;
 }
 
 /// @notice Read a CBOR integer as int64. Values of either sign whose
@@ -187,14 +238,17 @@ function readUint(WitnetBuffer.Buffer memory buf) pure returns (uint64) {
 // ============ CBOR: protected header labels ============
 
 /// @notice Walk a protected header map and position a buffer at the value
-///    stored under `label`. The whole map is walked, in whatever key order
-///    it was encoded, so a key that appears twice reverts
-///    DuplicateHeaderLabel and any item the walk cannot skip reverts
-///    (see skipValue). A map declaring more pairs than its bytes could
-///    hold reverts InvalidCoseCborStructure before any key is read, and
-///    so does a header with bytes after the map's last pair: the whole
+///    stored under `label`. The whole map is walked and its keys must be
+///    in canonical order (RFC 8949 section 4.2.1), so a key that appears
+///    twice reverts DuplicateHeaderLabel, a key out of place reverts
+///    HeaderLabelOrder, and any item the walk cannot skip reverts (see
+///    skipValue). A map declaring more pairs than its bytes could hold
+///    reverts InvalidCoseCborStructure before any key is read, and so
+///    does a header with bytes after the map's last pair: the whole
 ///    header is signed, so every byte of it must be part of the map the
-///    verifiers read.
+///    verifiers read. The order check is what makes the contract accept
+///    exactly the headers the sealer's deterministic encoder produces
+///    and the Go decoder's canonical check admits.
 ///    Reverts UnexpectedMajorType if the header is not a map.
 /// @return found Whether `label` is present.
 /// @return buf Positioned at the value under `label` when found.
@@ -216,14 +270,22 @@ function seekLabel(bytes memory protectedHeader, int64 label)
         revert InvalidCoseCborStructure();
     }
 
-    int64[] memory seen = new int64[](mapLen);
     uint256 valueCursor;
+    uint256 prevKeyStart;
+    uint256 prevKeyLen;
     for (uint64 i = 0; i < mapLen; i++) {
+        uint256 keyStart = buf.cursor;
         int64 key = readInteger(buf);
-        for (uint64 j = 0; j < i; j++) {
-            if (seen[j] == key) revert DuplicateHeaderLabel(key);
+        uint256 keyLen = buf.cursor - keyStart;
+        if (i > 0) {
+            int8 order = compareEncodedKeys(
+                protectedHeader, prevKeyStart, prevKeyLen, keyStart, keyLen
+            );
+            if (order == 0) revert DuplicateHeaderLabel(key);
+            if (order > 0) revert HeaderLabelOrder(key);
         }
-        seen[i] = key;
+        prevKeyStart = keyStart;
+        prevKeyLen = keyLen;
         if (key == label) {
             found = true;
             valueCursor = buf.cursor;

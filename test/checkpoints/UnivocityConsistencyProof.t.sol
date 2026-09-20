@@ -22,10 +22,10 @@ pragma solidity ^0.8.24;
 ///   - a header without the label, or carrying a negative size
 ///   - a two-proof receipt signed for the size its chain reaches, and for
 ///     the intermediate size
-///   - header keys in any order; duplicate keys, a tag, an
-///     indefinite-length item, a simple value, a key beyond int64, a
-///     non-shortest argument, trailing bytes and an over-declared map
-///     length rejected
+///   - header keys out of canonical order, duplicate keys, a tag, an
+///     indefinite-length item, a key beyond int64, a non-shortest
+///     argument, trailing bytes and an over-declared map length rejected;
+///     a simple value under an unread label skipped
 ///   - a first checkpoint signed for size 1 submitted at 2^64 - 1 and at the
 ///     other one-peak sizes (second contract)
 ///   Split per test/checkpoints/README.md.
@@ -47,6 +47,7 @@ import {
 import {
     buildSigStructure,
     DuplicateHeaderLabel,
+    HeaderLabelOrder,
     IntegerOutOfRange,
     InvalidCoseCborStructure,
     UnexpectedMajorType
@@ -504,9 +505,10 @@ contract UnivocityConsistencyProofTest is UnivocityTestHelper {
         assertEq(univocity.logState(TEST_LOG_ID).accumulator[1], leaf3);
     }
 
-    /// @notice Keys are found in whatever order the map encodes them:
-    ///    {tree-size-2, 395, 1} is accepted as {1, 395, tree-size-2} is.
-    function test_publishCheckpoint_headerKeyOrder_succeeds() public {
+    /// @notice Keys must be in canonical order. The sealer's header with
+    ///    its keys reversed, {tree-size-2, 395, 1}, reverts
+    ///    HeaderLabelOrder(395): the Go decoder rejects the same bytes.
+    function test_publishCheckpoint_headerKeyOrder_reverts() public {
         (ConsistencyProof[] memory proofs, bytes32 root3) = _proof1To3();
         bytes memory reversed = abi.encodePacked(
             hex"a3",
@@ -518,11 +520,13 @@ contract UnivocityConsistencyProofTest is UnivocityTestHelper {
             cborInt(ALG_KS256)
         );
 
+        vm.expectRevert(
+            abi.encodeWithSelector(HeaderLabelOrder.selector, int64(395))
+        );
         _publishTestLog(
             _signReceiptWithHeader(proofs, _toAcc(root3), reversed)
         );
-        assertEq(univocity.logState(TEST_LOG_ID).size, 3);
-        assertEq(univocity.logState(TEST_LOG_ID).accumulator[0], root3);
+        assertEq(univocity.logState(TEST_LOG_ID).size, 1);
     }
 
     /// @notice tree-size-2 appearing twice, {.., ts2: 3, ts2: 10}, reverts
@@ -592,8 +596,9 @@ contract UnivocityConsistencyProofTest is UnivocityTestHelper {
     }
 
     /// @notice An indefinite-length bstr (5f .. ff) under an unread label
-    ///    reverts InvalidCoseCborStructure, as does a simple value (f6).
-    function test_publishCheckpoint_indefiniteOrSimpleItem_reverts() public {
+    ///    reverts InvalidCoseCborStructure; a simple value (f6) under one
+    ///    is skipped and the checkpoint publishes.
+    function test_publishCheckpoint_indefiniteRejected_simpleSkipped() public {
         (ConsistencyProof[] memory proofs, bytes32 root3) = _proof1To3();
         bytes memory indefinite = abi.encodePacked(
             hex"a3",
@@ -608,6 +613,7 @@ contract UnivocityConsistencyProofTest is UnivocityTestHelper {
         _publishTestLog(
             _signReceiptWithHeader(proofs, _toAcc(root3), indefinite)
         );
+        assertEq(univocity.logState(TEST_LOG_ID).size, 1);
 
         bytes memory simple = abi.encodePacked(
             hex"a3",
@@ -618,9 +624,9 @@ contract UnivocityConsistencyProofTest is UnivocityTestHelper {
             cborInt(LABEL_TREE_SIZE_2),
             cborUint(3)
         );
-        vm.expectRevert(InvalidCoseCborStructure.selector);
         _publishTestLog(_signReceiptWithHeader(proofs, _toAcc(root3), simple));
-        assertEq(univocity.logState(TEST_LOG_ID).size, 1);
+        assertEq(univocity.logState(TEST_LOG_ID).size, 3);
+        assertEq(univocity.logState(TEST_LOG_ID).accumulator[0], root3);
     }
 
     /// @notice The unsigned key 2^64 - 65933, which a wrapping int64 cast
