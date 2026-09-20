@@ -212,7 +212,7 @@ contract CoseCborTest is Test {
             hex"01",
             cborInt(ALG_ES256),
             hex"04",
-            hex"820102",
+            hex"420102",
             hex"07",
             hex"f4",
             hex"08",
@@ -428,16 +428,23 @@ contract CoseCborTest is Test {
     ///    single and double floats. The Go decoder accepts these too; a
     ///    sealer that adds such a label must not make its checkpoints
     ///    unpublishable.
-    function test_extractUintLabel_simpleAndFloatItems_skipped() public pure {
-        bytes[8] memory items = [
+    function test_extractUintLabel_allowedUnreadValueTypes_skipped()
+        public
+        pure
+    {
+        // ADR-0066 D9: an unread label may carry an integer, a byte string,
+        // a valid text string, false, true, null, or a float in its
+        // shortest exact form.
+        bytes[9] memory items = [
+            bytes(hex"182a"),
+            bytes(hex"20"),
+            bytes(hex"420102"),
+            bytes(hex"626869"),
             bytes(hex"f4"),
             bytes(hex"f5"),
             bytes(hex"f6"),
-            bytes(hex"f7"),
-            bytes(hex"f820"),
             bytes(hex"f94800"),
-            bytes(hex"fa47c35000"),
-            bytes(hex"fb4010000000000000")
+            bytes(hex"fa47c35000")
         ];
         for (uint256 i = 0; i < items.length; i++) {
             (bool found, uint64 size) =
@@ -445,7 +452,36 @@ contract CoseCborTest is Test {
             assertTrue(found);
             assertEq(size, 8);
         }
-        // A float truncated by the header's end reverts.
+    }
+
+    function test_extractUintLabel_excludedUnreadValueTypes_revert() public {
+        // Containers, tags, undefined, other simple values, a float with a
+        // shorter exact form and invalid UTF-8 are excluded under an unread
+        // label so that every conformant decoder agrees on the header.
+        bytes[9] memory items = [
+            bytes(hex"f7"),
+            bytes(hex"f820"),
+            bytes(hex"fa40000000"),
+            bytes(hex"fb4010000000000000"),
+            bytes(hex"fb7ff8000000000000"),
+            bytes(hex"80"),
+            bytes(hex"a0"),
+            bytes(hex"c108"),
+            bytes(hex"61ff")
+        ];
+        for (uint256 i = 0; i < items.length; i++) {
+            bytes memory protected = _withUnread(items[i]);
+            vm.expectRevert(InvalidCoseCborStructure.selector);
+            this.extractUintLabelExternal(protected, LABEL_TREE_SIZE_2);
+        }
+    }
+
+    function extractUintLabelExternal(bytes memory protected, int64 label)
+        external
+        pure
+        returns (bool, uint64)
+    {
+        return extractUintLabel(protected, label);
     }
 
     function test_extractUintLabel_truncatedFloat_reverts() public {
@@ -612,7 +648,9 @@ contract CoseCborTest is Test {
     ///    reverts rather than being skipped by its length modulo 2^32: with
     ///    length 2^32 the walk would otherwise read the string's content
     ///    as the next pair and report tree-size-2 = 1000.
-    function test_skipValue_stringLengthBeyondHeader_reverts() public {
+    function test_skipUnreadLabelValue_stringLengthBeyondHeader_reverts()
+        public
+    {
         bytes memory bstr2pow32 = abi.encodePacked(
             hex"a3",
             hex"01",
