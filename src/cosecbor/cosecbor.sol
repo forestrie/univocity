@@ -35,6 +35,10 @@ error UnexpectedMajorType(uint8 actual, uint8 expected);
 /// @notice A protected header map carries the same key twice. Verifiers
 ///    that read first and last occurrences would disagree on the value.
 error DuplicateHeaderLabel(int64 key);
+/// @notice A CBOR integer whose magnitude does not fit int64 where a COSE
+///    label or algorithm id is expected. Read through a wrapping cast,
+///    2^64 - 65933 would alias the tree-size-2 label.
+error IntegerOutOfRange(uint64 magnitude);
 
 // ============ CBOR primitives (shared) ============
 
@@ -90,12 +94,17 @@ function skipValue(WitnetBuffer.Buffer memory buf) pure {
     }
 }
 
+/// @notice Read a CBOR integer as int64. Values of either sign whose
+///    magnitude exceeds int64 revert IntegerOutOfRange rather than wrapping:
+///    a 64-bit unsigned key would otherwise read as a negative label that
+///    other decoders do not see.
 function readInteger(WitnetBuffer.Buffer memory buf) pure returns (int64) {
     uint8 initialByte = buf.readUint8();
     uint8 majorType = initialByte >> 5;
     uint8 additionalInfo = initialByte & 0x1f;
 
     uint64 value = readLength(buf, additionalInfo);
+    if (value > uint64(type(int64).max)) revert IntegerOutOfRange(value);
 
     if (majorType == MAJOR_TYPE_UINT) {
         // forge-lint: disable-next-line(unsafe-typecast)

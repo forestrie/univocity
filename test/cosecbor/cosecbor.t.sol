@@ -9,6 +9,7 @@ import {
     verifyKS256,
     ClaimNotFound,
     DuplicateHeaderLabel,
+    IntegerOutOfRange,
     InvalidCoseCborStructure,
     UnexpectedMajorType
 } from "@univocity/cosecbor/cosecbor.sol";
@@ -349,6 +350,67 @@ contract CoseCborTest is Test {
             abi.encodePacked(hex"b8ff", hex"01", cborInt(ALG_ES256));
         vm.expectRevert(InvalidCoseCborStructure.selector);
         extractHelper.callExtractUintLabel(header, LABEL_TREE_SIZE_2);
+    }
+
+    /// @notice A key whose magnitude exceeds int64 reverts IntegerOutOfRange:
+    ///    the unsigned key 2^64 - 65933 must not read as -65933, nor
+    ///    2^64 - 7 as -7 (alg), nor the negative -1 - 2^63 as anything.
+    function test_readInteger_keyBeyondInt64_reverts() public {
+        bytes memory aliasSize = abi.encodePacked(
+            hex"a2",
+            hex"01",
+            cborInt(ALG_ES256),
+            hex"1bfffffffffffefe73",
+            cborUint(8)
+        );
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IntegerOutOfRange.selector, uint64(0xfffffffffffefe73)
+            )
+        );
+        extractHelper.callExtractUintLabel(aliasSize, LABEL_TREE_SIZE_2);
+
+        bytes memory aliasAlg = abi.encodePacked(
+            hex"a2",
+            hex"1bfffffffffffffff9",
+            cborInt(ALG_ES256),
+            cborInt(LABEL_TREE_SIZE_2),
+            cborUint(8)
+        );
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IntegerOutOfRange.selector, uint64(0xfffffffffffffff9)
+            )
+        );
+        extractHelper.callExtractAlgorithm(aliasAlg);
+
+        bytes memory negBeyond = abi.encodePacked(
+            hex"a2",
+            hex"01",
+            cborInt(ALG_ES256),
+            hex"3b8000000000000000",
+            cborUint(8)
+        );
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IntegerOutOfRange.selector, uint64(0x8000000000000000)
+            )
+        );
+        extractHelper.callExtractUintLabel(negBeyond, LABEL_TREE_SIZE_2);
+
+        // The largest magnitudes that do fit are read normally.
+        bytes memory edge = abi.encodePacked(
+            hex"a3",
+            hex"1b7fffffffffffffff",
+            hex"00",
+            hex"3b7fffffffffffffff",
+            hex"00",
+            cborInt(LABEL_TREE_SIZE_2),
+            cborUint(8)
+        );
+        (bool found, uint64 size) = extractUintLabel(edge, LABEL_TREE_SIZE_2);
+        assertTrue(found);
+        assertEq(size, 8);
     }
 
     /// @notice {1: alg, 4: item, tree-size-2: 8} with `item` verbatim.

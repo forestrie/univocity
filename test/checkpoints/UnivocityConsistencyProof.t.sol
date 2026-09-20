@@ -23,8 +23,8 @@ pragma solidity ^0.8.24;
 ///   - a two-proof receipt signed for the size its chain reaches, and for
 ///     the intermediate size
 ///   - header keys in any order; duplicate keys, a tag, an
-///     indefinite-length item, a simple value, and an over-declared map
-///     length rejected
+///     indefinite-length item, a simple value, a key beyond int64 and an
+///     over-declared map length rejected
 ///   - a first checkpoint signed for size 1 submitted at 2^64 - 1 and at the
 ///     other one-peak sizes (second contract)
 ///   Split per test/checkpoints/README.md.
@@ -46,6 +46,7 @@ import {
 import {
     buildSigStructure,
     DuplicateHeaderLabel,
+    IntegerOutOfRange,
     InvalidCoseCborStructure,
     UnexpectedMajorType
 } from "@univocity/cosecbor/cosecbor.sol";
@@ -618,6 +619,29 @@ contract UnivocityConsistencyProofTest is UnivocityTestHelper {
         );
         vm.expectRevert(InvalidCoseCborStructure.selector);
         _publishTestLog(_signReceiptWithHeader(proofs, _toAcc(root3), simple));
+        assertEq(univocity.logState(TEST_LOG_ID).size, 1);
+    }
+
+    /// @notice The unsigned key 2^64 - 65933, which a wrapping int64 cast
+    ///    would read as the tree-size-2 label, reverts IntegerOutOfRange.
+    ///    Other decoders read it as a large positive key and find no
+    ///    tree-size-2; this contract must not read a size they do not.
+    function test_publishCheckpoint_keyAliasingTreeSize2_reverts() public {
+        (ConsistencyProof[] memory proofs, bytes32 root3) = _proof1To3();
+        bytes memory header = abi.encodePacked(
+            hex"a2",
+            hex"01",
+            cborInt(ALG_KS256),
+            hex"1bfffffffffffefe73",
+            cborUint(3)
+        );
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IntegerOutOfRange.selector, uint64(0xfffffffffffefe73)
+            )
+        );
+        _publishTestLog(_signReceiptWithHeader(proofs, _toAcc(root3), header));
         assertEq(univocity.logState(TEST_LOG_ID).size, 1);
     }
 
