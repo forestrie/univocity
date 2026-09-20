@@ -89,6 +89,7 @@ when the trigger conditions apply rather than on every task.
 |------|-----------|
 | `docs/agents/solidity.md` | Modifying Solidity (`src/`, `script/`, `test/`). |
 | `docs/arc/arc-0017-auth-overview.md` | Authorization, grant verification, checkpoint signing. |
+| `docs/consistent-roots.md` | Modifying the consistency fold (`src/algorithms/consistentRoots.sol`) or its tests. |
 | `docs/arc/arc-0017-log-hierarchy-and-authority.md` | Log hierarchy and multi-log features. |
 | `README.md` | Deployment, contract architecture, security model. |
 
