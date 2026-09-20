@@ -344,11 +344,15 @@ function extractUintLabel(bytes memory protectedHeader, int64 label)
 ///    from one walk of the protected header. Same results and reverts as
 ///    extractAlgorithm followed by extractUintLabel, at the cost of one
 ///    walk rather than two: the checkpoint receipt is parsed for both on
-///    every publish.
+///    every publish. A missing alg reverts ClaimNotFound(1); a missing
+///    `label` is reported through `found` and the caller decides.
+/// @return found Whether `label` is present.
+/// @return alg The algorithm under label 1.
+/// @return value The unsigned integer under `label`, 0 when not found.
 function extractAlgorithmAndUintLabel(
     bytes memory protectedHeader,
     int64 label
-) pure returns (int64 alg, bool found, uint64 value) {
+) pure returns (bool found, int64 alg, uint64 value) {
     (bool algFound, uint256 algCursor, bool valueFound, uint256 valueCursor) =
         seekLabels(protectedHeader, 1, label);
     if (!algFound) revert ClaimNotFound(1);

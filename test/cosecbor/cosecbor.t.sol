@@ -50,7 +50,7 @@ contract CoseCborExtractAlgorithmHelper {
     function callExtractBoth(bytes calldata d, int64 label)
         external
         pure
-        returns (int64, bool, uint64)
+        returns (bool, int64, uint64)
     {
         return extractAlgorithmAndUintLabel(d, label);
     }
@@ -666,7 +666,7 @@ contract CoseCborTest is Test {
     ///    absent, whichever label comes first in the map.
     function test_extractAlgorithmAndUintLabel_matchesTwoWalks() public {
         bytes memory sealer = consistencyProtectedHeader(ALG_KS256, 8);
-        (int64 alg, bool found, uint64 size) =
+        (bool found, int64 alg, uint64 size) =
             extractAlgorithmAndUintLabel(sealer, LABEL_TREE_SIZE_2);
         assertEq(alg, ALG_KS256);
         assertTrue(found);
@@ -677,7 +677,7 @@ contract CoseCborTest is Test {
         assertEq(found, found2);
         assertEq(size, size2);
 
-        (alg, found, size) =
+        (found, alg, size) =
             extractAlgorithmAndUintLabel(hex"a10126", LABEL_TREE_SIZE_2);
         assertEq(alg, ALG_ES256);
         assertFalse(found);

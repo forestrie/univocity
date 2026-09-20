@@ -430,10 +430,11 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
         // publishes ES256 consistency receipts signed by an ephemeral delegate once
         // the root has authorized that key via a KS256 delegation proof (BYOK).
         _checkDelegationAlgConstraints(grant, delegationProof);
-        (int64 alg, bool sizeFound, uint64 signedSize2) = extractAlgorithmAndUintLabel(
+        (bool sizeFound, int64 alg, uint64 signedSize2) = extractAlgorithmAndUintLabel(
             consistencyParts.protectedHeader, LABEL_TREE_SIZE_2
         );
-        _verifySignedTreeSize(sizeFound, signedSize2, claimedSize);
+        if (!sizeFound) revert MissingSignedTreeSize();
+        _verifySignedTreeSize(signedSize2, claimedSize);
 
         // NOTICE: verification failures always revert
         if (alg == ALG_ES256) {
@@ -478,16 +479,15 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
     ///    relay or re-base proofs under the head checkpoint's signature.
     ///    Runs before the signature check: a header that fails here is
     ///    never worth verifying, and one that passes is then verified.
-    ///    The header is walked once for alg and tree-size-2 together
-    ///    (extractAlgorithmAndUintLabel).
+    ///    The caller reads alg and tree-size-2 from one walk of the header
+    ///    (extractAlgorithmAndUintLabel) and reverts MissingSignedTreeSize
+    ///    when the label is absent; this check is the equality.
     /// @dev Labels:
     /// https://github.com/forestrie/devdocs/blob/main/adr/adr-0066-sec-signed-checkpoint-size.md
-    function _verifySignedTreeSize(
-        bool found,
-        uint64 signedSize2,
-        uint64 claimedSize
-    ) internal pure {
-        if (!found) revert MissingSignedTreeSize();
+    function _verifySignedTreeSize(uint64 signedSize2, uint64 claimedSize)
+        internal
+        pure
+    {
         if (signedSize2 != claimedSize) {
             revert ConsistencyReceiptSizeMismatch(claimedSize, signedSize2);
         }
