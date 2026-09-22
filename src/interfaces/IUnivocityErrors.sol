@@ -29,6 +29,10 @@ interface IUnivocityErrors {
 
     // Log state
     error LogNotFound(bytes32 logId);
+    /// @notice A proposed tree size does not exceed the size it is measured
+    ///    against: the log's anchored size for a checkpoint, and the origin
+    ///    size for a consistency fold, which has no split to read between
+    ///    equal sizes.
     error SizeMustIncrease(uint64 current, uint64 proposed);
     error InvalidAccumulatorLength(uint256 expected, uint256 actual);
     error InvalidRootKeyLength(uint256 length);

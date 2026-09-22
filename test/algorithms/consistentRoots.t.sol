@@ -372,4 +372,71 @@ contract ConsistentRootsTest is Test {
             0xad104051c516812ea5874ca3ff06d0258303623d04307c41ec80a7a18b332ef8
         );
     }
+
+    // ========================================================================
+    // =
+    // The target size must exceed the origin size (FOR-568 C3)
+    // ========================================================================
+    // =
+
+    /// @notice Equal sizes share a peak bitmap, so the split the fold reads
+    ///    as bitLength(from ^ to) - 1 does not exist and the subtraction
+    ///    would underflow. The fold names the condition instead of leaving
+    ///    it to its caller: the one caller in src/ checks growth first, but
+    ///    this is an exported pure function.
+    function test_consistentRoots_revert_targetEqualsOrigin() public {
+        bytes32[] memory accFrom = new bytes32[](1);
+        accFrom[0] =
+        0xad104051c516812ea5874ca3ff06d0258303623d04307c41ec80a7a18b332ef8;
+        harness.setAccumulator(accFrom);
+
+        bytes32[][] memory proofs = new bytes32[][](1);
+        proofs[0] = new bytes32[](0);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IUnivocityErrors.SizeMustIncrease.selector,
+                uint64(7),
+                uint64(7)
+            )
+        );
+        harness.callConsistentRoots(7, 7, proofs);
+    }
+
+    /// @notice A target below the origin is rejected by the same check,
+    ///    ahead of the completeness check on the target size.
+    function test_consistentRoots_revert_targetBelowOrigin() public {
+        bytes32[] memory accFrom = new bytes32[](1);
+        accFrom[0] =
+        0xad104051c516812ea5874ca3ff06d0258303623d04307c41ec80a7a18b332ef8;
+        harness.setAccumulator(accFrom);
+
+        bytes32[][] memory proofs = new bytes32[][](1);
+        proofs[0] = new bytes32[](0);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IUnivocityErrors.SizeMustIncrease.selector,
+                uint64(7),
+                uint64(6)
+            )
+        );
+        harness.callConsistentRoots(7, 6, proofs);
+    }
+
+    /// @notice Sizes 0 and 0 are the same condition, not the empty-log
+    ///    special case: a chain that starts and ends at an empty log proves
+    ///    nothing.
+    function test_consistentRoots_revert_bothSizesZero() public {
+        harness.setAccumulator(new bytes32[](0));
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IUnivocityErrors.SizeMustIncrease.selector,
+                uint64(0),
+                uint64(0)
+            )
+        );
+        harness.callConsistentRoots(0, 0, new bytes32[][](0));
+    }
 }

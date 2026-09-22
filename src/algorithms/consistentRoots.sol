@@ -48,7 +48,7 @@ import {IUnivocityErrors} from "@univocity/interfaces/IUnivocityErrors.sol";
 ///    See docs/consistent-roots.md for the exposition and the case with an
 ///    unchanged origin peak.
 /// @param sizeFrom Node count of the origin state (0 for an empty log).
-/// @param sizeTo Node count of the target state; caller ensures > sizeFrom.
+/// @param sizeTo Node count of the target state; must exceed sizeFrom.
 /// @param accumulatorFrom Peaks of MMR(sizeFrom), descending height.
 /// @param proofs One path per origin peak, in the same order (calldata).
 /// @return roots The peaks of MMR(sizeTo) proven from the origin peaks, in
@@ -63,6 +63,16 @@ function consistentRootsForSizes(
     bytes32[] memory accumulatorFrom,
     bytes32[][] calldata proofs
 ) pure returns (bytes32[] memory roots, uint256 expectedRight) {
+    // The split is the highest bit on which the two peak bitmaps differ,
+    // and it is read as `bitLength(from ^ to) - 1` below. Equal sizes give
+    // equal bitmaps, so that subtraction underflows to Panic(0x11) rather
+    // than a named reason, and a target below the origin has the split on
+    // the wrong side. The one caller in src/ checks growth first, but this
+    // is an exported pure function with no such guarantee, so the check
+    // belongs here too (FOR-568 C3, C7).
+    if (sizeTo <= sizeFrom) {
+        revert IUnivocityErrors.SizeMustIncrease(sizeFrom, sizeTo);
+    }
     uint256 to = peaksBitmap(sizeTo);
     // peaksBitmap rounds an incomplete size down to the largest MMR below
     // it, so `to` describes MMR(sizeTo) only if sizeTo is complete. Without
