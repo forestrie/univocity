@@ -70,7 +70,7 @@ function verifyConsistencyProofChain(
         (bytes32[] memory roots, uint256 expectedRight) =
             consistentRootsForSizes(p.treeSize1, p.treeSize2, accMem, p.paths);
         if (p.rightPeaks.length != expectedRight) {
-            revert IUnivocityErrors.ConsistencyPeakCountMismatch(
+            revert IUnivocityErrors.ConsistencyRightPeakCountMismatch(
                 expectedRight, p.rightPeaks.length
             );
         }

@@ -288,7 +288,8 @@ contract UnivocityConsistencyProofTest is UnivocityTestHelper {
 
     /// @notice 1 -> 4 with a correct origin path but no rightPeaks: MMR(4)
     ///    has two peaks, and the second (the new leaf) must arrive as a
-    ///    rightPeak. Omitting it reverts ConsistencyPeakCountMismatch(1, 0).
+    ///    rightPeak. Omitting it reverts
+    ///    ConsistencyRightPeakCountMismatch(1, 0).
     function test_publishCheckpoint_missingRightPeakAt1To4_reverts() public {
         bytes32[][] memory paths = _paths1(_path1(keccak256("leaf1")));
         ConsistencyProof[] memory proofs = new ConsistencyProof[](1);
@@ -296,7 +297,7 @@ contract UnivocityConsistencyProofTest is UnivocityTestHelper {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                IUnivocityErrors.ConsistencyPeakCountMismatch.selector,
+                IUnivocityErrors.ConsistencyRightPeakCountMismatch.selector,
                 uint256(1),
                 uint256(0)
             )
@@ -308,7 +309,7 @@ contract UnivocityConsistencyProofTest is UnivocityTestHelper {
 
     /// @notice 1 -> 3 with a correct origin path plus a surplus rightPeak:
     ///    MMR(3) has one peak, proven from the origin, so any
-    ///    rightPeak reverts ConsistencyPeakCountMismatch(0, 1).
+    ///    rightPeak reverts ConsistencyRightPeakCountMismatch(0, 1).
     function test_publishCheckpoint_surplusRightPeakAt1To3_reverts() public {
         bytes32[][] memory paths = _paths1(_path1(keccak256("leaf1")));
         ConsistencyProof[] memory proofs = new ConsistencyProof[](1);
@@ -316,7 +317,7 @@ contract UnivocityConsistencyProofTest is UnivocityTestHelper {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                IUnivocityErrors.ConsistencyPeakCountMismatch.selector,
+                IUnivocityErrors.ConsistencyRightPeakCountMismatch.selector,
                 uint256(0),
                 uint256(1)
             )

@@ -269,7 +269,7 @@ contract Kat39VectorsTest is Test {
             return IUnivocityErrors.ConsistencyRootMismatch.selector;
         }
         if (_eq(klass, "right_peak_count_mismatch")) {
-            return IUnivocityErrors.ConsistencyPeakCountMismatch.selector;
+            return IUnivocityErrors.ConsistencyRightPeakCountMismatch.selector;
         }
         if (_eq(klass, "base_mismatch")) {
             return IUnivocityErrors.ConsistencyBaseMismatch.selector;

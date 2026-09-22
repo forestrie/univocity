@@ -773,8 +773,8 @@ abstract contract UnivocityTestHelper is Test {
 
     /// @notice 1 -> 3 proof for leaf0 padded with an extra right peak, so
     ///    the accumulator has two peaks where size 3 has one. The path check
-    ///    passes; the rightPeaks count reverts ConsistencyPeakCountMismatch
-    ///    (expected 0, actual 1).
+    ///    passes; the rightPeaks count reverts
+    ///    ConsistencyRightPeakCountMismatch (expected 0, actual 1).
     function _buildConsistencyReceipt1To3WrongPeakCount(
         bytes32 leaf0,
         bytes32 leaf1
