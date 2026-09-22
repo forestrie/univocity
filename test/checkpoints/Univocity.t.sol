@@ -412,7 +412,7 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
     /// @notice A verified proof chain always yields an accumulator with the
     ///    target's peak count, so InvalidAccumulatorLength cannot be reached
     ///    by a submitted proof. A padded accumulator is rejected earlier,
-    ///    with ConsistencyPeakCountMismatch.
+    ///    with ConsistencyRightPeakCountMismatch.
     function test_publishCheckpoint_revertsOnInvalidAccumulatorLength()
         public
     {
@@ -429,7 +429,9 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
         );
         vm.expectRevert(
             abi.encodeWithSelector(
-                IUnivocityErrors.ConsistencyPeakCountMismatch.selector, 0, 1
+                IUnivocityErrors.ConsistencyRightPeakCountMismatch.selector,
+                0,
+                1
             )
         );
         univocity.publishCheckpoint(
@@ -1439,8 +1441,9 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
     /// @notice Reverts when consistency receipt has invalid proof payload
     ///    (decoded: treeSize2=1 but rightPeaks empty so accMem length 0).
     ///    Sign the payload the contract will use. A short accumulator is
-    ///    rejected inside proof-chain verification (ConsistencyPeakCount-
-    ///    Mismatch) before the accumulator length check, so
+    ///    rejected inside proof-chain verification
+    ///    (ConsistencyRightPeakCountMismatch) before the accumulator
+    ///    length check, so
     ///    InvalidAccumulatorLength cannot be reached by a submitted proof.
     function test_publishCheckpoint_revertsWhenConsistencyReceiptInvalidCose()
         public
@@ -1483,7 +1486,7 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
         });
         vm.expectRevert(
             abi.encodeWithSelector(
-                IUnivocityErrors.ConsistencyPeakCountMismatch.selector,
+                IUnivocityErrors.ConsistencyRightPeakCountMismatch.selector,
                 uint256(1),
                 uint256(0)
             )

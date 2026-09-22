@@ -72,6 +72,13 @@ function readLength(WitnetBuffer.Buffer memory buf, uint8 additionalInfo)
     }
     uint64 value;
     if (additionalInfo == 24) {
+        // WitnetBuffer.readUint8 permits cursor == data.length: it reads
+        // the byte after the array and leaves the cursor one past the end,
+        // so a caller's later `data.length - cursor` underflows. The wider
+        // reads below carry their own bound; this branch needs the same
+        // one, stated explicitly so a header truncated after the 0x18
+        // initial byte gives the structural error (FOR-568 S-2).
+        if (buf.cursor >= buf.data.length) revert InvalidCoseCborStructure();
         value = buf.readUint8();
         if (value < 24) revert InvalidCoseCborStructure();
     } else if (additionalInfo == 25) {

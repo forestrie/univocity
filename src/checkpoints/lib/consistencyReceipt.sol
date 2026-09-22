@@ -29,7 +29,10 @@ import {
 /// @param initialSize Node count committed by initialAccumulator (0 when the
 ///    log holds nothing yet).
 /// @param decodedProofs Pre-decoded consistency proof payloads (order
-///    preserved). Passed as calldata; no copy of proof material.
+///    preserved). Passed as calldata; no copy of proof material. At least
+///    one proof is required: an empty chain reverts
+///    InvalidConsistencyProof rather than returning the initial state
+///    unproven.
 /// @return finalAccumulator Peaks after applying all proofs (memory). The
 ///    proven tree size is the last proof's treeSize2; caller should use that
 ///    for grant bounds and state update.
@@ -39,8 +42,14 @@ function verifyConsistencyProofChain(
     ConsistencyProof[] calldata decodedProofs
 ) pure returns (bytes32[] memory finalAccumulator) {
     uint256 n = decodedProofs.length;
+    // An empty chain proves nothing, and returning the empty accumulator
+    // here would discard initialSize and the state it commits: a caller
+    // that signed the result would anchor an empty accumulator at a size
+    // the log never had. publishCheckpoint rejects an empty chain before
+    // reaching this, so the check only closes the exported function
+    // (FOR-568 I6).
     if (n == 0) {
-        return new bytes32[](0);
+        revert IUnivocityErrors.InvalidConsistencyProof();
     }
 
     bytes32[] memory accMem = initialAccumulator;
@@ -61,7 +70,7 @@ function verifyConsistencyProofChain(
         (bytes32[] memory roots, uint256 expectedRight) =
             consistentRootsForSizes(p.treeSize1, p.treeSize2, accMem, p.paths);
         if (p.rightPeaks.length != expectedRight) {
-            revert IUnivocityErrors.ConsistencyPeakCountMismatch(
+            revert IUnivocityErrors.ConsistencyRightPeakCountMismatch(
                 expectedRight, p.rightPeaks.length
             );
         }

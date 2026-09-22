@@ -29,6 +29,10 @@ interface IUnivocityErrors {
 
     // Log state
     error LogNotFound(bytes32 logId);
+    /// @notice A proposed tree size does not exceed the size it is measured
+    ///    against: the log's anchored size for a checkpoint, and the origin
+    ///    size for a consistency fold, which has no split to read between
+    ///    equal sizes.
     error SizeMustIncrease(uint64 current, uint64 proposed);
     error InvalidAccumulatorLength(uint256 expected, uint256 actual);
     error InvalidRootKeyLength(uint256 length);
@@ -61,9 +65,15 @@ interface IUnivocityErrors {
     error ConsistencyPathLengthMismatch(
         uint256 peak, uint256 expected, uint256 actual
     );
-    /// @notice A proof, accumulator or rightPeaks count differs from what
-    ///    the declared sizes imply.
+    /// @notice A proof or origin accumulator count differs from the number
+    ///    of origin peaks the declared base size implies.
     error ConsistencyPeakCountMismatch(uint256 expected, uint256 actual);
+    /// @notice The supplied rightPeaks count differs from the number of
+    ///    target peaks the fold leaves for the prover to supply. Distinct
+    ///    from ConsistencyPeakCountMismatch: that one counts the origin
+    ///    side, this one the target side, and the two are different
+    ///    malformations of a proof.
+    error ConsistencyRightPeakCountMismatch(uint256 expected, uint256 actual);
     /// @notice Origin peak `peak` is committed by the same target peak as
     ///    the origin peak before it, but its path proves a different root:
     ///    the supplied siblings are inconsistent.

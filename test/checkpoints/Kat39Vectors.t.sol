@@ -240,14 +240,17 @@ contract Kat39VectorsTest is Test {
     // 3. consistency_negatives (8 rows)
     // -------------------------------------------------------------------
 
-    /// @notice Class -> expected revert selector, where determinable from
-    ///    reading src/interfaces/IUnivocityErrors.sol and
-    ///    src/checkpoints/lib/consistencyReceipt.sol on this branch.
-    ///    "size_must_increase" has no dedicated selector in this taxonomy
-    ///    (see report): IUnivocityErrors.SizeMustIncrease is used only for
-    ///    an unrelated stored-size check in _Univocity.sol, never by the
-    ///    consistency fold or its chain wrapper. bytes4(0) here means
-    ///    "assert a generic revert and log the actual selector".
+    /// @notice Class -> expected revert selector at the chain layer, read
+    ///    from src/interfaces/IUnivocityErrors.sol and
+    ///    src/checkpoints/lib/consistencyReceipt.sol on this branch. Every
+    ///    class the fixture carries now maps to one selector; bytes4(0) is
+    ///    left for a class this mapping does not know, and means "assert a
+    ///    generic revert and log the actual selector".
+    ///    "size_must_increase" is InvalidConsistencyProof here because the
+    ///    chain wrapper's own treeSize2 <= treeSize1 check fires before the
+    ///    fold is called; the fold's own reason for the same row is
+    ///    SizeMustIncrease, asserted by
+    ///    test_consistencyNegative_sizeMustIncrease_rawFoldReverts.
     function _expectedSelector(string memory klass)
         internal
         pure
@@ -266,12 +269,15 @@ contract Kat39VectorsTest is Test {
             return IUnivocityErrors.ConsistencyRootMismatch.selector;
         }
         if (_eq(klass, "right_peak_count_mismatch")) {
-            return IUnivocityErrors.ConsistencyPeakCountMismatch.selector;
+            return IUnivocityErrors.ConsistencyRightPeakCountMismatch.selector;
         }
         if (_eq(klass, "base_mismatch")) {
             return IUnivocityErrors.ConsistencyBaseMismatch.selector;
         }
-        return bytes4(0); // size_must_increase: no determinable selector
+        if (_eq(klass, "size_must_increase")) {
+            return IUnivocityErrors.InvalidConsistencyProof.selector;
+        }
+        return bytes4(0); // class not in this mapping
     }
 
     /// @notice Runs every row through verifyConsistencyProofChain (the
@@ -338,12 +344,15 @@ contract Kat39VectorsTest is Test {
 
     /// @notice size-must-increase/7-to-7 at the raw fold layer
     ///    (consistentRootsForSizes(7, 7, ...) directly, bypassing the
-    ///    chain wrapper's `treeSize2 <= treeSize1` guard). Documents that
-    ///    the raw fold has no dedicated check for this: splitHeight =
-    ///    bitLength(from ^ to) - 1 underflows when from == to, so this
-    ///    reverts Panic(0x11) (arithmetic underflow), not a named
-    ///    IUnivocityErrors selector. See report.
-    function test_consistencyNegative_sizeMustIncrease_rawFoldPanics() public {
+    ///    chain wrapper's `treeSize2 <= treeSize1` guard). The fold makes
+    ///    the same check for itself and names it: equal sizes share a peak
+    ///    bitmap, so splitHeight = bitLength(from ^ to) - 1 has nothing to
+    ///    read and would underflow to Panic(0x11) without it. Go pins
+    ///    mmr.ErrSizesNotIncreasing and TypeScript SizeMustIncrease for
+    ///    this row, so all three now carry a named reason (FOR-568 C3, C7).
+    function test_consistencyNegative_sizeMustIncrease_rawFoldReverts()
+        public
+    {
         Kat39Vectors.ConsistencyNegativeVector[] memory rows =
             Kat39Vectors.consistencyNegatives();
         Kat39Vectors.ConsistencyNegativeVector memory r = rows[0];
@@ -352,21 +361,14 @@ contract Kat39VectorsTest is Test {
             "fixture order changed; update this test's row index"
         );
 
-        try foldHarness.fold(
-            r.treeSize1, r.treeSize2, r.accumulatorFrom, r.paths
-        ) returns (
-            bytes32[] memory, uint256
-        ) {
-            fail("expected consistentRootsForSizes(7, 7, ...) to revert");
-        } catch (bytes memory lowLevelData) {
-            console2.log("raw fold revert length:", lowLevelData.length);
-            if (lowLevelData.length >= 4) {
-                console2.logBytes4(bytes4(lowLevelData));
-            }
-            // Panic(uint256) selector is 0x4e487b71; IncompleteTreeSize/etc
-            // are all 4-byte custom errors with 0 or more args appended.
-            // We only assert that it reverts; the report records which.
-        }
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IUnivocityErrors.SizeMustIncrease.selector,
+                r.treeSize1,
+                r.treeSize2
+            )
+        );
+        foldHarness.fold(r.treeSize1, r.treeSize2, r.accumulatorFrom, r.paths);
     }
 
     // -------------------------------------------------------------------

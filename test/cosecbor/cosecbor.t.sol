@@ -54,6 +54,26 @@ contract CoseCborExtractAlgorithmHelper {
     {
         return extractAlgorithmAndUintLabel(d, label);
     }
+
+    /// @notice Copy the header into a memory array built in this frame and
+    ///    set the byte immediately after it to `tailByte`. A bytes argument
+    ///    copied from calldata has that byte zeroed by the ABI copy, so
+    ///    this is the only way a read one past the end of the header can
+    ///    return something other than zero.
+    function callExtractUintLabelWithTailByte(
+        bytes calldata d,
+        int64 label,
+        uint8 tailByte
+    ) external pure returns (bool, uint64) {
+        bytes memory local = new bytes(d.length);
+        for (uint256 i = 0; i < d.length; i++) {
+            local[i] = d[i];
+        }
+        assembly {
+            mstore8(add(add(local, 32), mload(local)), tailByte)
+        }
+        return extractUintLabel(local, label);
+    }
 }
 
 /// @title CoseCborTest
@@ -684,6 +704,33 @@ contract CoseCborTest is Test {
         extractHelper.callExtractAlgorithm(hex"a101");
         vm.expectRevert(InvalidCoseCborStructure.selector);
         extractHelper.callExtractAlgorithm(hex"");
+    }
+
+    /// @notice A header ending on the 0x18 initial byte of a byte string
+    ///    has no argument byte left to read. WitnetBuffer.readUint8 allows
+    ///    a read at cursor == data.length, so without an explicit bound the
+    ///    argument comes from whatever follows the header in memory and the
+    ///    later `data.length - cursor` underflows. Both the zeroed tail the
+    ///    ABI copy leaves and a non-zero one give the structural error, and
+    ///    neither gives a panic (FOR-568 S-2).
+    ///    {1: -7, 1000: bstr(argument byte missing)}.
+    function test_readLength_argumentByteBeyondHeader_reverts() public {
+        bytes memory truncated = abi.encodePacked(
+            hex"a2", hex"01", cborInt(ALG_ES256), hex"1903e8", hex"58"
+        );
+
+        vm.expectRevert(InvalidCoseCborStructure.selector);
+        extractHelper.callExtractUintLabel(truncated, LABEL_TREE_SIZE_2);
+
+        vm.expectRevert(InvalidCoseCborStructure.selector);
+        extractHelper.callExtractUintLabelWithTailByte(
+            truncated, LABEL_TREE_SIZE_2, 0xff
+        );
+
+        vm.expectRevert(InvalidCoseCborStructure.selector);
+        extractHelper.callExtractUintLabelWithTailByte(
+            truncated, LABEL_TREE_SIZE_2, 0x18
+        );
     }
 
     /// @notice A declared map length of 2^63 or more reverts

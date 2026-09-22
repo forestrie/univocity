@@ -288,7 +288,8 @@ contract UnivocityConsistencyProofTest is UnivocityTestHelper {
 
     /// @notice 1 -> 4 with a correct origin path but no rightPeaks: MMR(4)
     ///    has two peaks, and the second (the new leaf) must arrive as a
-    ///    rightPeak. Omitting it reverts ConsistencyPeakCountMismatch(1, 0).
+    ///    rightPeak. Omitting it reverts
+    ///    ConsistencyRightPeakCountMismatch(1, 0).
     function test_publishCheckpoint_missingRightPeakAt1To4_reverts() public {
         bytes32[][] memory paths = _paths1(_path1(keccak256("leaf1")));
         ConsistencyProof[] memory proofs = new ConsistencyProof[](1);
@@ -296,7 +297,7 @@ contract UnivocityConsistencyProofTest is UnivocityTestHelper {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                IUnivocityErrors.ConsistencyPeakCountMismatch.selector,
+                IUnivocityErrors.ConsistencyRightPeakCountMismatch.selector,
                 uint256(1),
                 uint256(0)
             )
@@ -308,7 +309,7 @@ contract UnivocityConsistencyProofTest is UnivocityTestHelper {
 
     /// @notice 1 -> 3 with a correct origin path plus a surplus rightPeak:
     ///    MMR(3) has one peak, proven from the origin, so any
-    ///    rightPeak reverts ConsistencyPeakCountMismatch(0, 1).
+    ///    rightPeak reverts ConsistencyRightPeakCountMismatch(0, 1).
     function test_publishCheckpoint_surplusRightPeakAt1To3_reverts() public {
         bytes32[][] memory paths = _paths1(_path1(keccak256("leaf1")));
         ConsistencyProof[] memory proofs = new ConsistencyProof[](1);
@@ -316,7 +317,7 @@ contract UnivocityConsistencyProofTest is UnivocityTestHelper {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                IUnivocityErrors.ConsistencyPeakCountMismatch.selector,
+                IUnivocityErrors.ConsistencyRightPeakCountMismatch.selector,
                 uint256(0),
                 uint256(1)
             )
@@ -891,5 +892,51 @@ contract UnivocityFirstCheckpointSignedSizeTest is UnivocityTestHelper {
             IDTIMESTAMP_TEST,
             grantTestLog
         );
+    }
+}
+
+/// @notice External wrapper so the chain verifier can be called directly,
+///    at a call depth vm.expectRevert can catch.
+contract ConsistencyChainCallHarness {
+    function chain(
+        bytes32[] memory initialAccumulator,
+        uint64 initialSize,
+        ConsistencyProof[] calldata proofs
+    ) external pure returns (bytes32[] memory) {
+        return
+            verifyConsistencyProofChain(
+                initialAccumulator, initialSize, proofs
+            );
+    }
+}
+
+/// @notice verifyConsistencyProofChain is exported and reachable without
+///    publishCheckpoint's own checks, so it states its own precondition: a
+///    chain of no proofs proves nothing about initialSize and must not
+///    return an accumulator at all (FOR-568 I6).
+contract ConsistencyChainEmptyTest is Test {
+    ConsistencyChainCallHarness internal harness;
+
+    function setUp() public {
+        harness = new ConsistencyChainCallHarness();
+    }
+
+    function test_chainWithNoProofs_reverts() public {
+        ConsistencyProof[] memory none = new ConsistencyProof[](0);
+
+        vm.expectRevert(IUnivocityErrors.InvalidConsistencyProof.selector);
+        harness.chain(new bytes32[](0), 0, none);
+    }
+
+    /// @notice The same for a non-empty initial state: the returned
+    ///    accumulator would otherwise be empty while initialSize says the
+    ///    log holds a tree.
+    function test_chainWithNoProofsOverAnchoredState_reverts() public {
+        ConsistencyProof[] memory none = new ConsistencyProof[](0);
+        bytes32[] memory acc = new bytes32[](1);
+        acc[0] = keccak256("peak-0");
+
+        vm.expectRevert(IUnivocityErrors.InvalidConsistencyProof.selector);
+        harness.chain(acc, 3, none);
     }
 }
