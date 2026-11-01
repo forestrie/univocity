@@ -9,6 +9,13 @@ includes:
   anvil: taskfiles/anvil.yml
 
 tasks:
+  docs:lint:
+    desc: Check docs with dox against forestrie/dox (see .dox.toml)
+    env:
+      DOX_SCHEMA_REPO: forestrie/dox
+    cmds:
+      - dox lint
+
   deploy:
     desc: Deploy everything (CREATE3 factory if missing, then UUPSUnivocity proxy).
     cmds:

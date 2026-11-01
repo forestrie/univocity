@@ -1,0 +1,1155 @@
+{
+  "version": 1,
+  "findings": [
+    {
+      "check": "id-unique",
+      "path": "docs/arc/arc-0017-auth-overview.md",
+      "message": "number ARC-0017 is shared with arc-0017-log-hierarchy-and-authority, arc-0017-retrospective-1"
+    },
+    {
+      "check": "id-unique",
+      "path": "docs/arc/arc-0017-log-hierarchy-and-authority.md",
+      "message": "number ARC-0017 is shared with arc-0017-auth-overview, arc-0017-retrospective-1"
+    },
+    {
+      "check": "id-unique",
+      "path": "docs/arc/arc-0017-retrospective-1.md",
+      "message": "number ARC-0017 is shared with arc-0017-auth-overview, arc-0017-log-hierarchy-and-authority"
+    },
+    {
+      "check": "index-fresh",
+      "path": "docs/adr/README.md",
+      "message": "generated index missing"
+    },
+    {
+      "check": "index-fresh",
+      "path": "docs/arc/README.md",
+      "message": "generated index missing"
+    },
+    {
+      "check": "links-local",
+      "path": "CONTEXT.md",
+      "message": "link leaves the repository: ../devdocs/glossary.md"
+    },
+    {
+      "check": "links-local",
+      "path": "CONTEXT.md",
+      "message": "link leaves the repository: ../univocity-tools/CONTEXT.md"
+    },
+    {
+      "check": "links-local",
+      "path": "docs/adr/adr-0008-webauthn-assertion-delegation-alg.md",
+      "message": "link leaves the repository: ../../../devdocs/adr/adr-0062-canopy-derived-grant-flag-registry.md"
+    },
+    {
+      "check": "links-local",
+      "path": "docs/agents/README.md",
+      "message": "link leaves the repository: ../../../devdocs/"
+    },
+    {
+      "check": "links-local",
+      "path": "docs/agents/README.md",
+      "message": "link leaves the repository: ../../../devdocs/arc/README.md"
+    },
+    {
+      "check": "links-local",
+      "path": "docs/agents/README.md",
+      "message": "link leaves the repository: ../../../devdocs/glossary.md"
+    },
+    {
+      "check": "links-local",
+      "path": "docs/history/plans/plan-0001-r5-authority.md",
+      "message": "relative link does not resolve: ../arc/arc-0001-grant-minimum-range.md"
+    },
+    {
+      "check": "links-local",
+      "path": "docs/history/plans/plan-0001-r5-authority.md",
+      "message": "relative link does not resolve: ../arc/arc-0001-grant-minimum-range.md"
+    },
+    {
+      "check": "links-local",
+      "path": "docs/history/plans/plan-0012-arc-0016-implementation-review.md",
+      "message": "relative link does not resolve: ../adr/adr-0001-payer-attribution-permissionless-submission.md"
+    },
+    {
+      "check": "links-local",
+      "path": "docs/history/plans/plan-0012-arc-0016-implementation-review.md",
+      "message": "relative link does not resolve: ../arc/arc-0001-grant-minimum-range.md"
+    },
+    {
+      "check": "links-local",
+      "path": "docs/history/plans/plan-0012-arc-0016-implementation-review.md",
+      "message": "relative link does not resolve: ../arc/arc-0001-grant-minimum-range.md"
+    },
+    {
+      "check": "links-local",
+      "path": "docs/history/plans/plan-0012-arc-0016-implementation-review.md",
+      "message": "relative link does not resolve: ../arc/arc-0016-checkpoint-incentivisation-implementation.md"
+    },
+    {
+      "check": "links-local",
+      "path": "docs/history/plans/plan-0012-arc-0016-implementation-review.md",
+      "message": "relative link does not resolve: ../arc/arc-0016-checkpoint-incentivisation-implementation.md#authorization-failure-revert-codes"
+    },
+    {
+      "check": "links-local",
+      "path": "docs/history/plans/plan-0012-arc-0016-implementation-review.md",
+      "message": "relative link does not resolve: ../arc/arc-0017-log-hierarchy-and-authority.md"
+    },
+    {
+      "check": "links-local",
+      "path": "docs/history/plans/plan-0012-arc-0016-implementation-review.md",
+      "message": "relative link does not resolve: plan-0013-adr-0032-delegated-checkpoint-verification.md"
+    },
+    {
+      "check": "links-local",
+      "path": "docs/history/plans/plan-0012-arc-0016-implementation-review.md",
+      "message": "relative link does not resolve: plan-0013-adr-0032-delegated-checkpoint-verification.md"
+    },
+    {
+      "check": "links-local",
+      "path": "docs/history/plans/plan-0014-feasibility-consistency-receipt-calldata-memory.md",
+      "message": "relative link does not resolve: ../arc/arc-0001-grant-minimum-range.md"
+    },
+    {
+      "check": "links-local",
+      "path": "docs/history/plans/plan-0014-feasibility-consistency-receipt-calldata-memory.md",
+      "message": "relative link does not resolve: ../arc/arc-0001-grant-minimum-range.md"
+    },
+    {
+      "check": "links-local",
+      "path": "docs/history/plans/plan-0014-feasibility-consistency-receipt-calldata-memory.md",
+      "message": "relative link does not resolve: plan-0013-adr-0032-delegated-checkpoint-verification.md"
+    },
+    {
+      "check": "links-local",
+      "path": "docs/history/plans/plan-0015-publishCheckpoint-payment-receipt-as-roi.md",
+      "message": "relative link does not resolve: ../arc/arc-0001-grant-minimum-range.md"
+    },
+    {
+      "check": "links-local",
+      "path": "docs/history/plans/plan-0015-publishCheckpoint-payment-receipt-as-roi.md",
+      "message": "relative link does not resolve: ../arc/arc-0001-grant-minimum-range.md"
+    },
+    {
+      "check": "links-local",
+      "path": "docs/history/plans/plan-0015-publishCheckpoint-payment-receipt-as-roi.md",
+      "message": "relative link does not resolve: ../arc/arc-0001-grant-minimum-range.md"
+    },
+    {
+      "check": "links-local",
+      "path": "docs/plans/plan-0025-assess-verify-only-no-recovery.md",
+      "message": "relative link does not resolve: adr/adr-0005-grant-constrains-checkpoint-signer.md"
+    },
+    {
+      "check": "links-local",
+      "path": "docs/plans/plan-0027-abstract-base-bootstrap-pattern.md",
+      "message": "relative link does not resolve: ../../src/contracts/Univocity.sol"
+    },
+    {
+      "check": "links-local",
+      "path": "docs/plans/plan-0032-es256-immutable-deploy.md",
+      "message": "relative link does not resolve: ../../canopy/docs/plans/plan-0028-forest-genesis-chain-binding.md"
+    },
+    {
+      "check": "links-local",
+      "path": "docs/plans/plan-0032-es256-immutable-deploy.md",
+      "message": "relative link does not resolve: ../../canopy/docs/plans/plan-0031-ks256-forest-roots.md"
+    },
+    {
+      "check": "no-plans-in-canon",
+      "path": "docs/history/plans/README.md",
+      "message": "work file in a canon tree"
+    },
+    {
+      "check": "no-plans-in-canon",
+      "path": "docs/history/plans/plan-0001-r5-authority.md",
+      "message": "plan document in a canon repository"
+    },
+    {
+      "check": "no-plans-in-canon",
+      "path": "docs/history/plans/plan-0012-arc-0016-implementation-review.md",
+      "message": "plan document in a canon repository"
+    },
+    {
+      "check": "no-plans-in-canon",
+      "path": "docs/history/plans/plan-0014-feasibility-consistency-receipt-calldata-memory.md",
+      "message": "plan document in a canon repository"
+    },
+    {
+      "check": "no-plans-in-canon",
+      "path": "docs/history/plans/plan-0015-publishCheckpoint-payment-receipt-as-roi.md",
+      "message": "work file in a canon tree"
+    },
+    {
+      "check": "no-plans-in-canon",
+      "path": "docs/plans/README.md",
+      "message": "work file in a canon tree"
+    },
+    {
+      "check": "no-plans-in-canon",
+      "path": "docs/plans/plan-0013-adr-0032-delegated-checkpoint-verification.md",
+      "message": "plan document in a canon repository"
+    },
+    {
+      "check": "no-plans-in-canon",
+      "path": "docs/plans/plan-0014-gas-metrics.md",
+      "message": "plan document in a canon repository"
+    },
+    {
+      "check": "no-plans-in-canon",
+      "path": "docs/plans/plan-0016-minimal-cose-cbor-api-predecode.md",
+      "message": "plan document in a canon repository"
+    },
+    {
+      "check": "no-plans-in-canon",
+      "path": "docs/plans/plan-0020-algorithms-test-coverage-parity.md",
+      "message": "plan document in a canon repository"
+    },
+    {
+      "check": "no-plans-in-canon",
+      "path": "docs/plans/plan-0021-phase-zero-log-hierarchy-data-structures.md",
+      "message": "plan document in a canon repository"
+    },
+    {
+      "check": "no-plans-in-canon",
+      "path": "docs/plans/plan-0022-adr-0005-gf-require-signer-implementation.md",
+      "message": "plan document in a canon repository"
+    },
+    {
+      "check": "no-plans-in-canon",
+      "path": "docs/plans/plan-0023-consistency-receipt-abi-and-signature-payload.md",
+      "message": "plan document in a canon repository"
+    },
+    {
+      "check": "no-plans-in-canon",
+      "path": "docs/plans/plan-0024-p256-recovery-and-normalization.md",
+      "message": "plan document in a canon repository"
+    },
+    {
+      "check": "no-plans-in-canon",
+      "path": "docs/plans/plan-0025-assess-verify-only-no-recovery.md",
+      "message": "plan document in a canon repository"
+    },
+    {
+      "check": "no-plans-in-canon",
+      "path": "docs/plans/plan-0026-verify-only-no-recovery.md",
+      "message": "plan document in a canon repository"
+    },
+    {
+      "check": "no-plans-in-canon",
+      "path": "docs/plans/plan-0027-abstract-base-bootstrap-pattern.md",
+      "message": "plan document in a canon repository"
+    },
+    {
+      "check": "no-plans-in-canon",
+      "path": "docs/plans/plan-0028-cose-shaped-delegation-proof.md",
+      "message": "plan document in a canon repository"
+    },
+    {
+      "check": "no-plans-in-canon",
+      "path": "docs/plans/plan-0029-eip-compatible-ks256-signers.md",
+      "message": "plan document in a canon repository"
+    },
+    {
+      "check": "no-plans-in-canon",
+      "path": "docs/plans/plan-0030-safe-imutable-univocity-deploy.md",
+      "message": "plan document in a canon repository"
+    },
+    {
+      "check": "no-plans-in-canon",
+      "path": "docs/plans/plan-0031-ks256-delegation.md",
+      "message": "plan document in a canon repository"
+    },
+    {
+      "check": "no-plans-in-canon",
+      "path": "docs/plans/plan-0032-es256-immutable-deploy.md",
+      "message": "plan document in a canon repository"
+    },
+    {
+      "check": "no-plans-in-canon",
+      "path": "docs/plans/plan-0033-for-314-review-remediation.md",
+      "message": "plan document in a canon repository"
+    },
+    {
+      "check": "no-plans-in-canon",
+      "path": "docs/plans/plan-2607-01-lone-peak-grant-review-remediation.md",
+      "message": "plan document in a canon repository"
+    },
+    {
+      "check": "no-plans-in-canon",
+      "path": "docs/status/status-2607-01-for-153-foundry-free-create3-uups.md",
+      "message": "status document in a canon repository"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/adr/adr-0001-payer-attribution-permissionless-submission.md",
+      "message": "bold header (use frontmatter) **Date:** in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/adr/adr-0001-payer-attribution-permissionless-submission.md",
+      "message": "bold header (use frontmatter) **Status:** in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/adr/adr-0001-payer-attribution-permissionless-submission.md",
+      "message": "plan id plan-0001 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/adr/adr-0001-payer-attribution-permissionless-submission.md",
+      "message": "plan id plan-0001 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/adr/adr-0001-payer-attribution-permissionless-submission.md",
+      "message": "plan id plan-0013 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/adr/adr-0001-payer-attribution-permissionless-submission.md",
+      "message": "plan id plan-0013 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/adr/adr-0001-payer-attribution-permissionless-submission.md",
+      "message": "plan id plan-0013 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/adr/adr-0001-payer-attribution-permissionless-submission.md",
+      "message": "plan id plan-0013 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/adr/adr-0001-payer-attribution-permissionless-submission.md",
+      "message": "plan id plan-0014 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/adr/adr-0001-payer-attribution-permissionless-submission.md",
+      "message": "plan id plan-0014 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/adr/adr-0001-payer-attribution-permissionless-submission.md",
+      "message": "plan id plan-0015 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/adr/adr-0001-payer-attribution-permissionless-submission.md",
+      "message": "plan id plan-0015 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/adr/adr-0002-cose-verifier-keys-caller-dispatch.md",
+      "message": "bold header (use frontmatter) **Date:** in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/adr/adr-0002-cose-verifier-keys-caller-dispatch.md",
+      "message": "bold header (use frontmatter) **Status:** in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/adr/adr-0003-bootstrap-keys-opaque-constructor.md",
+      "message": "bold header (use frontmatter) **Date:** in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/adr/adr-0003-bootstrap-keys-opaque-constructor.md",
+      "message": "bold header (use frontmatter) **Status:** in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/adr/adr-0003-bootstrap-keys-opaque-constructor.md",
+      "message": "plan id plan-0016 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/adr/adr-0003-bootstrap-keys-opaque-constructor.md",
+      "message": "plan id plan-0016 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/adr/adr-0004-root-log-self-grant-extension.md",
+      "message": "bold header (use frontmatter) **Date:** in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/adr/adr-0004-root-log-self-grant-extension.md",
+      "message": "bold header (use frontmatter) **Status:** in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/adr/adr-0004-root-log-self-grant-extension.md",
+      "message": "plan id plan-0021 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/adr/adr-0004-root-log-self-grant-extension.md",
+      "message": "plan id plan-0021 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/adr/adr-0004-root-log-self-grant-extension.md",
+      "message": "plan id plan-0021 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/adr/adr-0005-grant-constrains-checkpoint-signer.md",
+      "message": "bold header (use frontmatter) **Date:** in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/adr/adr-0005-grant-constrains-checkpoint-signer.md",
+      "message": "bold header (use frontmatter) **Status:** in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/adr/adr-0005-grant-constrains-checkpoint-signer.md",
+      "message": "plan id plan-0021 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/adr/adr-0005-grant-constrains-checkpoint-signer.md",
+      "message": "plan id plan-0021 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/adr/adr-0005-grant-constrains-checkpoint-signer.md",
+      "message": "plan id plan-0021 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/adr/adr-0005-grant-constrains-checkpoint-signer.md",
+      "message": "plan id plan-0026 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/adr/adr-0005-grant-constrains-checkpoint-signer.md",
+      "message": "plan id plan-0026 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/adr/adr-0006-cose-shaped-delegation-proof.md",
+      "message": "bold header (use frontmatter) **Date:** in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/adr/adr-0006-cose-shaped-delegation-proof.md",
+      "message": "bold header (use frontmatter) **Status:** in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/adr/adr-0006-cose-shaped-delegation-proof.md",
+      "message": "plan id plan-0016 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/adr/adr-0006-cose-shaped-delegation-proof.md",
+      "message": "plan id plan-0016 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/adr/adr-0006-cose-shaped-delegation-proof.md",
+      "message": "plan id plan-0016 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/adr/adr-0006-cose-shaped-delegation-proof.md",
+      "message": "plan id plan-0016 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/adr/adr-0006-cose-shaped-delegation-proof.md",
+      "message": "plan id plan-0023 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/adr/adr-0006-cose-shaped-delegation-proof.md",
+      "message": "plan id plan-0023 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/adr/adr-0008-webauthn-assertion-delegation-alg.md",
+      "message": "bold header (use frontmatter) **Date:** in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/adr/adr-0008-webauthn-assertion-delegation-alg.md",
+      "message": "bold header (use frontmatter) **Status:** in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0001-grant-minimum-range.md",
+      "message": "bold header (use frontmatter) **Date:** in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0001-grant-minimum-range.md",
+      "message": "bold header (use frontmatter) **Status:** in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0001-grant-minimum-range.md",
+      "message": "plan id plan-0001 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0001-grant-minimum-range.md",
+      "message": "plan id plan-0001 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0001-grant-minimum-range.md",
+      "message": "plan id plan-0013 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0001-grant-minimum-range.md",
+      "message": "plan id plan-0013 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0001-grant-minimum-range.md",
+      "message": "plan id plan-0015 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0001-grant-minimum-range.md",
+      "message": "plan id plan-0015 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0001-grant-minimum-range.md",
+      "message": "plan id plan-0021 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0001-grant-minimum-range.md",
+      "message": "plan id plan-0021 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0001-grant-minimum-range.md",
+      "message": "plan id plan-0021 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0001-grant-minimum-range.md",
+      "message": "plan id plan-0021 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0002-delegation-cert-label-alignment.md",
+      "message": "bold header (use frontmatter) **Date:** in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0002-delegation-cert-label-alignment.md",
+      "message": "bold header (use frontmatter) **Status:** in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0002-delegation-cert-label-alignment.md",
+      "message": "plan id plan-0013 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0002-delegation-cert-label-alignment.md",
+      "message": "plan id plan-0013 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0016-checkpoint-incentivisation-implementation.md",
+      "message": "bold header (use frontmatter) **Date:** in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0016-checkpoint-incentivisation-implementation.md",
+      "message": "bold header (use frontmatter) **Status:** in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0016-checkpoint-incentivisation-implementation.md",
+      "message": "plan id plan-0001 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0016-checkpoint-incentivisation-implementation.md",
+      "message": "plan id plan-0001 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0016-checkpoint-incentivisation-implementation.md",
+      "message": "plan id plan-0001 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0016-checkpoint-incentivisation-implementation.md",
+      "message": "plan id plan-0001 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0016-checkpoint-incentivisation-implementation.md",
+      "message": "plan id plan-0012 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0016-checkpoint-incentivisation-implementation.md",
+      "message": "plan id plan-0012 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0016-checkpoint-incentivisation-implementation.md",
+      "message": "plan id plan-0013 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0016-checkpoint-incentivisation-implementation.md",
+      "message": "plan id plan-0014 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0016-checkpoint-incentivisation-implementation.md",
+      "message": "plan id plan-0015 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0016-checkpoint-incentivisation-implementation.md",
+      "message": "plan id plan-0016 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0017-auth-overview.md",
+      "message": "bold header (use frontmatter) **Date:** in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0017-auth-overview.md",
+      "message": "bold header (use frontmatter) **Status:** in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0017-log-hierarchy-and-authority.md",
+      "message": "bold header (use frontmatter) **Date:** in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0017-log-hierarchy-and-authority.md",
+      "message": "bold header (use frontmatter) **Status:** in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0017-log-hierarchy-and-authority.md",
+      "message": "plan id plan-0012 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0017-log-hierarchy-and-authority.md",
+      "message": "plan id plan-0012 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0017-log-hierarchy-and-authority.md",
+      "message": "plan id plan-0021 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0017-log-hierarchy-and-authority.md",
+      "message": "plan id plan-0021 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0017-log-hierarchy-and-authority.md",
+      "message": "plan id plan-0021 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0017-log-hierarchy-and-authority.md",
+      "message": "plan id plan-0021 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0017-log-hierarchy-and-authority.md",
+      "message": "plan id plan-0021 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0017-retrospective-1.md",
+      "message": "bold header (use frontmatter) **Date:** in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0017-retrospective-1.md",
+      "message": "bold header (use frontmatter) **Status:** in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0017-retrospective-1.md",
+      "message": "plan id plan-0013 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0017-retrospective-1.md",
+      "message": "plan id plan-0013 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0017-retrospective-1.md",
+      "message": "plan id plan-0016 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0017-retrospective-1.md",
+      "message": "plan id plan-0021 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/arc/arc-0017-retrospective-1.md",
+      "message": "plan id plan-0021 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/consistent-roots.md",
+      "message": "plan id plan-2609 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/consistent-roots.md",
+      "message": "tracker id FOR-567 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/formatting-forge-fmt-assessment.md",
+      "message": "bold header (use frontmatter) **Date:** in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/history/plans/README.md",
+      "message": "plan id plan-0001 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/history/plans/README.md",
+      "message": "plan id plan-0012 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/history/plans/README.md",
+      "message": "plan id plan-0014 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/history/plans/README.md",
+      "message": "plan id plan-0015 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/history/plans/README.md",
+      "message": "plan id plan-0016 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/history/plans/README.md",
+      "message": "plan id plan-0016 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/history/plans/plan-0015-publishCheckpoint-payment-receipt-as-roi.md",
+      "message": "bold header (use frontmatter) **Date:** in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/history/plans/plan-0015-publishCheckpoint-payment-receipt-as-roi.md",
+      "message": "bold header (use frontmatter) **Status:** in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/history/plans/plan-0015-publishCheckpoint-payment-receipt-as-roi.md",
+      "message": "plan id plan-0014 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/history/plans/plan-0015-publishCheckpoint-payment-receipt-as-roi.md",
+      "message": "plan id plan-0014 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/plans/README.md",
+      "message": "plan id plan-0001 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/plans/README.md",
+      "message": "plan id plan-0013 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/plans/README.md",
+      "message": "plan id plan-0013 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/plans/README.md",
+      "message": "plan id plan-0014 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/plans/README.md",
+      "message": "plan id plan-0014 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/plans/README.md",
+      "message": "plan id plan-0016 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/plans/README.md",
+      "message": "plan id plan-0016 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/plans/README.md",
+      "message": "plan id plan-0020 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/plans/README.md",
+      "message": "plan id plan-0020 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/plans/README.md",
+      "message": "plan id plan-0021 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/plans/README.md",
+      "message": "plan id plan-0021 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/plans/README.md",
+      "message": "plan id plan-2607 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/plans/README.md",
+      "message": "plan id plan-2607 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/plans/README.md",
+      "message": "plan id plan-2607 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/reviews/rev-001-arc0017-and-plans.md",
+      "message": "bold header (use frontmatter) **Date:** in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/reviews/rev-001-arc0017-and-plans.md",
+      "message": "bold header (use frontmatter) **Status:** in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/reviews/rev-001-arc0017-and-plans.md",
+      "message": "plan id plan-0001 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/reviews/rev-001-arc0017-and-plans.md",
+      "message": "plan id plan-0001 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/reviews/rev-001-arc0017-and-plans.md",
+      "message": "plan id plan-0012 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/reviews/rev-001-arc0017-and-plans.md",
+      "message": "plan id plan-0012 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/reviews/rev-001-arc0017-and-plans.md",
+      "message": "plan id plan-0012 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/reviews/rev-001-arc0017-and-plans.md",
+      "message": "plan id plan-0012 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/reviews/rev-001-arc0017-and-plans.md",
+      "message": "plan id plan-0012 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/reviews/rev-001-arc0017-and-plans.md",
+      "message": "plan id plan-0012 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/reviews/rev-001-arc0017-and-plans.md",
+      "message": "plan id plan-0013 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/reviews/rev-001-arc0017-and-plans.md",
+      "message": "plan id plan-0013 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/reviews/rev-001-arc0017-and-plans.md",
+      "message": "plan id plan-0015 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/reviews/rev-001-arc0017-and-plans.md",
+      "message": "plan id plan-0015 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/reviews/rev-001-arc0017-and-plans.md",
+      "message": "plan id plan-0015 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/reviews/rev-001-arc0017-and-plans.md",
+      "message": "plan id plan-0016 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/reviews/rev-001-arc0017-and-plans.md",
+      "message": "plan id plan-0016 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/reviews/rev-001-arc0017-and-plans.md",
+      "message": "plan id plan-0016 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/reviews/rev-001-arc0017-and-plans.md",
+      "message": "plan id plan-0016 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/reviews/rev-001-arc0017-and-plans.md",
+      "message": "plan id plan-0020 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/reviews/rev-001-arc0017-and-plans.md",
+      "message": "plan id plan-0021 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/reviews/rev-001-arc0017-and-plans.md",
+      "message": "plan id plan-0021 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/reviews/rev-001-arc0017-and-plans.md",
+      "message": "plan id plan-0021 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/reviews/rev-001-arc0017-and-plans.md",
+      "message": "plan id plan-0021 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/reviews/rev-001-arc0017-and-plans.md",
+      "message": "plan id plan-0021 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/reviews/rev-001-arc0017-and-plans.md",
+      "message": "plan id plan-0021 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/reviews/rev-001-arc0017-and-plans.md",
+      "message": "plan id plan-0021 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/reviews/rev-001-arc0017-and-plans.md",
+      "message": "plan id plan-0021 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/spikes/for-314-delegation-proof-spike.md",
+      "message": "bold header (use frontmatter) **Date:** in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/spikes/for-314-delegation-proof-spike.md",
+      "message": "bold header (use frontmatter) **Status:** in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/spikes/for-314-delegation-proof-spike.md",
+      "message": "plan id plan-0003 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/spikes/for-314-delegation-proof-spike.md",
+      "message": "plan id plan-0003 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/spikes/for-314-delegation-proof-spike.md",
+      "message": "plan id plan-0003 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/spikes/for-314-delegation-proof-spike.md",
+      "message": "plan id plan-0033 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/spikes/for-314-delegation-proof-spike.md",
+      "message": "plan id plan-0033 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/spikes/for-314-delegation-proof-spike.md",
+      "message": "tracker id FOR-314 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/spikes/for-314-delegation-proof-spike.md",
+      "message": "tracker id FOR-314 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/spikes/for-314-delegation-proof-spike.md",
+      "message": "tracker id FOR-314 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/spikes/for-314-delegation-proof-spike.md",
+      "message": "tracker id FOR-314 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/spikes/for-314-delegation-proof-spike.md",
+      "message": "tracker id FOR-315 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/spikes/for-314-delegation-proof-spike.md",
+      "message": "tracker id FOR-316 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/verify-inclusion-go-solidity-comparison.md",
+      "message": "bold header (use frontmatter) **Date:** in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "docs/verify-inclusion-go-solidity-comparison.md",
+      "message": "bold header (use frontmatter) **Status:** in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "test/algorithms/README.md",
+      "message": "plan id plan-0020 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "test/algorithms/README.md",
+      "message": "plan id plan-0020 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "test/algorithms/README.md",
+      "message": "plan id plan-0020 in canon prose"
+    },
+    {
+      "check": "no-work-ids",
+      "path": "test/checkpoints/README.md",
+      "message": "tracker id FOR-567 in canon prose"
+    },
+    {
+      "check": "schema",
+      "path": "docs/adr/adr-0001-payer-attribution-permissionless-submission.md",
+      "message": "no YAML frontmatter (adr)"
+    },
+    {
+      "check": "schema",
+      "path": "docs/adr/adr-0002-cose-verifier-keys-caller-dispatch.md",
+      "message": "no YAML frontmatter (adr)"
+    },
+    {
+      "check": "schema",
+      "path": "docs/adr/adr-0003-bootstrap-keys-opaque-constructor.md",
+      "message": "no YAML frontmatter (adr)"
+    },
+    {
+      "check": "schema",
+      "path": "docs/adr/adr-0004-root-log-self-grant-extension.md",
+      "message": "no YAML frontmatter (adr)"
+    },
+    {
+      "check": "schema",
+      "path": "docs/adr/adr-0005-grant-constrains-checkpoint-signer.md",
+      "message": "no YAML frontmatter (adr)"
+    },
+    {
+      "check": "schema",
+      "path": "docs/adr/adr-0006-cose-shaped-delegation-proof.md",
+      "message": "no YAML frontmatter (adr)"
+    },
+    {
+      "check": "schema",
+      "path": "docs/adr/adr-0007-contract-release-build-archives.md",
+      "message": "no YAML frontmatter (adr)"
+    },
+    {
+      "check": "schema",
+      "path": "docs/adr/adr-0008-webauthn-assertion-delegation-alg.md",
+      "message": "no YAML frontmatter (adr)"
+    },
+    {
+      "check": "schema",
+      "path": "docs/arc/arc-0001-grant-minimum-range.md",
+      "message": "no YAML frontmatter (arc)"
+    },
+    {
+      "check": "schema",
+      "path": "docs/arc/arc-0002-delegation-cert-label-alignment.md",
+      "message": "no YAML frontmatter (arc)"
+    },
+    {
+      "check": "schema",
+      "path": "docs/arc/arc-0016-checkpoint-incentivisation-implementation.md",
+      "message": "no YAML frontmatter (arc)"
+    },
+    {
+      "check": "schema",
+      "path": "docs/arc/arc-0017-auth-overview.md",
+      "message": "no YAML frontmatter (arc)"
+    },
+    {
+      "check": "schema",
+      "path": "docs/arc/arc-0017-log-hierarchy-and-authority.md",
+      "message": "no YAML frontmatter (arc)"
+    },
+    {
+      "check": "schema",
+      "path": "docs/arc/arc-0017-retrospective-1.md",
+      "message": "no YAML frontmatter (arc)"
+    }
+  ]
+}
