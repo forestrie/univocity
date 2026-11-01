@@ -20,9 +20,15 @@
 
 - **`.cursorrules`** — Solidity imports and comment wrapping; see
   [docs/agents/solidity.md](docs/agents/solidity.md) for layout.
-- **`.cursor/rules/`** — [branch-naming](.cursor/rules/branch-naming.mdc),
-  [solidity-comments](.cursor/rules/solidity-comments.mdc) (cross-repo NatSpec;
-  wrapping stays in `.cursorrules`), [types-single-responsibility](.cursor/rules/types-single-responsibility.mdc).
+- **`.claude/rules/`** — team rules (branch naming, commits, NatSpec
+  `solidity-comments`, rules of the road) synced from
+  [forestrie-agents](https://github.com/forestrie/forestrie-agents) (private)
+  by `agentfiles sync` with `sync/univocity.manifest`; skills in
+  [.agents/skills/](.agents/skills/). Do not edit the copies; change
+  forestrie-agents and re-sync.
+- **`.cursor/rules/`** — Cursor only; older copies of the team rules plus
+  [types-single-responsibility](.cursor/rules/types-single-responsibility.mdc)
+  and [doppler-run-tasks](.cursor/rules/doppler-run-tasks.mdc).
 
 ## Source layout
 
@@ -61,9 +67,9 @@
 - **`docs/arc/`** — Contract architecture (ARC-0016, ARC-0017, etc.).
 - **`docs/adr/`** — Contract decision records.
 - **`docs/plans/`** — Implementation plans; historical in `docs/history/plans/`.
-- **Platform** ADRs/ARCs/glossary: [devdocs](../../devdocs/), [glossary.md](../../devdocs/glossary.md).
+- **Platform** ADRs/ARCs/glossary: [devdocs](https://github.com/forestrie/devdocs) (private), [protocol/glossary.md](https://github.com/forestrie/protocol/blob/main/glossary.md).
 - **Agent index**: [docs/agents/README.md](docs/agents/README.md).
-- When adding design docs, use next free NNNN; see `.cursor/rules/docs-workflow.mdc`.
+- When adding design docs, use next free NNNN; see `.claude/rules/plan-docs.md` and `.claude/rules/adr-format.md`.
 
 ## Deployment
 
