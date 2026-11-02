@@ -2,7 +2,7 @@
 
 **Status:** DRAFT  
 **Date:** 2026-07-04  
-**Related:** [FOR-314](https://linear.app/forestrie/issue/FOR-314/delegation-proof-and-multi-seal-spike), [PR #28](https://github.com/forestrie/univocity/pull/28), [devdocs plan-0033](https://github.com/forestrie/devdocs/blob/main/plans/plan-0033-checkpoint-publisher.md)
+**Related:** [FOR-314](https://linear.app/forestrie/issue/FOR-314/delegation-proof-and-multi-seal-spike), [PR #28](https://github.com/forestrie/univocity/pull/28), [devdocs plan-0033](https://github.com/forestrie/work/blob/main/plans/plan-0033-checkpoint-publisher.md)
 
 ## Scope
 

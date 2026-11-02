@@ -483,7 +483,7 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
     ///    (extractAlgorithmAndUintLabel) and reverts MissingSignedTreeSize
     ///    when the label is absent; this check is the equality.
     /// @dev Labels:
-    /// https://github.com/forestrie/devdocs/blob/main/adr/adr-0066-sec-signed-checkpoint-size.md
+    /// https://github.com/forestrie/protocol/blob/main/decisions/adr-0066-sec-signed-checkpoint-size.md
     function _verifySignedTreeSize(uint64 signedSize2, uint64 claimedSize)
         internal
         pure

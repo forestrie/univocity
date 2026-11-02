@@ -5,7 +5,7 @@ comments say what each step does; this page says why the shape the two sizes
 imply is exactly the shape the fold enforces, with pictures. It complements
 [draft-bryce-cose-receipts-mmr-profile](https://github.com/robinbryce/draft-bryce-cose-receipts-mmr-profile)
 ("Verifying the Receipt of consistency") and
-[ADR-0066](https://github.com/forestrie/devdocs/blob/main/adr/adr-0066-sec-signed-checkpoint-size.md)
+[ADR-0066](https://github.com/forestrie/protocol/blob/main/decisions/adr-0066-sec-signed-checkpoint-size.md)
 D5, whose verification MUSTs this fold implements. The draft's next revision
 raises its path-length SHOULD to a MUST for receipts of consistency; the
 contract already enforces it.

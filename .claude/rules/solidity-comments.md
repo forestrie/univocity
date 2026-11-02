@@ -17,7 +17,7 @@ user-invocable: false
 2. **Signpost crypto modules** — link `LibCose`, `LibCbor`, checkpoint libraries
    rather than duplicating COSE structure in every contract.
 3. **Link platform auth model** — [ARC-0017 auth overview](https://github.com/forestrie/univocity/blob/main/docs/arc/arc-0017-auth-overview.md),
-   [devdocs ARC-0019](https://github.com/forestrie/devdocs/blob/main/archive/2603/arc/arc-0019-grant-verification-model.md).
+   [devdocs ARC-0019](https://github.com/forestrie/protocol/blob/main/decisions/arc-0019-grant-verification-model.md).
 4. **MMR wire format** — point to
    [draft-bryce-cose-receipts-mmr-profile](https://github.com/robinbryce/draft-bryce-cose-receipts-mmr-profile)
    when discussing receipt shapes.
