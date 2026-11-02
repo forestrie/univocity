@@ -46,7 +46,7 @@ Caller identity is not part of the model. See
 | Agent router | [AGENTS.md](https://github.com/forestrie/univocity/blob/main/AGENTS.md) |
 | Auth / grants | [docs/arc/arc-0017-auth-overview.md](https://github.com/forestrie/univocity/blob/main/docs/arc/arc-0017-auth-overview.md) |
 | Log hierarchy | [docs/arc/arc-0017-log-hierarchy-and-authority.md](https://github.com/forestrie/univocity/blob/main/docs/arc/arc-0017-log-hierarchy-and-authority.md) |
-| Grant verification (platform) | [devdocs ARC-0019](https://github.com/forestrie/devdocs/blob/main/archive/2603/arc/arc-0019-grant-verification-model.md) |
+| Grant verification (platform) | [devdocs ARC-0019](https://github.com/forestrie/protocol/blob/main/decisions/arc-0019-grant-verification-model.md) |
 | Contract release | [ADR-0007](https://github.com/forestrie/univocity/blob/main/docs/adr/adr-0007-contract-release-build-archives.md) |
 
 ## MMR / COSE receipts

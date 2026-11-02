@@ -35,5 +35,5 @@ int64 constant ALG_ES256_WEBAUTHN = -65800;
 // allotted to tree-size-1 and withdrawn before use). Registry:
 // https://github.com/forestrie/protocol/blob/main/spec/label-registry.md
 // Decision:
-// https://github.com/forestrie/devdocs/blob/main/adr/adr-0066-sec-signed-checkpoint-size.md
+// https://github.com/forestrie/protocol/blob/main/decisions/adr-0066-sec-signed-checkpoint-size.md
 int64 constant LABEL_TREE_SIZE_2 = -65933;

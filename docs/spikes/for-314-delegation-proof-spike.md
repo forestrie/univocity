@@ -3,7 +3,7 @@
 **Status:** COMPLETE (Outcome **B**)  
 **Date:** 2026-07-04  
 **Linear:** [FOR-314](https://linear.app/forestrie/issue/FOR-314/delegation-proof-and-multi-seal-spike)  
-**Plan:** [plan-0033 Phase 0](https://github.com/forestrie/devdocs/blob/main/plans/plan-0033-checkpoint-publisher.md#phase-0--spike-delegation-proof-provenance)
+**Plan:** [plan-0033 Phase 0](https://github.com/forestrie/work/blob/main/plans/plan-0033-checkpoint-publisher.md#phase-0--spike-delegation-proof-provenance)
 
 ## Question
 
