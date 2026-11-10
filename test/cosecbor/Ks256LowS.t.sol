@@ -7,7 +7,7 @@ import {
     verifyKS256,
     verifyKS256Raw
 } from "@univocity/cosecbor/cosecbor.sol";
-import {ALG_KS256} from "@univocity/cosecbor/constants.sol";
+import {ALG_KS256, SECP256K1_HALF_N} from "@univocity/cosecbor/constants.sol";
 import {Ks256LowSVectors} from "../fixtures/Ks256LowSVectors.sol";
 
 /// @notice ERC-1271 signer that accepts exactly one (hash, signature).
@@ -50,6 +50,7 @@ contract Ks256LowSTest is Test {
     function test_vector_bytesMatchTheContractEncoding() public pure {
         assertEq(Ks256LowSVectors.ALG, ALG_KS256);
         assertEq(Ks256LowSVectors.LOW_S_BOUND, (SECP256K1_N - 1) / 2);
+        assertEq(SECP256K1_HALF_N, (SECP256K1_N - 1) / 2);
         bytes memory sigStructure = buildSigStructure(
             Ks256LowSVectors.protectedHeader(), Ks256LowSVectors.payload()
         );

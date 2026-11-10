@@ -27,12 +27,12 @@ int64 constant ALG_ES256_WEBAUTHN = -65800;
 
 // === secp256k1 low-s bound (KS256) ===
 // (n - 1)/2 for the secp256k1 group order n: the largest s a recovered
-// KS256 signature may carry. (r, n - s) recovers the same address as
-// (r, s), so without the bound anyone could make a second valid signature
-// from any first one. The same value as OpenZeppelin ECDSA's bound and
-// go-ethereum's secp256k1halfN. Spec: protocol
-// spec/checkpoints-and-receipts.md; vector:
-// protocol vectors/fixtures/ks256-low-s.json.
+// KS256 signature may carry. (r, n - s, v ^ 1) recovers the same address
+// as (r, s, v), so without the bound anyone could make a second valid
+// signature from any first one. The same value as OpenZeppelin ECDSA's
+// bound and go-ethereum's secp256k1halfN. Spec: protocol
+// spec/checkpoints-and-receipts.md; vector: protocol
+// vectors/fixtures/ks256-low-s.json.
 uint256 constant SECP256K1_HALF_N =
     0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0;
 
