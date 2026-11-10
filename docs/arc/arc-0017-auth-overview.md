@@ -147,7 +147,11 @@ For **KS256**, the signer identity is a 20-byte Ethereum address. The
 address may be an **ECDSA EOA**, verified with `ecrecover`, or an
 **ERC-1271 smart-account signer (e.g. a multisig)**, verified with
 `isValidSignature(bytes32,bytes)`. In both cases the
-signed hash is `keccak256(COSE_Sign1 Sig_structure)`. The root key bytes in
+signed hash is `keccak256(COSE_Sign1 Sig_structure)`. An EOA
+signature must be low-s, `s ≤ (n − 1)/2` for the secp256k1 order `n`:
+its high-s twin recovers the same address, so `verifyKS256Raw` refuses
+it, as canopy and arbor do. A smart-account signer judges its own
+signature format. The root key bytes in
 `grantData`, bootstrap config, and stored log config remain
 `abi.encodePacked(address)`.
 
