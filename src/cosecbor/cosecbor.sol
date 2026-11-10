@@ -10,7 +10,8 @@ import {
     MAJOR_TYPE_MAP,
     MAJOR_TYPE_SIMPLE,
     ALG_ES256,
-    ALG_KS256
+    ALG_KS256,
+    SECP256K1_HALF_N
 } from "@univocity/cosecbor/constants.sol";
 import {P256} from "@openzeppelin/contracts/utils/cryptography/P256.sol";
 import {
@@ -555,6 +556,14 @@ function verifyES256Raw(
     return P256.verify(hash, r, s, x, y);
 }
 
+/// @notice Verify a KS256 signature over `message`: keccak256, then
+///    ERC-1271 when `expectedSigner` holds code, else ecrecover.
+/// @dev A contract signer judges its own signature format, so the length
+///    and low-s rules below apply only to recovery. A recovered signature
+///    must be 65 bytes r || s || v with s <= SECP256K1_HALF_N; its high-s
+///    twin recovers the same address and is refused, as canopy and arbor
+///    refuse it. v may be 0/1 or 27/28.
+/// @return True when the signature is valid for `expectedSigner`.
 function verifyKS256Raw(
     bytes memory message,
     bytes memory signature,
@@ -578,6 +587,7 @@ function verifyKS256Raw(
         s := mload(add(signature, 64))
         v := byte(0, mload(add(signature, 96)))
     }
+    if (uint256(s) > SECP256K1_HALF_N) return false;
     if (v < 27) v += 27;
     address recovered = ecrecover(hash, v, r, s);
     return recovered == expectedSigner && recovered != address(0);
