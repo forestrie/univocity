@@ -219,6 +219,31 @@ class ReceiptShapeTest(unittest.TestCase):
                 log["address"] = "0x000000000000000000000000000000000000bEEF"
         self.assertEqual(check(v, "grant-1").outcome, "no-usdc-to-payee")
 
+    def test_transfer_to_another_address_is_not_a_payment(self) -> None:
+        v = copy.deepcopy(load("one-payment"))
+        for log in v["logs"]:
+            if log["topics"][0] == "0x" + TRANSFER_TOPIC.hex():
+                log["topics"][2] = _topic_addr(
+                    "0x000000000000000000000000000000000000dEaD"
+                )
+        self.assertEqual(check(v, "grant-1").outcome, "no-usdc-to-payee")
+
+    def test_transfer_to_another_address_does_not_move_the_pairing(self) -> None:
+        v = copy.deepcopy(load("one-payment"))
+        pos = next(
+            i
+            for i, log in enumerate(v["logs"])
+            if log["topics"][0] == "0x" + TRANSFER_TOPIC.hex()
+        )
+        stray = copy.deepcopy(v["logs"][pos])
+        stray["topics"][2] = _topic_addr(
+            "0x000000000000000000000000000000000000dEaD"
+        )
+        v["logs"].insert(pos, stray)
+        got = check(v, "grant-1")
+        self.assertEqual(got.outcome, "bound")
+        self.assertEqual(got.payment.transfer_position, pos + 1)
+
 
 def _topic_addr(a: str) -> str:
     return "0x" + "00" * 12 + a[2:].lower()
