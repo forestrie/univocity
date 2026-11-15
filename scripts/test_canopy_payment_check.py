@@ -472,6 +472,33 @@ class BindingPinTest(unittest.TestCase):
         over["logs"].append(copy.deepcopy(transfer))
         self.assertEqual(check(over, "grant-1").outcome, "oversized")
 
+    def test_usdc_authorization_used_counts_toward_the_cap(self) -> None:
+        """The sketch's relevantLogs counts USDC AuthorizationUsed beside
+        RedeemedDelegation and Transfer (06 section 5.5)."""
+        v = copy.deepcopy(load("one-payment"))
+        transfer = copy.deepcopy(self._transfer(v))
+        managers = {m.lower() for m in v["context"]["delegationManagers"]}
+        relevant = sum(
+            1
+            for log in v["logs"]
+            if log["topics"][0] == "0x" + TRANSFER_TOPIC.hex()
+            or log["address"].lower() in managers
+        )
+        v["logs"] += [copy.deepcopy(transfer)] * (MAX_RELEVANT_LOGS - relevant)
+        self.assertEqual(check(v, "grant-1").outcome, "bound")
+        v["logs"].append(
+            {
+                "address": v["context"]["usdc"],
+                "topics": [
+                    "0x" + AUTHORIZATION_USED_TOPIC.hex(),
+                    _topic_addr("0x000000000000000000000000000000000000dEaD"),
+                    "0x" + "00" * 32,
+                ],
+                "data": "0x",
+            }
+        )
+        self.assertEqual(check(v, "grant-1").outcome, "oversized")
+
 
 if __name__ == "__main__":
     unittest.main()
