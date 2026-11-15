@@ -378,14 +378,14 @@ contract PublishedEnforcerForkTest is DelegatedSpendForkBase {
     ///    20,000 to 55,000: the same [leaf, D_AB, D_HA] chain with and
     ///    without the publication caveat on both hops, each measured from
     ///    the same state with every account cold. The statements sit in a
-    ///    log of 3 anchored leaves (2 peaks, paths of 1 and 2 nodes).
+    ///    log of 3 anchored leaves (2 peaks, paths of 1 and 0 committing nodes).
     function test_fork_gasPerPublishedHop_smallLog() public onlyFork {
         _gasPerPublishedHop("delegated-spend-small-log", 2, 5);
     }
 
     /// @notice As above in a log of 1,023 anchored leaves: 10 peaks, which
     ///    the verifier reads whole through logState, and paths of 9 nodes
-    ///    built at a later size of 1,100 leaves.
+    ///    built at a later size of 1,101 leaves.
     function test_fork_gasPerPublishedHop_largeLog() public onlyFork {
         _gasPerPublishedHop("delegated-spend-large-log", 1022, 1098);
     }
