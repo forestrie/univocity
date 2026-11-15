@@ -219,5 +219,42 @@ class ReceiptShapeTest(unittest.TestCase):
         self.assertEqual(check(v, "grant-1").outcome, "no-usdc-to-payee")
 
 
+def _topic_addr(a: str) -> str:
+    return "0x" + "00" * 12 + a[2:].lower()
+
+
+class BindingPinTest(unittest.TestCase):
+    """Edits to one-payment.json that must leave the payment unbound."""
+
+    def _transfer(self, v: dict) -> dict:
+        return next(
+            log
+            for log in v["logs"]
+            if log["topics"][0] == "0x" + TRANSFER_TOPIC.hex()
+        )
+
+    def test_unbound_when_the_edit_breaks_a_filter_or_pin(self) -> None:
+        base = load("one-payment")
+        other = "0x000000000000000000000000000000000000dEaD"
+
+        def transfer_from_other(v: dict) -> None:
+            self._transfer(v)["topics"][1] = _topic_addr(other)
+
+        def transfer_below_pinned_price(v: dict) -> None:
+            t = self._transfer(v)
+            amount = int(t["data"], 16)
+            t["data"] = "0x" + (amount - 1).to_bytes(32, "big").hex()
+
+        rows = {
+            "transfer from another address": transfer_from_other,
+            "transfer below the pinned price": transfer_below_pinned_price,
+        }
+        for name, edit in rows.items():
+            with self.subTest(edit=name):
+                v = copy.deepcopy(base)
+                edit(v)
+                self.assertEqual(check(v, "grant-1").outcome, "unbound")
+
+
 if __name__ == "__main__":
     unittest.main()
