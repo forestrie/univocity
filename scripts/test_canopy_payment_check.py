@@ -125,7 +125,8 @@ class VectorTest(unittest.TestCase):
 
 
 class BindingRuleTest(unittest.TestCase):
-    """Which delegation binds, and which Transfer it pairs with (Q52)."""
+    """Which delegation binds, and which Transfer it pairs with: ARC-0032
+    section 5.4 step 3."""
 
     def _hash(self, vector: dict, role: str) -> bytes:
         return bytes.fromhex(vector["context"]["delegations"][role][2:])

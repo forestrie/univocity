@@ -53,9 +53,9 @@ abstract contract DelegatedSpendForkBase is AnchoredLogFixture {
     uint256 internal constant CAP_HA = 100_000_000;
     uint256 internal constant CAP_AB = 20_000_000;
 
-    /// @notice Provisional payment nonce (slice 06 §4 of
-    ///    plan-2611-11): SHA-256(TAG ‖ kind ‖ purposeDigest ‖ payer).
-    ///    Protocol fixes the tag and kinds with vectors.
+    /// @notice The payment nonce of devdocs ARC-0032 §5.3,
+    ///    SHA-256(TAG ‖ kind ‖ purposeDigest ‖ payer), with a provisional
+    ///    tag and kind until protocol fixes them with vectors.
     bytes internal constant NONCE_TAG = "forestrie/payment-nonce/v1";
     uint8 internal constant KIND_GRANT = 1;
 
@@ -186,7 +186,8 @@ abstract contract DelegatedSpendForkBase is AnchoredLogFixture {
             );
     }
 
-    /// @notice One-payee list (Q39): the whole recipient word at offset 4.
+    /// @notice One-payee list (ARC-0032 §3.1): the whole recipient word
+    ///    at offset 4.
     function _payee(address p) internal pure returns (Caveat memory) {
         return _caveat(
             FrameworkV130.ALLOWED_CALLDATA_ENFORCER,
@@ -194,8 +195,8 @@ abstract contract DelegatedSpendForkBase is AnchoredLogFixture {
         );
     }
 
-    /// @notice Several payees (Q39): the logical-OR wrapper, one group per
-    ///    payee holding only that payee's pin.
+    /// @notice Several payees (ARC-0032 §3.1): the logical-OR wrapper,
+    ///    one group per payee holding only that payee's pin.
     function _payees(address[] memory ps)
         internal
         pure

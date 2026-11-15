@@ -191,7 +191,8 @@ contract PublishedEnforcerTest is Test {
         );
     }
 
-    /// @notice Q36: the local interface has the framework's selectors.
+    /// @notice The local ABI-identical interface (devdocs ARC-0032 §4.1)
+    ///    has the framework's selectors.
     ///    Upstream ModeCode is a user-defined value type over bytes32, so
     ///    the canonical signatures use bytes32.
     function test_localInterface_hasFrameworkSelectors() public pure {

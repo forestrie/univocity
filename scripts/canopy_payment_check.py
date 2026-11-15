@@ -3,17 +3,17 @@
 
 Binds a payment from a transaction receipt the way devdocs ARC-0032
 section 5.4 says canopy will, reading only the receipt's logs and never
-the calldata (plan-2611-11 ruling Q26):
+the calldata:
 
 1. The transaction succeeded and emitted a USDC Transfer to the payee
    (the Payment scheme's EVM charge check). A Transfer made under an
    EIP-3009 authorization belongs to the x402 path: it never pairs and
-   is never refund money here (Q55).
+   is never refund money here.
 2. Each redeemed chain is rebuilt from the RedeemedDelegation events of
    a listed delegation manager, through their authority links.
 3. In each chain only the delegation nearest the root that pins
    transfer(payee, amount) on USDC through the listed
-   ExactExecutionEnforcer can bind (Q52). It binds a request when its
+   ExactExecutionEnforcer can bind. It binds a request when its
    salt is the request's payment nonce over the chain's root and it
    carries LimitedCallsEnforcer(1).
 4. Pairing is receipt-wide and deterministic: binding delegations in log
@@ -27,7 +27,8 @@ not-this-request. Price, dust, depth and the used-payment record are
 canopy's (ADR-0076) and are left to the caller.
 
 The payment nonce and the binding rule are provisional until protocol
-publishes them as erc7710-leaf-salt/v1 with vectors (plan slice 03).
+publishes them as erc7710-leaf-salt/v1 with vectors (ARC-0032 section
+10).
 Standard library only, so CI runs it without installing anything.
 
 Usage:
@@ -123,15 +124,17 @@ CAVEAT_TYPEHASH = keccak256(b"Caveat(address enforcer,bytes terms)")
 ROOT_AUTHORITY = b"\xff" * 32
 TRANSFER_SELECTOR = bytes.fromhex("a9059cbb")
 
-# canopy decodes at most this many relevant logs per receipt (Q62).
+# canopy decodes at most this many relevant logs per receipt (ARC-0032
+# section 5.4).
 MAX_RELEVANT_LOGS = 256
 
-# Provisional payment nonce tag (plan-2611-11 slice 06 section 4).
+# Provisional payment nonce tag: ARC-0032 section 5.3 gives the formula
+# and protocol will fix the tag and kinds.
 NONCE_TAG = b"forestrie/payment-nonce/v1"
 
 
 def payment_nonce(kind: int, purpose_digest: bytes, payer: str) -> int:
-    """SHA-256(TAG ‖ kind ‖ purposeDigest ‖ payer), provisional (Q28)."""
+    """SHA-256(TAG ‖ kind ‖ purposeDigest ‖ payer), ARC-0032 §5.3."""
     pre = NONCE_TAG + bytes([kind]) + purpose_digest + _addr_bytes(payer)
     return int.from_bytes(hashlib.sha256(pre).digest(), "big")
 
@@ -156,7 +159,8 @@ def _addr(a: str) -> str:
 
 @dataclass(frozen=True)
 class ChainContext:
-    """What canopy's payment-chain table holds for one chain (Q42)."""
+    """What canopy's payment-chain table holds for one chain (ARC-0032
+    section 5.4)."""
 
     usdc: str
     payee: str

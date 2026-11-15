@@ -14,10 +14,10 @@ import {
     SelectedGroup
 } from "../shared/DelegationFrameworkV130.sol";
 
-/// @notice Slice 02 of plan-2611-11 on a Base Sepolia fork: the delegation
+/// @notice The delegated spend chain on a Base Sepolia fork: the delegation
 ///    manager v1.3.0 runs PublishedEnforcer on every hop that carries it
 ///    (devdocs ARC-0032 §4.1), refuses unpublished, unanchored and disabled
-///    hops, and the payee-list shapes of Q39 behave as ARC-0032 §3.1
+///    hops, and the payee-list shapes behave as ARC-0032 §3.1
 ///    says. Nothing is broadcast.
 contract PublishedEnforcerForkTest is DelegatedSpendForkBase {
     /// @dev [leaf, D_AB, D_HA] with both hops published and anchored, the
@@ -156,7 +156,7 @@ contract PublishedEnforcerForkTest is DelegatedSpendForkBase {
         _redeem(gasAccount, _three(leaf, dAB, dHA), payee, PRICE);
     }
 
-    // --- payee lists (Q39) ---
+    // --- payee lists (ARC-0032 §3.1) ---
 
     /// @dev D_HA with a payee caveat as caveat 3, published, capped,
     ///    expiring; agent A redeems it directly.

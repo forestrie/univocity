@@ -57,11 +57,12 @@ contract Batch {
     }
 }
 
-/// @notice The binding runs of slice 02 (plan-2611-11, Q52), on a Base
-///    Sepolia fork. Each records its redemption's logs as a receipt vector
-///    under test/fixtures/delegated-spend/ with the outcome a request for
-///    each purpose must get, for the stand-in canopy checker
-///    (scripts/canopy_payment_check.py) and protocol's binding vectors.
+/// @notice The binding rule of devdocs ARC-0032 §5.4 step 3, run on a
+///    Base Sepolia fork. Each test records its redemption's logs as a
+///    receipt vector under test/fixtures/delegated-spend/ with the outcome
+///    a request for each purpose must get, for the stand-in canopy
+///    checker (scripts/canopy_payment_check.py) and protocol's binding
+///    vectors.
 contract PaymentBindingForkTest is DelegatedSpendForkBase {
     /// @dev Published D_HA and D_AB, anchored; hop D_AB may carry extra
     ///    caveats and a salt to stand in for an agent salting its own hop.

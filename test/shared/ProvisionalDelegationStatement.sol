@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 // TEST-ONLY. A provisional delegation statement until protocol publishes
-// the delegation statement type (slice 03 of plan-2611-11): a COSE_Sign1
+// the delegation statement type (devdocs ARC-0032 §10): a COSE_Sign1
 // whose attached payload is the CBOR map
 //   {1: 1, 2: h'TAG ‖ delegationHash', 3: chainId}
 // with key 2 at the place devdocs ARC-0032 §4.3 fixes for the tag. The
