@@ -107,10 +107,17 @@ contract VerifierAtAnchoredTest is Test {
 
     function test_interiorNode_refused() public {
         (Mmr memory m,) = _build(4);
-        _anchor(m, 4);
+        uint256 size = mmrSizeForLeafCount(4);
         // Node 2 is the parent of leaves 0 and 1: a real node, but not a
-        // leaf, so the leaf-only rule refuses it.
-        bytes32[] memory path = m.pathAt(2, mmrSizeForLeafCount(4));
+        // leaf. Its path has length 1, so peakIndex(4, 1) picks slot 1;
+        // fill that slot with the real root so that, were the leaf-only
+        // rule missing, the node would verify.
+        bytes32[] memory acc = new bytes32[](2);
+        acc[0] = m.nodes[size - 1];
+        acc[1] = m.nodes[size - 1];
+        // forge-lint: disable-next-line(unsafe-typecast)
+        univocal.setLogState(LOG, acc, uint64(size));
+        bytes32[] memory path = m.pathAt(2, size);
         assertFalse(
             verifier.verifyInclusionAtAnchored(LOG, 2, m.nodes[2], path)
         );
