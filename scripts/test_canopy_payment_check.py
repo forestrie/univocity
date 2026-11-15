@@ -336,6 +336,111 @@ class BindingPinTest(unittest.TestCase):
                 edit(v)
                 self.assertEqual(check(v, "grant-1").outcome, "unbound")
 
+    def test_hostile_logs_leave_the_payment_bound(self) -> None:
+        base = load("one-payment")
+        ctx = base["context"]
+        manager = ctx["delegationManagers"][0].lower()
+        usdc = ctx["usdc"]
+        other = "0x000000000000000000000000000000000000dEaD"
+
+        def insert_before_transfer(v: dict, log: dict) -> None:
+            pos = next(
+                i
+                for i, x in enumerate(v["logs"])
+                if x["topics"][0] == "0x" + TRANSFER_TOPIC.hex()
+            )
+            v["logs"].insert(pos, log)
+
+        def auth_used(address: str, authorizer: str) -> dict:
+            return {
+                "address": address,
+                "topics": [
+                    "0x" + AUTHORIZATION_USED_TOPIC.hex(),
+                    _topic_addr(authorizer),
+                    "0x" + "00" * 32,
+                ],
+                "data": "0x",
+            }
+
+        def disabled_delegation_copy(v: dict) -> None:
+            leaf = copy.deepcopy(
+                next(x for x in v["logs"] if x["address"].lower() == manager)
+            )
+            leaf["topics"][0] = "0x" + keccak256(
+                b"DisabledDelegation(bytes32,address,address,"
+                b"(address,address,bytes32,(address,bytes,bytes)[],"
+                b"uint256,bytes))"
+            ).hex()
+            v["logs"].append(leaf)
+
+        def approval_from_root(v: dict) -> None:
+            root = self._transfer(v)["topics"][1]
+            insert_before_transfer(
+                v,
+                {
+                    "address": usdc,
+                    "topics": [
+                        "0x" + keccak256(b"Approval(address,address,uint256)").hex(),
+                        root,
+                        _topic_addr(other),
+                    ],
+                    "data": "0x" + "00" * 32,
+                },
+            )
+
+        def authorization_used_elsewhere(v: dict) -> None:
+            sender = "0x" + self._transfer(v)["topics"][1][26:]
+            insert_before_transfer(v, auth_used(other, sender))
+
+        def authorization_used_by_another(v: dict) -> None:
+            insert_before_transfer(v, auth_used(usdc, other))
+
+        rows = {
+            "disabled-delegation copy": disabled_delegation_copy,
+            "approval from the root": approval_from_root,
+            "authorization used on another contract": authorization_used_elsewhere,
+            "authorization used by another authorizer": authorization_used_by_another,
+        }
+        for name, edit in rows.items():
+            with self.subTest(edit=name):
+                v = copy.deepcopy(base)
+                edit(v)
+                self.assertEqual(check(v, "grant-1").outcome, "bound")
+
+    def test_malformed_manager_chain_raises(self) -> None:
+        base = load("one-payment")
+        manager = base["context"]["delegationManagers"][0].lower()
+
+        def manager_positions(v: dict) -> list[int]:
+            return [
+                i for i, x in enumerate(v["logs"]) if x["address"].lower() == manager
+            ]
+
+        def truncated(v: dict) -> None:
+            del v["logs"][manager_positions(v)[-1]]
+
+        def reordered(v: dict) -> None:
+            a, b = manager_positions(v)[:2]
+            v["logs"][a], v["logs"][b] = v["logs"][b], v["logs"][a]
+
+        def root_delegator_differs(v: dict) -> None:
+            first = manager_positions(v)[0]
+            v["logs"][first]["topics"][1] = _topic_addr(
+                "0x000000000000000000000000000000000000dEaD"
+            )
+
+        rows = {
+            "truncated": truncated,
+            "reordered": reordered,
+            "root delegator differs": root_delegator_differs,
+        }
+        for name, edit in rows.items():
+            with self.subTest(edit=name):
+                v = copy.deepcopy(base)
+                edit(v)
+                with self.assertRaises(ValueError):
+                    check(v, "grant-1")
+
     def test_relevant_log_count_limit_is_inclusive(self) -> None:
         v = copy.deepcopy(load("one-payment"))
         transfer = copy.deepcopy(self._transfer(v))
