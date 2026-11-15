@@ -310,7 +310,18 @@ class BindingPinTest(unittest.TestCase):
                 v, bytes.fromhex(ctx["payee"][2:]), bytes.fromhex(other[2:])
             )
 
+        def look_alike_exact_enforcer(v: dict) -> None:
+            self._patch_leaf(
+                v, bytes.fromhex(ctx["exactExecutionEnforcer"][2:]), bytes.fromhex(other[2:])
+            )
+
+        def pinned_value_nonzero(v: dict) -> None:
+            usdc = bytes.fromhex(ctx["usdc"][2:])
+            self._patch_leaf(v, usdc + word(0), usdc + word(1))
+
         rows = {
+            "look-alike exact-execution enforcer": look_alike_exact_enforcer,
+            "pinned value non-zero": pinned_value_nonzero,
             "transfer from another address": transfer_from_other,
             "transfer below the pinned price": transfer_below_pinned_price,
             "call limit 2": call_limit_two,
