@@ -20,6 +20,7 @@ from canopy_payment_check import (  # noqa: E402
     AUTHORIZATION_USED_TOPIC,
     MAX_RELEVANT_LOGS,
     REDEEMED_DELEGATION_TOPIC,
+    TRANSFER_SELECTOR,
     TRANSFER_TOPIC,
     ChainContext,
     Purpose,
@@ -224,7 +225,8 @@ def _topic_addr(a: str) -> str:
 
 
 class BindingPinTest(unittest.TestCase):
-    """Edits to one-payment.json that must leave the payment unbound."""
+    """Edits to one-payment.json that must leave the payment unbound: the
+    pairing filters and the pins that make a delegation the binding."""
 
     def _transfer(self, v: dict) -> dict:
         return next(
@@ -233,8 +235,23 @@ class BindingPinTest(unittest.TestCase):
             if log["topics"][0] == "0x" + TRANSFER_TOPIC.hex()
         )
 
+    def _patch_leaf(self, v: dict, old: bytes, new: bytes) -> None:
+        """Replace `old` once in the leaf's RedeemedDelegation data. The
+        leaf's hash is no delegation's authority, so the links hold."""
+        ctx = ChainContext.from_json(v["context"])
+        leaf = next(
+            log
+            for log in v["logs"]
+            if log["address"].lower() in {m.lower() for m in ctx.managers}
+        )
+        data = bytes.fromhex(leaf["data"][2:])
+        self.assertEqual(data.count(old), 1)
+        leaf["data"] = "0x" + data.replace(old, new).hex()
+
     def test_unbound_when_the_edit_breaks_a_filter_or_pin(self) -> None:
         base = load("one-payment")
+        ctx = base["context"]
+        word = lambda n: n.to_bytes(32, "big")  # noqa: E731
         other = "0x000000000000000000000000000000000000dEaD"
 
         def transfer_from_other(v: dict) -> None:
@@ -245,15 +262,59 @@ class BindingPinTest(unittest.TestCase):
             amount = int(t["data"], 16)
             t["data"] = "0x" + (amount - 1).to_bytes(32, "big").hex()
 
+        def call_limit_two(v: dict) -> None:
+            self._patch_leaf(v, word(32) + word(1), word(32) + word(2))
+
+        def look_alike_limit_enforcer(v: dict) -> None:
+            self._patch_leaf(
+                v,
+                bytes.fromhex(ctx["limitedCallsEnforcer"][2:]),
+                bytes.fromhex(other[2:]),
+            )
+
+        def pinned_token_changed(v: dict) -> None:
+            self._patch_leaf(
+                v, bytes.fromhex(ctx["usdc"][2:]), bytes.fromhex(other[2:])
+            )
+
+        def pinned_selector_changed(v: dict) -> None:
+            self._patch_leaf(v, TRANSFER_SELECTOR, bytes.fromhex("23b872dd"))
+
+        def pinned_payee_changed(v: dict) -> None:
+            self._patch_leaf(
+                v, bytes.fromhex(ctx["payee"][2:]), bytes.fromhex(other[2:])
+            )
+
         rows = {
             "transfer from another address": transfer_from_other,
             "transfer below the pinned price": transfer_below_pinned_price,
+            "call limit 2": call_limit_two,
+            "look-alike limit enforcer": look_alike_limit_enforcer,
+            "pinned token changed": pinned_token_changed,
+            "pinned selector changed": pinned_selector_changed,
+            "pinned payee changed": pinned_payee_changed,
         }
         for name, edit in rows.items():
             with self.subTest(edit=name):
                 v = copy.deepcopy(base)
                 edit(v)
                 self.assertEqual(check(v, "grant-1").outcome, "unbound")
+
+    def test_relevant_log_count_limit_is_inclusive(self) -> None:
+        v = copy.deepcopy(load("one-payment"))
+        transfer = copy.deepcopy(self._transfer(v))
+        relevant = sum(
+            1
+            for log in v["logs"]
+            if log["topics"][0] == "0x" + TRANSFER_TOPIC.hex()
+            or log["address"].lower() in {m.lower() for m in v["context"]["delegationManagers"]}
+        )
+        at_limit = copy.deepcopy(v)
+        at_limit["logs"] += [copy.deepcopy(transfer)] * (MAX_RELEVANT_LOGS - relevant)
+        self.assertEqual(check(at_limit, "grant-1").outcome, "bound")
+        over = copy.deepcopy(at_limit)
+        over["logs"].append(copy.deepcopy(transfer))
+        self.assertEqual(check(over, "grant-1").outcome, "oversized")
 
 
 if __name__ == "__main__":
