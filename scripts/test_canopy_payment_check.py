@@ -319,7 +319,22 @@ class BindingPinTest(unittest.TestCase):
             usdc = bytes.fromhex(ctx["usdc"][2:])
             self._patch_leaf(v, usdc + word(0), usdc + word(1))
 
+        def terms_with_trailing_byte(v: dict) -> None:
+            # Terms are 120 bytes (20+32+68); claim one more, from the
+            # zero padding, so the call is no longer transfer(payee, x).
+            self._patch_leaf(v, word(120), word(121))
+
+        def dirty_payee_word(v: dict) -> None:
+            payee = bytes.fromhex(ctx["payee"][2:])
+            self._patch_leaf(
+                v,
+                TRANSFER_SELECTOR + bytes(12) + payee,
+                TRANSFER_SELECTOR + b"\x01" + bytes(11) + payee,
+            )
+
         rows = {
+            "terms with a trailing byte": terms_with_trailing_byte,
+            "payee word with a dirty high byte": dirty_payee_word,
             "look-alike exact-execution enforcer": look_alike_exact_enforcer,
             "pinned value non-zero": pinned_value_nonzero,
             "transfer from another address": transfer_from_other,
