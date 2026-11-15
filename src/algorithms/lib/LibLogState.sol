@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {LogState, PublishGrant} from "@univocity/interfaces/types.sol";
 import {
     verifyInclusion as _verifyInclusion,
+    verifyInclusionAtSize as _verifyInclusionAtSize,
     verifyInclusionStorage as _verifyInclusionStorage
 } from "@univocity/algorithms/includedRoot.sol";
 
@@ -32,6 +33,21 @@ library LibLogState {
         bytes32[] calldata proof
     ) internal pure returns (bool) {
         return _verifyInclusion(index, node, proof, log.accumulator, log.size);
+    }
+
+    /// @notice Leaf inclusion at the log's anchored size, accepting a path
+    ///    built at a later size (includedRoot.verifyInclusionAtSize).
+    function verifyInclusionAtAnchored(
+        LogState memory log,
+        uint256 index,
+        bytes32 leaf,
+        bytes32[] calldata proof
+    ) internal pure returns (bool) {
+        if (log.size == 0) return false;
+        return
+            _verifyInclusionAtSize(
+                index, leaf, proof, log.accumulator, log.size
+            );
     }
 
     /// @notice Storage variant: reads accumulator/size from storage (uses

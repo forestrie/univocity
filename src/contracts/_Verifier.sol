@@ -3,6 +3,9 @@ pragma solidity ^0.8.24;
 
 import {IUnivocal} from "@univocity/interfaces/IUnivocal.sol";
 import {
+    IUnivocityVerifier
+} from "@univocity/interfaces/IUnivocityVerifier.sol";
+import {
     InclusionProof,
     LogState,
     PublishGrant
@@ -17,8 +20,23 @@ import {LibLogState} from "@univocity/algorithms/lib/LibLogState.sol";
 /// @dev Fetches LogState via _univocal().logState(logId), then delegates to
 ///    LibLogState. Returns false for non-inclusion or invalid inputs (e.g.
 ///    uninitialized log with size 0).
-abstract contract _Verifier {
+abstract contract _Verifier is IUnivocityVerifier {
     using LibLogState for LogState;
+
+    /// @inheritdoc IUnivocityVerifier
+    /// @dev The witness-age rule: an agent's path, built when the log was
+    ///    larger than the anchored size, still proves the leaf, so proofs
+    ///    are never re-signed or re-fetched to match the chain
+    ///    (includedRoot.verifyInclusionAtSize).
+    function verifyInclusionAtAnchored(
+        bytes32 logId,
+        uint256 index,
+        bytes32 leaf,
+        bytes32[] calldata path
+    ) external view returns (bool) {
+        LogState memory log = _univocal().logState(logId);
+        return log.verifyInclusionAtAnchored(index, leaf, path);
+    }
 
     /// @notice Returns the univocal instance whose log state is used for
     ///    verification. Must be overridden by the implementation.
