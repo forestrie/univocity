@@ -70,7 +70,9 @@ abstract contract DelegatedSpendForkBase is AnchoredLogFixture {
     ProvisionalVerifierFactory internal factory;
     PublishedEnforcer internal enforcer;
     SplitStatement internal st;
-    uint128 internal expiry;
+    /// @notice Hop expiry, fixed so receipt vectors do not depend on the
+    ///    fork block (18 May 2033).
+    uint128 internal constant HOP_EXPIRY = 2_000_000_000;
 
     modifier onlyFork() {
         if (!forked) vm.skip(true);
@@ -100,8 +102,6 @@ abstract contract DelegatedSpendForkBase is AnchoredLogFixture {
         factory = new ProvisionalVerifierFactory();
         enforcer = new PublishedEnforcer(factory);
         st = ProvisionalDelegationStatement.split(block.chainid);
-        // forge-lint: disable-next-line(unsafe-typecast)
-        expiry = uint128(block.timestamp + 1 days);
     }
 
     // --- accounts and funds ---
@@ -161,10 +161,10 @@ abstract contract DelegatedSpendForkBase is AnchoredLogFixture {
         );
     }
 
-    function _expiry() internal view returns (Caveat memory) {
+    function _expiry() internal pure returns (Caveat memory) {
         return _caveat(
             FrameworkV130.TIMESTAMP_ENFORCER,
-            abi.encodePacked(uint128(0), expiry)
+            abi.encodePacked(uint128(0), HOP_EXPIRY)
         );
     }
 
