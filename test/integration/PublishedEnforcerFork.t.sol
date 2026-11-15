@@ -130,26 +130,23 @@ contract PublishedEnforcerForkTest is DelegatedSpendForkBase {
     }
 
     function test_fork_hopNamingAnotherInstance_refused() public onlyFork {
-        (Delegation[] memory chain,) =
-            _publishedChain(_nonce(_purpose("g"), root), 2);
+        ImutableUnivocity instance = _newPublishingInstance();
         ImutableUnivocity other = _newPublishingInstance();
-        // Re-point D_HA at an instance with no statements, and rebuild the
-        // chain above it so the authority links still hold.
+        // Both statements are anchored in `instance`'s log, but D_HA names
+        // `other`: publication counts only in the instance a hop names.
         Delegation memory dHA = _hopHA(address(other));
-        dHA.caveats[0].args = chain[2].caveats[0].args;
-        Delegation memory dAB = chain[1];
-        dAB.authority = _hash(dHA);
-        // D_AB's hash changed, so its anchored statement no longer holds
-        // it either; refuse comes at D_AB first, leaf to root.
+        Delegation memory dAB = _hopAB(address(instance), _hash(dHA));
+        _publish(instance, _two(dHA, dAB), 2, 5);
         Delegation memory leaf =
             _leaf(_hash(dAB), payee, PRICE, _nonce(_purpose("g"), root));
         _sign(dHA, HUMAN_PK);
         _sign(dAB, AGENT_A_PK);
         _sign(leaf, AGENT_B_PK);
+        // D_AB, checked first (leaf to root), passes in its own instance.
         vm.expectRevert(
             abi.encodeWithSelector(
                 PublishedEnforcer.NotPublished.selector,
-                _hash(dAB),
+                _hash(dHA),
                 AUTHORITY_LOG
             )
         );
