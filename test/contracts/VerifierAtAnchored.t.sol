@@ -89,6 +89,13 @@ contract VerifierAtAnchoredTest is Test {
         assertFalse(
             verifier.verifyInclusionAtAnchored(LOG, ix[9], _leaf(9), path)
         );
+        // The anchored last leaf claimed at a later index: it verifies
+        // only if the beyond-size check is missing.
+        assertFalse(
+            verifier.verifyInclusionAtAnchored(
+                LOG, 16, _leaf(6), new bytes32[](0)
+            )
+        );
     }
 
     function test_wrongLeaf_refused() public {
