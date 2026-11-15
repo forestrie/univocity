@@ -130,7 +130,7 @@ MAX_RELEVANT_LOGS = 256
 
 # Provisional payment nonce tag: ARC-0032 section 5.3 gives the formula
 # and protocol will fix the tag and kinds.
-NONCE_TAG = b"forestrie/payment-nonce/v1"
+NONCE_TAG = b"univocity/payment-nonce/v1"
 
 
 def payment_nonce(kind: int, purpose_digest: bytes, payer: str) -> int:

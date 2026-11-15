@@ -1,10 +1,10 @@
 {
   "before-hook-first-hop": "27637",
   "before-hook-second-hop": "18433",
-  "per-published-hop-calldata": "6944",
+  "per-published-hop-calldata": "6932",
   "per-published-hop-exec": "49528",
   "redeem-no-publication-calldata": "21876",
   "redeem-no-publication-exec": "318080",
-  "redeem-two-published-hops-calldata": "35764",
+  "redeem-two-published-hops-calldata": "35740",
   "redeem-two-published-hops-exec": "417136"
 }

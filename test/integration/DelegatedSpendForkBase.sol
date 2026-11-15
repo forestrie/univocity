@@ -56,7 +56,7 @@ abstract contract DelegatedSpendForkBase is AnchoredLogFixture {
     /// @notice The payment nonce of devdocs ARC-0032 §5.3,
     ///    SHA-256(TAG ‖ kind ‖ purposeDigest ‖ payer), with a provisional
     ///    tag and kind until protocol fixes them with vectors.
-    bytes internal constant NONCE_TAG = "forestrie/payment-nonce/v1";
+    bytes internal constant NONCE_TAG = "univocity/payment-nonce/v1";
     uint8 internal constant KIND_GRANT = 1;
 
     bool internal forked;
