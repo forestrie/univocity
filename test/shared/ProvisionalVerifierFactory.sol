@@ -8,7 +8,7 @@ import {
 } from "@univocity/interfaces/IUnivocityVerifierFactory.sol";
 
 /// @title ProvisionalVerifierFactory
-/// @notice Spike stand-in for the CREATE2 UnivocityVerifierFactory of
+/// @notice Test-only spike stand-in for the CREATE2 UnivocityVerifierFactory of
 ///    devdocs ARC-0032 §4.2: one ImutableVerifier per instance, recorded
 ///    by the factory that built it, so nobody can name a wrong verifier.
 ///    The production factory derives the address instead of storing it,

@@ -9,7 +9,7 @@ import {ImutableUnivocity} from "@univocity/contracts/ImutableUnivocity.sol";
 import {PublishedEnforcer} from "@univocity/contracts/PublishedEnforcer.sol";
 import {
     ProvisionalVerifierFactory
-} from "@univocity/contracts/ProvisionalVerifierFactory.sol";
+} from "../shared/ProvisionalVerifierFactory.sol";
 import {AnchoredLogFixture} from "../shared/AnchoredLogFixture.sol";
 import {
     ProvisionalDelegationStatement,

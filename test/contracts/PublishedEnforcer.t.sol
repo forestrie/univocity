@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {PublishedEnforcer} from "@univocity/contracts/PublishedEnforcer.sol";
 import {
     ProvisionalVerifierFactory
-} from "@univocity/contracts/ProvisionalVerifierFactory.sol";
+} from "../shared/ProvisionalVerifierFactory.sol";
 import {ICaveatEnforcer} from "@univocity/interfaces/ICaveatEnforcer.sol";
 import {mmrSizeForLeafCount} from "@univocity/algorithms/peaks.sol";
 import {Mmr, MmrBuilder} from "../shared/MmrBuilder.sol";
