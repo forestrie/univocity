@@ -55,8 +55,10 @@ contract PublishedEnforcer is ICaveatEnforcer {
 
     /// @notice The named instance has no verifier yet (ARC-0032 §13,
     ///    verifier backfill).
+    /// @param delegationHash The refused delegation's struct hash; it
+    ///    identifies the hop.
     /// @param instance The instance the hop's terms name.
-    error VerifierMissing(address instance);
+    error VerifierMissing(bytes32 delegationHash, address instance);
 
     /// @notice No anchored statement in `logId` commits to the delegation.
     /// @param delegationHash The refused delegation's struct hash; it
@@ -96,7 +98,9 @@ contract PublishedEnforcer is ICaveatEnforcer {
         bytes32 leaf = sha256(abi.encodePacked(a.idTimestamp, statementHash));
 
         address verifier = factory.verifierFor(instance);
-        if (verifier.code.length == 0) revert VerifierMissing(instance);
+        if (verifier.code.length == 0) {
+            revert VerifierMissing(delegationHash, instance);
+        }
         if (!IUnivocityVerifier(verifier)
                 .verifyInclusionAtAnchored(logId, a.mmrIndex, leaf, a.path)) {
             revert NotPublished(delegationHash, logId);

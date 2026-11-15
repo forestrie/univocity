@@ -159,7 +159,7 @@ contract PublishedEnforcerTest is Test {
         bytes memory args = _publish(LOG, HOP, STATEMENT_LEAF, ANCHORED_LEAVES);
         vm.expectRevert(
             abi.encodeWithSelector(
-                PublishedEnforcer.VerifierMissing.selector, address(bare)
+                PublishedEnforcer.VerifierMissing.selector, HOP, address(bare)
             )
         );
         _beforeHook(_terms(address(bare), LOG), args, HOP);
