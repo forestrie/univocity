@@ -24,10 +24,11 @@ abstract contract _Verifier is IUnivocityVerifier {
     using LibLogState for LogState;
 
     /// @inheritdoc IUnivocityVerifier
-    /// @dev The witness-age rule: an agent's path, built when the log was
-    ///    larger than the anchored size, still proves the leaf, so proofs
-    ///    are never re-signed or re-fetched to match the chain
-    ///    (includedRoot.verifyInclusionAtSize).
+    /// @dev The witness-age rule: a path built at the anchored size or
+    ///    later still proves the leaf and needs no re-signing or
+    ///    re-fetching (includedRoot.verifyInclusionAtSize). A path built
+    ///    before a checkpoint that merged the leaf's peak is refused and
+    ///    must be extended from public log data (ARC-0032 section 4.2).
     function verifyInclusionAtAnchored(
         bytes32 logId,
         uint256 index,
