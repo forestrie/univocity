@@ -17,7 +17,8 @@ interface IErc1271 {
 ///    deployments/spike-7710/delegations.json, for the driver to publish
 ///    as delegation statements (protocol spec/delegated-spend-statements.md
 ///    §4). Broadcasts nothing; it checks the root accepts D_HA's
-///    signature over ERC-1271.
+///    signature over ERC-1271. SPIKE_CHAIN=h2 builds the second run's
+///    D_H2A and D_AB2 into delegations-h2.json instead.
 contract BuildDelegations is SpikeBase {
     function run() external {
         Delegation memory dHA = _hopHA();
@@ -31,11 +32,18 @@ contract BuildDelegations is SpikeBase {
             "root refuses D_HA's signature"
         );
 
-        vm.serializeString("d", "dHA", _json("dHA", dHA));
-        string memory json = vm.serializeString("d", "dAB", _json("dAB", dAB));
-        vm.writeJson(json, string.concat(RUN_DIR, "delegations.json"));
-        console.log("D_HA", vm.toString(_hash(dHA)));
-        console.log("D_AB", vm.toString(_hash(dAB)));
+        (string memory rootHop, string memory agentHop) = _hopNames();
+        vm.serializeString("d", rootHop, _json(rootHop, dHA));
+        string memory json =
+            vm.serializeString("d", agentHop, _json(agentHop, dAB));
+        vm.writeJson(
+            json,
+            string.concat(
+                RUN_DIR, _isH2() ? "delegations-h2.json" : "delegations.json"
+            )
+        );
+        console.log(rootHop, vm.toString(_hash(dHA)));
+        console.log(agentHop, vm.toString(_hash(dAB)));
     }
 
     function _json(string memory o, Delegation memory d)

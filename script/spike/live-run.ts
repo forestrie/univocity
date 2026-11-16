@@ -16,7 +16,16 @@
  * deployments/spike-7710/; keys, grants and tokens stay in SPIKE_WORK.
  *
  *   doppler run -p univocity -c dev -- doppler run -p system-testing -c dev \
- *     -- bun script/spike/live-run.ts <forest|statements|anchor|measure>
+ *     -- bun script/spike/live-run.ts <forest|log-b|statements|anchor|...>
+ *
+ * SPIKE_CHAIN=h2 selects the second run's chain (D_H2A, D_AB2), whose root
+ * is an EOA upgraded by EIP-7702; otherwise the first run's (D_HA, D_AB).
+ * `userop` builds with forge under the Prague EVM into PRAGUE_OUT and
+ * PRAGUE_CACHE, a build directory apart from the default cancun one.
+ *
+ * Proof inputs go stale when a log grows: a path is to a peak of the
+ * anchored accumulator, so re-run `anchor` before redeeming a hop whose
+ * log has had entries anchored since its proof was taken.
  */
 import { spawnSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
@@ -82,6 +91,13 @@ function cli(args: string[], secrets: Record<string, string> = {}, timeoutMs = 9
 		throw new Error(`forestrie ${args.join(' ')} failed\nstdout: ${out.stdout}\nstderr: ${out.stderr}`);
 	}
 	return out;
+}
+
+/** Writes a log key PEM from Doppler into SPIKE_WORK, owner-only. */
+function pem(file: string, secret: string): string {
+	const path = work(file);
+	writeFileSync(path, env(secret) + '\n', { mode: 0o600 });
+	return path;
 }
 
 function contractLogId(uuid: string): string {
@@ -167,6 +183,55 @@ function forest() {
 	times.laAnchored = now();
 	saveRun({ forestTimes: times });
 	console.log(JSON.stringify({ instance: d.imutableUnivocity, root, la, times }, null, 2));
+}
+
+// --- log-b: agent B's own log, so the second run's D_AB2 can name it ---
+
+/** DEPLOY_KEY's address (public; the forge broadcasts' sender). */
+const DEPLOY_ACCOUNT = '0xda30db778c4aae42bfae2e81d4b12deb0725f98c';
+
+/**
+ * L_B: a child of the root owned by agent B's log key, created exactly as
+ * L_A was. The CLI gets no transaction key, so DEPLOY_KEY's nonce must not
+ * move; the lane's publisher anchors the log.
+ */
+async function logB() {
+	const run = loadRun();
+	if (run.logB) throw new Error(`L_B already exists: ${run.logBUuid}`);
+	const rpcUrl = env('RPC_URL');
+	const hPem = pem('h-log.pem', 'SPIKE_7710_H_LOG_PEM');
+	const bPem = pem('agent-b-log.pem', 'SPIKE_7710_AGENT_B_LOG_PEM');
+	const nonceBefore = BigInt(await rpc('eth_getTransactionCount', [DEPLOY_ACCOUNT, 'latest']));
+	const lb = randomUUID().toLowerCase();
+	saveRun({ logBUuid: lb, logB: contractLogId(lb) });
+	const lbGrant = work('lb-grant.b64');
+	const parent = readFileSync(work('root-grant.b64'), 'utf8').trim();
+	const wait = [
+		'--wait-anchored', '--genesis', work('genesis.cbor'), '--anchor-timeout', String(ANCHOR_TIMEOUT_SECONDS)
+	];
+	const child = (prepare: boolean) => [
+		'create-log', ...(prepare ? ['--prepare'] : []), '--base-url', BASE_URL,
+		'--owner-log', run.genesisLogId, '--new-log', lb, '--signer-pem', bPem, '--sign-with', hPem,
+		'--parent-grant-b64', parent, '--out-b64', lbGrant, ...(prepare ? [] : wait)
+	];
+	const times: Run = {};
+	cli(child(true));
+	cli(
+		['delegate', '--coordinator-url', COORDINATOR_URL, '--log-id', lb, '--sign-with', bPem],
+		{ KNOWN_SEALER_KEY: env('KNOWN_SEALER_KEY') }
+	);
+	times.lbCreateStart = now();
+	cli(child(false), { RPC_URL: rpcUrl });
+	times.lbAnchored = now();
+	const nonceAfter = BigInt(await rpc('eth_getTransactionCount', [DEPLOY_ACCOUNT, 'latest']));
+	const logBCost = {
+		deployKeyNonceBefore: nonceBefore.toString(),
+		deployKeyNonceAfter: nonceAfter.toString(),
+		deployKeyBroadcasts: (nonceAfter - nonceBefore).toString(),
+		anchoredSize: (await anchoredSize(run.instance, contractLogId(lb))).toString()
+	};
+	saveRun({ logBTimes: times, logBCost });
+	console.log(JSON.stringify({ lb, times, logBCost }, null, 2));
 }
 
 // --- deterministic CBOR (every label here encodes in one byte) ---
@@ -262,7 +327,9 @@ function split(statement: Uint8Array, hash: string) {
 	return { prefix: toHex(s.subarray(0, off)), suffix: toHex(s.subarray(off + 64)), offset: off };
 }
 
-const STATEMENTS = [
+const H2 = process.env.SPIKE_CHAIN === 'h2';
+
+const STATEMENTS_H = [
 	{
 		name: 'dHA',
 		pem: 'h-log.pem',
@@ -284,9 +351,39 @@ const STATEMENTS = [
 	}
 ] as const;
 
+/** The second run: the same hops under the EIP-7702 root, and L_B named. */
+const STATEMENTS_H2 = [
+	{
+		name: 'dH2A',
+		pem: 'h-log.pem',
+		grant: 'root-grant.b64',
+		logKey: 'logH',
+		delegateLogKey: 'logA',
+		depth: 2,
+		description:
+			'Spike 7710 rerun: the EIP-7702 household root lets agent A pay Forestrie fees and one seller'
+	},
+	{
+		name: 'dAB2',
+		pem: 'agent-a-log.pem',
+		grant: 'la-grant.b64',
+		logKey: 'logA',
+		delegateLogKey: 'logB',
+		depth: 1,
+		description: 'Spike 7710 rerun: agent A lets agent B make single payments'
+	}
+] as const;
+
+const STATEMENTS = H2 ? STATEMENTS_H2 : STATEMENTS_H;
+const DELEGATIONS_FILE = H2 ? 'delegations-h2.json' : 'delegations.json';
+const PEM_SECRETS: Record<string, string> = {
+	'h-log.pem': 'SPIKE_7710_H_LOG_PEM',
+	'agent-a-log.pem': 'SPIKE_7710_AGENT_A_LOG_PEM'
+};
+
 function statements() {
 	const run = loadRun();
-	const hops = JSON.parse(readFileSync(join(RUN_DIR, 'delegations.json'), 'utf8')) as Record<string, SignedHop>;
+	const hops = JSON.parse(readFileSync(join(RUN_DIR, DELEGATIONS_FILE), 'utf8')) as Record<string, SignedHop>;
 	const dir = join(RUN_DIR, 'statements');
 	mkdirSync(dir, { recursive: true });
 	const records: Run = run.statements ?? {};
@@ -297,6 +394,8 @@ function statements() {
 		}
 		const d = hops[s.name]!;
 		const delegateLog = s.delegateLogKey ? run[s.delegateLogKey] : '0x' + '00'.repeat(32);
+		if (!delegateLog) throw new Error(`${s.name}: run record has no ${s.delegateLogKey}`);
+		pem(s.pem, PEM_SECRETS[s.pem]!);
 		const payloadPath = join(dir, `${s.name}.payload.cbor`);
 		writeFileSync(payloadPath, delegationPayload(d, delegateLog, s.depth, s.description));
 		const cosePath = join(dir, `${s.name}.cose`);
@@ -499,9 +598,10 @@ async function post(url: string, body: unknown) {
 }
 
 /**
- * /verify, then /settle, for one seller leaf. Settle runs even after a
- * refused verify, to record what settle itself answers; the leaf is
- * single-use, so a settle can pay at most once.
+ * /verify, then /settle, for one seller leaf. The first run settled even
+ * after a refused verify, to record what settle answers; the second run
+ * (SPIKE_CHAIN=h2) stops at a refused verify. The leaf is single-use, so
+ * a settle can pay at most once.
  */
 async function x402Pay() {
 	const [host, purpose] = process.argv.slice(3);
@@ -539,20 +639,183 @@ async function x402Pay() {
 	const record: Run = { host, base: h.base, leaf: leaf.leaf, request: body, at: now() };
 	record.verify = await post(`${h.base}/verify`, body);
 	console.log(`verify ${record.verify.status}: ${JSON.stringify(record.verify.body)}`);
-	record.settle = await post(`${h.base}/settle`, body);
-	console.log(`settle ${record.settle.status}: ${JSON.stringify(record.settle.body)}`);
+	const valid = (record.verify.body as { isValid?: boolean } | undefined)?.isValid === true;
+	if (valid || !H2) {
+		record.settle = await post(`${h.base}/settle`, body);
+		console.log(`settle ${record.settle.status}: ${JSON.stringify(record.settle.body)}`);
+	} else {
+		console.log('verify refused: settle not called');
+	}
 	writeFileSync(join(RUN_DIR, `${purpose}-facilitator.json`), JSON.stringify(record, null, 2) + '\n');
+}
+
+// --- the paymaster run: agent B as an ERC-4337 account (EntryPoint v0.7) ---
+
+const BUNDLER = 'https://public.pimlico.io/v2/84532/rpc';
+const ENTRY_POINT = '0x0000000071727De22E5E9d8BAf0edAc6f37da032';
+const PAYMASTER = '0x31BE08D380A21fc740883c0BC434FcFc88740b58';
+/** UserOperationSponsored(address,address,bytes32,uint256,uint256,uint256) */
+const SPONSORED_TOPIC = '0x859cffc122e69a171c48ee57adbf5286e1cd0b3ec8e47fef3afd8150e417a069';
+/** UserOperationEvent(bytes32,address,address,uint256,bool,uint256,uint256) */
+const USEROP_EVENT_TOPIC = '0x49628fd1471006c1482da88028e9ce4dbb080b815c9b0344d39e5a8e6ec1419f';
+const PERMIT_AMOUNT = 1_000_000n; // agent B's whole test USDC balance
+
+async function bundler(method: string, params: unknown[]) {
+	const started = Date.now();
+	const res = await fetch(BUNDLER, {
+		method: 'POST',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params })
+	});
+	const body = (await res.json()) as { result?: any; error?: unknown };
+	return { method, status: res.status, seconds: (Date.now() - started) / 1000, ...body };
+}
+
+/** Runs PaymasterUserOp.s.sol for these gas fields; returns the signed op. */
+function buildUserOp(purpose: string, gas: Record<string, bigint>) {
+	const out = env('PRAGUE_OUT');
+	const r = spawnSync(
+		'mise',
+		[
+			'exec', '--', 'forge', 'script', 'script/spike/PaymasterUserOp.s.sol', '--evm-version', 'prague',
+			'--out', out, '--cache-path', env('PRAGUE_CACHE'), '--rpc-url', env('RPC_URL')
+		],
+		{
+			encoding: 'utf8',
+			maxBuffer: 64 * 1024 * 1024,
+			env: {
+				...process.env,
+				SPIKE_PURPOSE: purpose,
+				SPIKE_PERMIT_AMOUNT: PERMIT_AMOUNT.toString(),
+				...Object.fromEntries(Object.entries(gas).map(([k, v]) => [k, v.toString()]))
+			}
+		}
+	);
+	const lines = `${r.stdout}\n${r.stderr}`.split('\n').filter((l) => /simulated|leaf|callData|Error|revert/i.test(l));
+	lines.forEach((l) => console.log(`  forge: ${l.trim()}`));
+	if (r.status !== 0) throw new Error('PaymasterUserOp.s.sol failed');
+	const op = JSON.parse(readFileSync(join(RUN_DIR, `${purpose}-userop.json`), 'utf8'));
+	const leaf = op.leaf;
+	delete op.leaf;
+	return { op, leaf };
+}
+
+const word = (data: string, i: number) => BigInt('0x' + data.slice(2 + 64 * i, 2 + 64 * (i + 1)));
+
+/**
+ * Builds the user operation, has the public bundler estimate it, re-signs
+ * it with the estimates, sends it and waits for its receipt. A bundler
+ * refusal is recorded and ends the step.
+ */
+async function userop() {
+	const purpose = process.argv[3];
+	if (!purpose) throw new Error('usage: userop <purpose>');
+	const run = loadRun();
+	const record: Run = { bundler: BUNDLER, entryPoint: ENTRY_POINT, paymaster: PAYMASTER, at: now() };
+	const save = () => writeFileSync(join(RUN_DIR, `${purpose}-userop-record.json`), JSON.stringify(record, null, 2) + '\n');
+	const usdcOf = async (a: string) =>
+		BigInt(await rpc('eth_call', [{ to: USDC, data: '0x70a08231' + a.slice(2).toLowerCase().padStart(64, '0') }, 'latest']));
+
+	const price = await bundler('pimlico_getUserOperationGasPrice', []);
+	record.gasPrice = price;
+	if (!price.result) return save();
+	const fee = price.result.standard;
+	const gas: Record<string, bigint> = {
+		SPIKE_GAS_CALL: 900_000n,
+		SPIKE_GAS_VERIFICATION: 150_000n,
+		SPIKE_GAS_PRE_VERIFICATION: 200_000n,
+		SPIKE_GAS_MAX_FEE: BigInt(fee.maxFeePerGas),
+		SPIKE_GAS_MAX_PRIORITY_FEE: BigInt(fee.maxPriorityFeePerGas),
+		SPIKE_GAS_PM_VERIFICATION: 200_000n,
+		SPIKE_GAS_PM_POST_OP: 60_000n
+	};
+	let built = buildUserOp(purpose, gas);
+	const estimate = await bundler('eth_estimateUserOperationGas', [built.op, ENTRY_POINT]);
+	record.estimate = estimate;
+	console.log(`estimate: ${JSON.stringify(estimate.result ?? estimate.error)}`);
+	if (!estimate.result) return save();
+
+	// The bundler's estimates, with 20% headroom on the limits it measured.
+	const e = estimate.result;
+	const pad = (x: string) => (BigInt(x) * 12n) / 10n;
+	gas.SPIKE_GAS_CALL = pad(e.callGasLimit);
+	gas.SPIKE_GAS_VERIFICATION = pad(e.verificationGasLimit);
+	gas.SPIKE_GAS_PRE_VERIFICATION = BigInt(e.preVerificationGas);
+	gas.SPIKE_GAS_PM_VERIFICATION = pad(e.paymasterVerificationGasLimit ?? '0x30d40');
+	const postOp = BigInt(e.paymasterPostOpGasLimit ?? '0xea60');
+	gas.SPIKE_GAS_PM_POST_OP = postOp > 40_000n ? postOp : 40_000n;
+	record.gas = Object.fromEntries(Object.entries(gas).map(([k, v]) => [k, v.toString()]));
+	built = buildUserOp(purpose, gas);
+	record.userOp = built.op;
+	record.leaf = built.leaf;
+
+	const payeeBefore = await usdcOf(run.payee);
+	const senderBefore = await usdcOf(built.op.sender);
+	const sent = await bundler('eth_sendUserOperation', [built.op, ENTRY_POINT]);
+	record.send = sent;
+	console.log(`send: ${JSON.stringify(sent.result ?? sent.error)}`);
+	if (!sent.result) return save();
+	const sentAt = Date.now();
+	let receipt = await bundler('eth_getUserOperationReceipt', [sent.result]);
+	while (!receipt.result && Date.now() - sentAt < 180_000) {
+		await Bun.sleep(2000);
+		receipt = await bundler('eth_getUserOperationReceipt', [sent.result]);
+	}
+	record.receiptSeconds = (Date.now() - sentAt) / 1000;
+	record.receipt = receipt;
+	if (!receipt.result) return save();
+
+	const tx = receipt.result.receipt;
+	const logs = tx.logs as { address: string; topics: string[]; data: string }[];
+	const sponsored = logs.find((l) => l.address.toLowerCase() === PAYMASTER.toLowerCase() && l.topics[0] === SPONSORED_TOPIC);
+	const opEvent = logs.find((l) => l.address.toLowerCase() === ENTRY_POINT.toLowerCase() && l.topics[0] === USEROP_EVENT_TOPIC);
+	const bundle = await rpc('eth_getTransactionReceipt', [tx.transactionHash]);
+	const nativeTokenPrice = sponsored ? word(sponsored.data, 1) : 0n;
+	const actualTokenNeeded = sponsored ? word(sponsored.data, 2) : 0n;
+	const actualGasCost = BigInt(receipt.result.actualGasCost);
+	const bundleL2 = BigInt(bundle.gasUsed) * BigInt(bundle.effectiveGasPrice);
+	const bundleL1 = BigInt(bundle.l1Fee ?? '0x0');
+	// USDC at the paymaster's own price: 1e18 wei costs nativeTokenPrice
+	// micro-USDC (FeeLib.calculateTokenCost, without its rounding unit).
+	const usdc = (wei: bigint) => Number(wei * nativeTokenPrice) / 1e18 / 1e6;
+	record.result = {
+		userOpHash: sent.result,
+		success: receipt.result.success,
+		bundleTx: tx.transactionHash,
+		bundler: tx.from,
+		bundleGasUsed: BigInt(bundle.gasUsed).toString(),
+		bundleEffectiveGasPrice: BigInt(bundle.effectiveGasPrice).toString(),
+		bundleL2FeeWei: bundleL2.toString(),
+		bundleL1FeeWei: bundleL1.toString(),
+		userOpActualGasUsed: BigInt(receipt.result.actualGasUsed).toString(),
+		userOpActualGasCostWei: actualGasCost.toString(),
+		userOpEventSuccess: opEvent ? word(opEvent.data, 1) === 1n : undefined,
+		nativeTokenPrice: nativeTokenPrice.toString(),
+		paymasterCharge: actualTokenNeeded.toString(),
+		paymasterFeeTokenAmount: sponsored ? word(sponsored.data, 3).toString() : undefined,
+		senderUsdcBefore: senderBefore.toString(),
+		senderUsdcAfter: (await usdcOf(built.op.sender)).toString(),
+		payeeUsdcDelta: ((await usdcOf(run.payee)) - payeeBefore).toString(),
+		userOpCostInUsdc: usdc(actualGasCost),
+		bundleCostInUsdc: usdc(bundleL2 + bundleL1),
+		surchargeOverUserOpCost: Number(actualTokenNeeded) / 1_000_000 / usdc(actualGasCost) - 1,
+		surchargeOverBundleCost: Number(actualTokenNeeded) / 1_000_000 / usdc(bundleL2 + bundleL1) - 1
+	};
+	console.log(JSON.stringify(record.result, null, 2));
+	save();
 }
 
 // --- main ---
 
 const commands: Record<string, () => void | Promise<void>> = {
 	forest,
+	'log-b': logB,
 	statements,
 	anchor,
 	measure,
 	'x402-check': x402Check,
-	'x402-pay': x402Pay
+	'x402-pay': x402Pay,
+	userop
 };
 const cmd = process.argv[2] ?? '';
 if (!commands[cmd]) {

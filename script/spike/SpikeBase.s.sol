@@ -60,6 +60,31 @@ abstract contract SpikeBase is Script {
         return _pk("SPIKE_7710_H_OWNER_KEY");
     }
 
+    /// @notice SPIKE_CHAIN=h2 selects the second run's root: an EOA
+    ///    upgraded by EIP-7702 to EIP7702StatelessDeleGator, which signs
+    ///    for itself. Otherwise the first run's HybridDeleGator root.
+    function _isH2() internal view returns (bool) {
+        return keccak256(bytes(vm.envOr("SPIKE_CHAIN", string("h"))))
+            == keccak256("h2");
+    }
+
+    function _rootPk() internal view returns (uint256) {
+        return _isH2() ? _pk("SPIKE_7710_H2_ROOT_KEY") : _ownerPk();
+    }
+
+    function _rootAccount() internal view returns (address) {
+        return _isH2() ? vm.addr(_rootPk()) : _runAddress(".root");
+    }
+
+    /// @notice The run-record names of the selected chain's hops.
+    function _hopNames()
+        internal
+        view
+        returns (string memory rootHop, string memory agentHop)
+    {
+        return _isH2() ? ("dH2A", "dAB2") : ("dHA", "dAB");
+    }
+
     function _agentAPk() internal view returns (uint256) {
         return _pk("SPIKE_7710_AGENT_A_KEY");
     }
@@ -193,8 +218,8 @@ abstract contract SpikeBase is Script {
 
     // --- the chain ---
 
-    /// @notice D_HA: the root to agent A, published in L_H, capped,
-    ///    expiring, paying only the payee or the seller (caveat 3).
+    /// @notice D_HA (or D_H2A): the root to agent A, published in L_H,
+    ///    capped, expiring, paying only the payee or the seller (caveat 3).
     function _hopHA() internal view returns (Delegation memory d) {
         Caveat[] memory c = new Caveat[](4);
         c[0] = _published(
@@ -205,13 +230,13 @@ abstract contract SpikeBase is Script {
         c[3] = _payees(_payee(), _seller());
         d = Delegation({
             delegate: _agentA(),
-            delegator: _runAddress(".root"),
+            delegator: _rootAccount(),
             authority: FrameworkV130.ROOT_AUTHORITY,
             caveats: c,
             salt: 0,
             signature: ""
         });
-        _sign(d, _ownerPk());
+        _sign(d, _rootPk());
     }
 
     /// @notice D_AB: agent A to agent B under D_HA, published in L_A,
@@ -267,8 +292,8 @@ abstract contract SpikeBase is Script {
         return DM.getDelegationHash(d);
     }
 
-    /// @notice Signs the EIP-712 digest of `d`, as an EOA or a
-    ///    HybridDeleGator owner signs.
+    /// @notice Signs the EIP-712 digest of `d`, as an EOA, a
+    ///    HybridDeleGator owner or an EIP-7702 stateless DeleGator signs.
     function _sign(Delegation memory d, uint256 pk) internal view {
         bytes32 digest = keccak256(
             abi.encodePacked("\x19\x01", DM.getDomainHash(), _hash(d))
@@ -306,8 +331,9 @@ abstract contract SpikeBase is Script {
     {
         Delegation memory dHA = _hopHA();
         Delegation memory dAB = _hopAB(_hash(dHA));
-        _withProof(dHA, ".proofs.dHA");
-        _withProof(dAB, ".proofs.dAB");
+        (string memory rootHop, string memory agentHop) = _hopNames();
+        _withProof(dHA, string.concat(".proofs.", rootHop));
+        _withProof(dAB, string.concat(".proofs.", agentHop));
         dHA.caveats[3].args = abi.encode(
             SelectedGroup({groupIndex: payeeGroup, caveatArgs: new bytes[](1)})
         );

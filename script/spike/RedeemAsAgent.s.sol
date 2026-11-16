@@ -19,7 +19,7 @@ import {
 contract RedeemAsAgent is SpikeBase {
     function run() external {
         string memory purpose = vm.envString("SPIKE_PURPOSE");
-        address root = _runAddress(".root");
+        address root = _rootAccount();
         Caveat[] memory c = new Caveat[](2);
         c[0] = _exactTransfer(_payee(), PRICE);
         c[1] = _limitOne();

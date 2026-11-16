@@ -52,7 +52,7 @@ contract SellerPermission is SpikeBase {
 
         string memory o = "seller";
         vm.serializeBytes32(o, "leaf", _hash(leaf));
-        vm.serializeAddress(o, "delegator", _runAddress(".root"));
+        vm.serializeAddress(o, "delegator", _rootAccount());
         vm.serializeAddress(o, "payTo", _seller());
         vm.serializeUint(o, "amount", PRICE);
         string memory json = vm.serializeBytes(o, "permissionContext", ctx);
