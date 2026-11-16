@@ -52,16 +52,41 @@ contract AtPeakHarness {
     }
 }
 
+/// @dev Only the two entries the gas test times, so other helpers added to
+///    AtPeakHarness cannot move the measured figure.
+contract GasHarness {
+    function atPeak(
+        uint256 i,
+        bytes32 leaf,
+        bytes32[] calldata proof,
+        bytes32 peak,
+        uint256 size
+    ) external pure returns (bool) {
+        return verifyInclusionAtPeak(i, leaf, proof, peak, size);
+    }
+
+    function atSize(
+        uint256 i,
+        bytes32 leaf,
+        bytes32[] calldata proof,
+        bytes32[] memory acc,
+        uint256 size
+    ) external pure returns (bool) {
+        return verifyInclusionAtSize(i, leaf, proof, acc, size);
+    }
+}
+
 /// @notice verifyInclusionAtPeak is verifyInclusionAtSize with the
 ///    committing peak supplied by the caller.
 contract VerifyInclusionAtPeakTest is Test {
     using MmrBuilder for Mmr;
 
     AtPeakHarness internal h = new AtPeakHarness();
+    GasHarness internal gasH = new GasHarness();
 
-    /// @dev The single-peak check at the maximum height, with 63 siblings:
-    ///    measured plus ~15%.
-    uint256 internal constant CEILING_MAX_HEIGHT = 79_700;
+    /// @dev The single-peak check at the maximum height, with 63 siblings,
+    ///    timed through GasHarness: measured 73,816 plus 15%.
+    uint256 internal constant CEILING_MAX_HEIGHT = 84_900;
 
     function _build(uint256 leaves)
         internal
@@ -228,10 +253,10 @@ contract VerifyInclusionAtPeakTest is Test {
         bytes32[] memory acc = new bytes32[](1);
         acc[0] = peak;
         uint256 g0 = gasleft();
-        h.atPeak(i, leaf, path, peak, size);
+        gasH.atPeak(i, leaf, path, peak, size);
         uint256 atPeak = g0 - gasleft();
         g0 = gasleft();
-        h.atSize(i, leaf, path, acc, size);
+        gasH.atSize(i, leaf, path, acc, size);
         uint256 atSize = g0 - gasleft();
         emit log_named_uint("verifyInclusionAtPeak, 63 siblings", atPeak);
         emit log_named_uint("verifyInclusionAtSize, 63 siblings", atSize);
