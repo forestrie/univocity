@@ -90,9 +90,25 @@ contract DeployUnivocityVerifierFactoryTest is Test {
         bad.run();
     }
 
-    function test_run_wrongRecordedHash_reverts() public {
+    function test_run_wrongRecordedHash_alreadyDeployed_reverts() public {
         bytes32 deployed =
             UnivocityVerifierFactory(deployer.run()).verifierInitCodeHash();
+        MismatchedRecordDeployer bad =
+            new MismatchedRecordDeployer(address(0), bytes32(uint256(0xBAD)));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                DeployUnivocityVerifierFactory.VerifierInitCodeHashMismatch
+                .selector,
+                deployed,
+                bytes32(uint256(0xBAD))
+            )
+        );
+        bad.run();
+    }
+
+    function test_run_wrongRecordedHash_freshDeploy_reverts() public {
+        // Nothing deployed first: the check must also run after a deploy.
+        bytes32 deployed = deployer.recordedVerifierInitCodeHash();
         MismatchedRecordDeployer bad =
             new MismatchedRecordDeployer(address(0), bytes32(uint256(0xBAD)));
         vm.expectRevert(
