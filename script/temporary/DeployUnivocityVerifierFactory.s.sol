@@ -57,7 +57,7 @@ contract DeployUnivocityVerifierFactory is Script {
     }
 
     /// @notice Factory address deployment.json records.
-    function recordedFactory() public view returns (address) {
+    function recordedFactory() public view virtual returns (address) {
         return abi.decode(
             vm.parseJson(vm.readFile(DEPLOYMENT_PATH), _key(".address")),
             (address)
@@ -65,7 +65,12 @@ contract DeployUnivocityVerifierFactory is Script {
     }
 
     /// @notice Verifier init-code hash deployment.json records.
-    function recordedVerifierInitCodeHash() public view returns (bytes32) {
+    function recordedVerifierInitCodeHash()
+        public
+        view
+        virtual
+        returns (bytes32)
+    {
         return abi.decode(
             vm.parseJson(
                 vm.readFile(DEPLOYMENT_PATH), _key(".verifierInitCodeHash")
