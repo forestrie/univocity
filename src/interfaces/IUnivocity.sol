@@ -25,6 +25,20 @@ interface IUnivocity is IUnivocityEvents {
         returns (int64 bootstrapAlg, bytes memory bootstrapKey);
     function rootLogId() external view returns (bytes32);
     function logState(bytes32 logId) external view returns (LogState memory);
+
+    /// @notice The log's anchored size and the accumulator peak that commits
+    ///    MMR node `index` at that size, read from storage without copying
+    ///    the accumulator. Lets a verifier fetch one word instead of the
+    ///    whole accumulator (devdocs ARC-0032 section 4.2).
+    /// @param logId Log whose anchored state is read.
+    /// @param index Zero-based MMR index of the node.
+    /// @return size The anchored size; 0 for an uninitialised log.
+    /// @return peak The committing peak; zero when index >= size.
+    function committingPeak(bytes32 logId, uint256 index)
+        external
+        view
+        returns (uint64 size, bytes32 peak);
+
     function logConfig(bytes32 logId) external view returns (LogConfig memory);
     function logRootKey(bytes32 logId)
         external

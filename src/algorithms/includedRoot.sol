@@ -91,6 +91,32 @@ function verifyInclusionAtSize(
         verifyInclusion(leafIndex, leafHash, proof[:n], accumulator, mmrSize);
 }
 
+/// @notice Single-peak variant of verifyInclusionAtSize: the caller supplies
+///    the one accumulator peak that commits the leaf at mmrSize, so the
+///    whole accumulator is never needed (see LibLogState.committingPeak).
+/// @dev Same refusals and path trimming as verifyInclusionAtSize. The caller
+///    must take `peak` from the anchored state for the same mmrSize.
+/// @param leafIndex Zero-based MMR index of the leaf.
+/// @param leafHash Hash of the leaf.
+/// @param proof Sibling hashes from the leaf, at mmrSize or any later size.
+/// @param peak The peak committing the leaf in MMR(mmrSize).
+/// @param mmrSize Number of nodes in the anchored MMR.
+/// @return True if the trimmed path proves the leaf against `peak`.
+function verifyInclusionAtPeak(
+    uint256 leafIndex,
+    bytes32 leafHash,
+    bytes32[] calldata proof,
+    bytes32 peak,
+    uint256 mmrSize
+) pure returns (bool) {
+    if (leafIndex >= mmrSize) return false;
+    if (indexHeight(leafIndex) != 0) return false;
+    uint256 n = committingPathLength(leafIndex, mmrSize);
+    if (proof.length < n) return false;
+    if (peak == bytes32(0)) return false;
+    return includedRoot(leafIndex, leafHash, proof[:n]) == peak;
+}
+
 /// @notice Storage variant of verifyInclusion; reads peak from storage via
 ///    proofLengthRootStorage (no full accumulator copy to memory).
 function verifyInclusionStorage(

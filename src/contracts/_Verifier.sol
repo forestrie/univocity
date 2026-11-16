@@ -34,7 +34,7 @@ abstract contract _Verifier is IUnivocityVerifier {
         uint256 index,
         bytes32 leaf,
         bytes32[] calldata path
-    ) external view returns (bool) {
+    ) external view virtual returns (bool) {
         LogState memory log = _univocal().logState(logId);
         return log.verifyInclusionAtAnchored(index, leaf, path);
     }

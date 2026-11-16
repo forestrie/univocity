@@ -8,6 +8,9 @@ import {
 import {
     IUnivocityVerifierFactory
 } from "@univocity/interfaces/IUnivocityVerifierFactory.sol";
+import {
+    LibUnivocityVerifierAddress
+} from "@univocity/verifier/lib/LibUnivocityVerifierAddress.sol";
 
 /// @title PublishedEnforcer
 /// @notice ERC-7710 caveat enforcer that refuses a delegation unless a
@@ -32,8 +35,13 @@ contract PublishedEnforcer is ICaveatEnforcer {
     bytes32 public constant DELEGATION_TAG =
         0xb09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649;
 
-    /// @notice Finds the verifier of the instance a hop names.
+    /// @notice The factory whose verifiers this enforcer trusts.
     IUnivocityVerifierFactory public immutable factory;
+
+    /// @notice The factory's verifier creation code hash, read once at
+    ///    construction. With `factory` it derives a hop's verifier address
+    ///    without a call (LibUnivocityVerifierAddress).
+    bytes32 public immutable verifierInitCodeHash;
 
     /// @notice Redeemer arguments, abi-encoded in the caveat's `args`.
     /// @param prefix Statement bytes before DELEGATION_TAG ‖ delegationHash.
@@ -66,9 +74,11 @@ contract PublishedEnforcer is ICaveatEnforcer {
     /// @param logId The log its terms name.
     error NotPublished(bytes32 delegationHash, bytes32 logId);
 
-    /// @param factory_ Verifier lookup for univocity instances on this chain.
+    /// @param factory_ Verifier factory for univocity instances on this
+    ///    chain; its verifierInitCodeHash is read once.
     constructor(IUnivocityVerifierFactory factory_) {
         factory = factory_;
+        verifierInitCodeHash = factory_.verifierInitCodeHash();
     }
 
     /// @notice Reverts unless the delegation's statement is anchored.
@@ -97,7 +107,9 @@ contract PublishedEnforcer is ICaveatEnforcer {
         );
         bytes32 leaf = sha256(abi.encodePacked(a.idTimestamp, statementHash));
 
-        address verifier = factory.verifierFor(instance);
+        address verifier = LibUnivocityVerifierAddress.verifierAddress(
+            address(factory), verifierInitCodeHash, instance
+        );
         if (verifier.code.length == 0) {
             revert VerifierMissing(delegationHash, instance);
         }

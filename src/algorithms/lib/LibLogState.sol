@@ -7,6 +7,9 @@ import {
     verifyInclusionAtSize as _verifyInclusionAtSize,
     verifyInclusionStorage as _verifyInclusionStorage
 } from "@univocity/algorithms/includedRoot.sol";
+import {committingPathLength} from "@univocity/algorithms/includedRoot.sol";
+import {indexHeight} from "@univocity/algorithms/binUtils.sol";
+import {leafCount, peakIndex} from "@univocity/algorithms/peaks.sol";
 
 function _leafCommitment(bytes8 grantIDTimestampBe, PublishGrant calldata g)
     pure
@@ -26,6 +29,59 @@ function _leafCommitment(bytes8 grantIDTimestampBe, PublishGrant calldata g)
 }
 
 library LibLogState {
+    /// @notice Accumulator slot of the peak that commits MMR node `index` in
+    ///    the complete MMR(size). The one formula behind both committing-peak
+    ///    readers: the node's peak height is its own height plus the length
+    ///    of its path to the peak, and peakIndex maps that height to a slot
+    ///    (draft-bryce-cose-receipts-mmr-profile).
+    /// @param index Zero-based MMR index of the node; index < size.
+    /// @param size Number of nodes in the complete MMR; size > 0.
+    /// @return Index into the accumulator of the committing peak.
+    function committingPeakSlot(uint256 index, uint256 size)
+        internal
+        pure
+        returns (uint256)
+    {
+        return peakIndex(
+            leafCount(size),
+            indexHeight(index) + committingPathLength(index, size)
+        );
+    }
+
+    /// @notice Storage variant: the anchored size and the peak committing
+    ///    node `index`, read without copying the accumulator to memory.
+    /// @param log The log's stored state.
+    /// @param index Zero-based MMR index of the node.
+    /// @return size The log's anchored size; 0 for an uninitialised log.
+    /// @return peak The committing peak; zero when index >= size.
+    function committingPeakStorage(LogState storage log, uint256 index)
+        internal
+        view
+        returns (uint64 size, bytes32 peak)
+    {
+        size = log.size;
+        if (index >= size) return (size, bytes32(0));
+        uint256 slot = committingPeakSlot(index, size);
+        if (slot < log.accumulator.length) peak = log.accumulator[slot];
+    }
+
+    /// @notice Memory variant of committingPeakStorage, for a state fetched
+    ///    through logState.
+    /// @param log The log's state.
+    /// @param index Zero-based MMR index of the node.
+    /// @return size The log's anchored size; 0 for an uninitialised log.
+    /// @return peak The committing peak; zero when index >= size.
+    function committingPeak(LogState memory log, uint256 index)
+        internal
+        pure
+        returns (uint64 size, bytes32 peak)
+    {
+        size = log.size;
+        if (index >= size) return (size, bytes32(0));
+        uint256 slot = committingPeakSlot(index, size);
+        if (slot < log.accumulator.length) peak = log.accumulator[slot];
+    }
+
     function verifyInclusion(
         LogState memory log,
         uint256 index,

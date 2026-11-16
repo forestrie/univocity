@@ -122,6 +122,15 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
         return _logs[logId];
     }
 
+    /// @inheritdoc IUnivocity
+    function committingPeak(bytes32 logId, uint256 index)
+        external
+        view
+        returns (uint64 size, bytes32 peak)
+    {
+        (size, peak) = _logs[logId].committingPeakStorage(index);
+    }
+
     /// @notice Returns the immutable config of a log (kind, authLogId, rootKey, initializedAt).
     function logConfig(bytes32 logId)
         external
