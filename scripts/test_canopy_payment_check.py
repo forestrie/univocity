@@ -476,11 +476,20 @@ class BindingPinTest(unittest.TestCase):
         def authorization_used_by_another(v: dict) -> None:
             insert_before_transfer(v, auth_used(usdc, other))
 
+        def authorization_used_by_root_not_adjacent(v: dict) -> None:
+            # Only an AuthorizationUsed immediately before the Transfer marks
+            # it as EIP-3009; a root-signed one elsewhere must not hide it.
+            sender = "0x" + self._transfer(v)["topics"][1][26:]
+            v["logs"].insert(0, auth_used(usdc, sender))
+
         rows = {
             "disabled-delegation copy": disabled_delegation_copy,
             "approval from the root": approval_from_root,
             "authorization used on another contract": authorization_used_elsewhere,
             "authorization used by another authorizer": authorization_used_by_another,
+            "root authorization used away from the transfer": (
+                authorization_used_by_root_not_adjacent
+            ),
         }
         for name, edit in rows.items():
             with self.subTest(edit=name):
