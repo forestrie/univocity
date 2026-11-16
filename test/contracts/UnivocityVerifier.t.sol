@@ -9,6 +9,7 @@ import {ImutableVerifier} from "@univocity/contracts/ImutableVerifier.sol";
 import {
     IUnivocityVerifier
 } from "@univocity/interfaces/IUnivocityVerifier.sol";
+import {IUnivocity} from "@univocity/interfaces/IUnivocity.sol";
 import {IUnivocal} from "@univocity/interfaces/IUnivocal.sol";
 import {mmrSizeForLeafCount} from "@univocity/algorithms/peaks.sol";
 import {Mmr, MmrBuilder} from "../shared/MmrBuilder.sol";
@@ -154,6 +155,33 @@ contract UnivocityVerifierTest is Test {
         badSrc.setMode(2);
         assertTrue(
             viaBad.verifyInclusionAtAnchored(LOG, ix[5], _leaf(5), _path(5, 7))
+        );
+    }
+
+    function test_getterSource_callsGetterOnce_neverLogState() public {
+        _anchor(7);
+        bytes32[] memory p = _path(5, 7);
+        vm.expectCall(
+            address(getterSrc),
+            abi.encodeCall(IUnivocity.committingPeak, (LOG, ix[5])),
+            1
+        );
+        vm.expectCall(
+            address(getterSrc), abi.encodeCall(IUnivocal.logState, (LOG)), 0
+        );
+        assertTrue(
+            viaGetter.verifyInclusionAtAnchored(LOG, ix[5], _leaf(5), p)
+        );
+    }
+
+    function test_plainSource_callsLogStateOnce() public {
+        _anchor(7);
+        bytes32[] memory p = _path(5, 7);
+        vm.expectCall(
+            address(plainSrc), abi.encodeCall(IUnivocal.logState, (LOG)), 1
+        );
+        assertTrue(
+            viaFallback.verifyInclusionAtAnchored(LOG, ix[5], _leaf(5), p)
         );
     }
 
