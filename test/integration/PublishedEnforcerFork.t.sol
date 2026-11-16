@@ -383,9 +383,10 @@ contract PublishedEnforcerForkTest is DelegatedSpendForkBase {
         _gasPerPublishedHop("delegated-spend-small-log", 2, 5);
     }
 
-    /// @notice As above in a log of 1,023 anchored leaves: 10 peaks, which
-    ///    the verifier reads whole through logState, and paths of 9 nodes
-    ///    built at a later size of 1,101 leaves.
+    /// @notice As above in a log of 1,023 anchored leaves: 10 peaks, of
+    ///    which the verifier reads only the committing one through the
+    ///    instance getter, and paths of 9 nodes built at a later size of
+    ///    1,101 leaves.
     function test_fork_gasPerPublishedHop_largeLog() public onlyFork {
         _gasPerPublishedHop("delegated-spend-large-log", 1022, 1098);
     }
