@@ -5,6 +5,7 @@ import {Vm} from "forge-std/Vm.sol";
 import {ImutableUnivocity} from "@univocity/contracts/ImutableUnivocity.sol";
 import {DelegatedSpendForkBase} from "./DelegatedSpendForkBase.sol";
 import {
+    Caveat,
     Delegation,
     FrameworkV130,
     IUsdc
@@ -340,6 +341,56 @@ contract PaymentBindingForkTest is DelegatedSpendForkBase {
             _recorded(),
             _purposeJson("grant-1", address(r), "no-usdc-to-payee"),
             _delegationJson("l1", l1)
+        );
+        assertEq(USDC.balanceOf(payee), PRICE);
+    }
+
+    /// @notice The call limit must sit on the binding delegation itself
+    ///    (ARC-0032 §5.4 step 3). The open leaf has none; a stranger's
+    ///    child under it carries LimitedCallsEnforcer(1). Accepting the
+    ///    limit anywhere in the chain would read the leaf as bound, and
+    ///    the leaf could be replayed under fresh children with no refund.
+    function test_fork_vector_callLimitOnlyOnStrangerChild() public onlyFork {
+        (Delegation memory dHA, Delegation memory dAB) = _hops(false, 0);
+        Caveat[] memory leafCaveats = new Caveat[](1);
+        leafCaveats[0] = _exactTransfer(payee, PRICE);
+        Delegation memory leaf = _delegation(
+            FrameworkV130.ANY_DELEGATE,
+            agentB,
+            _hash(dAB),
+            leafCaveats,
+            _nonce(_purpose("grant-1"), root)
+        );
+        _sign(leaf, AGENT_B_PK);
+        Delegation memory child = _delegation(
+            stranger,
+            stranger,
+            _hash(leaf),
+            _caveats(_exactTransfer(payee, PRICE), _limitOne()),
+            _nonce(_purpose("stranger-grant"), root)
+        );
+        _sign(child, STRANGER_PK);
+        Delegation[] memory chain = new Delegation[](4);
+        chain[0] = child;
+        chain[1] = leaf;
+        chain[2] = dAB;
+        chain[3] = dHA;
+
+        vm.recordLogs();
+        _redeem(stranger, chain, payee, PRICE);
+        _writeReceipt(
+            "call-limit-only-on-stranger-child",
+            _recorded(),
+            _purposeJson("grant-1", root, "unbound"),
+            string.concat(
+                _delegationJson("child", child),
+                ",",
+                _delegationJson("leaf", leaf),
+                ",",
+                _delegationJson("dAB", dAB),
+                ",",
+                _delegationJson("dHA", dHA)
+            )
         );
         assertEq(USDC.balanceOf(payee), PRICE);
     }
