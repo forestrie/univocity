@@ -11,6 +11,7 @@ import {
     GC_AUTH_LOG
 } from "@univocity/interfaces/constants.sol";
 import {buildSigStructure} from "@univocity/cosecbor/cosecbor.sol";
+import {LibLeafEncoding} from "@univocity/algorithms/lib/LibLeafEncoding.sol";
 import {
     ConsistencyProof,
     ConsistencyReceipt,
@@ -137,7 +138,7 @@ contract BuildSafeRootBootstrap is Script {
             grantData: abi.encodePacked(safe)
         });
 
-        bytes32 leaf0 = _leafCommitment(IDTIMESTAMP_AUTH, grant);
+        bytes32 leaf0 = LibLeafEncoding.leafCommitment(IDTIMESTAMP_AUTH, grant);
         bytes32[] memory accMem = _toAcc(leaf0);
 
         ConsistencyProof[] memory proofs = new ConsistencyProof[](1);
@@ -176,24 +177,6 @@ contract BuildSafeRootBootstrap is Script {
                 grant
             )
         );
-    }
-
-    function _leafCommitment(bytes8 grantIDTimestampBe, PublishGrant memory g)
-        internal
-        pure
-        returns (bytes32)
-    {
-        bytes32 inner = sha256(
-            abi.encodePacked(
-                g.logId,
-                g.grant,
-                g.maxHeight,
-                g.minGrowth,
-                g.ownerLogId,
-                g.grantData
-            )
-        );
-        return sha256(abi.encodePacked(grantIDTimestampBe, inner));
     }
 
     function _toAcc(bytes32 peak)

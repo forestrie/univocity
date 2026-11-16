@@ -15,6 +15,7 @@ import {
     PublishGrant
 } from "@univocity/interfaces/types.sol";
 import {includedRoot} from "@univocity/algorithms/includedRoot.sol";
+import {LibLeafEncoding} from "@univocity/algorithms/lib/LibLeafEncoding.sol";
 import {IUnivocityEvents} from "@univocity/interfaces/IUnivocityEvents.sol";
 import {consistentRoots} from "../algorithms/ConsistentRootsOracle.sol";
 import {
@@ -139,7 +140,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
             bytes32(0),
             abi.encodePacked(ks256Signer)
         );
-        bytes32 leaf0 = _leafCommitment(IDTIMESTAMP_0, g);
+        bytes32 leaf0 = LibLeafEncoding.leafCommitment(IDTIMESTAMP_0, g);
         ConsistencyReceipt memory consistency =
             _buildConsistencyReceipt(_toAcc(leaf0));
         fresh.publishCheckpoint(
@@ -149,24 +150,6 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
         assertEq(fresh.rootLogId(), rootLogId);
         assertTrue(fresh.isLogInitialized(rootLogId));
         assertEq(fresh.logState(rootLogId).size, 1);
-    }
-
-    function _leafCommitment(bytes8 idtimestampBe, PublishGrant memory g)
-        internal
-        pure
-        returns (bytes32)
-    {
-        bytes32 inner = sha256(
-            abi.encodePacked(
-                g.logId,
-                g.grant,
-                g.maxHeight,
-                g.minGrowth,
-                g.ownerLogId,
-                g.grantData
-            )
-        );
-        return sha256(abi.encodePacked(idtimestampBe, inner));
     }
 
     uint256 internal constant GF_CREATE = uint256(1) << 32;
@@ -451,7 +434,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
             bytes32(0),
             abi.encodePacked(ks256Signer)
         );
-        bytes32 authLeaf0 = _leafCommitment(IDTIMESTAMP_0, g0);
+        bytes32 authLeaf0 = LibLeafEncoding.leafCommitment(IDTIMESTAMP_0, g0);
         univocity.publishCheckpoint(
             _buildConsistencyReceipt(_toAcc(authLeaf0)),
             _emptyInclusionProof(),
@@ -468,7 +451,8 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
             rootLogId,
             abi.encodePacked(ks256Signer)
         );
-        bytes32 targetLeaf = _leafCommitment(IDTIMESTAMP_1, gTarget);
+        bytes32 targetLeaf =
+            LibLeafEncoding.leafCommitment(IDTIMESTAMP_1, gTarget);
         ConsistencyReceipt memory consistency1 =
             _buildConsistencyReceipt1To3(authLeaf0, targetLeaf);
         vm.prank(BOOTSTRAP);
@@ -499,7 +483,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
             bytes32(0),
             abi.encodePacked(ks256Signer)
         );
-        bytes32 authLeaf0 = _leafCommitment(IDTIMESTAMP_0, g0);
+        bytes32 authLeaf0 = LibLeafEncoding.leafCommitment(IDTIMESTAMP_0, g0);
         univocity.publishCheckpoint(
             _buildConsistencyReceipt(_toAcc(authLeaf0)),
             _emptyInclusionProof(),
@@ -516,7 +500,8 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
             rootLogId,
             abi.encodePacked(ks256Signer)
         );
-        bytes32 targetLeaf = _leafCommitment(IDTIMESTAMP_1, gTarget);
+        bytes32 targetLeaf =
+            LibLeafEncoding.leafCommitment(IDTIMESTAMP_1, gTarget);
         ConsistencyReceipt memory consistency1 =
             _buildConsistencyReceipt1To3(authLeaf0, targetLeaf);
         vm.prank(BOOTSTRAP);
@@ -567,7 +552,7 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
             bytes32(0),
             abi.encodePacked(ks256Signer)
         );
-        bytes32 authLeaf0 = _leafCommitment(IDTIMESTAMP_0, g0);
+        bytes32 authLeaf0 = LibLeafEncoding.leafCommitment(IDTIMESTAMP_0, g0);
         univocity.publishCheckpoint(
             _buildConsistencyReceipt(_toAcc(authLeaf0)),
             _emptyInclusionProof(),
@@ -584,9 +569,11 @@ contract CheckpointFlowTest is Test, IUnivocityEvents {
             rootLogId,
             abi.encodePacked(ks256Signer)
         );
-        bytes32 targetLeaf1 = _leafCommitment(IDTIMESTAMP_1, gTarget);
+        bytes32 targetLeaf1 =
+            LibLeafEncoding.leafCommitment(IDTIMESTAMP_1, gTarget);
         bytes8 idtimestamp2 = bytes8(uint64(2));
-        bytes32 targetLeaf2 = _leafCommitment(idtimestamp2, gTarget);
+        bytes32 targetLeaf2 =
+            LibLeafEncoding.leafCommitment(idtimestamp2, gTarget);
         ConsistencyReceipt memory consistency1to2 =
             _buildConsistencyReceipt1To3(authLeaf0, targetLeaf1);
         vm.prank(BOOTSTRAP);

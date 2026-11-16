@@ -4,7 +4,12 @@ pragma solidity ^0.8.24;
 import {PublishGrant} from "@univocity/interfaces/types.sol";
 
 /// @notice Encoding helpers for leaf commitment: inner preimage and leaf hash.
-/// @dev Canonical encoding matches _leafCommitment (LibLogState): inner =
+/// @dev This is the shared memory copy for scripts and tests. Production
+///      uses the calldata copy `_leafCommitment` in LibLogState, which
+///      avoids copying the grant to memory; the parity test
+///      `test_leafEncoding_matchesLeafCommitment` (test/checkpoints/
+///      Univocity.t.sol) keeps the two equal.
+///      Canonical encoding matches _leafCommitment (LibLogState): inner =
 ///      abi.encodePacked(logId, grant, maxHeight, minGrowth, ownerLogId, grantData).
 ///      Sizes: logId 32, grant 32, maxHeight 8, minGrowth 8, ownerLogId 32, grantData variable.
 ///      Padding convention: logId and ownerLogId are bytes32 (32 bytes); 16-byte UUIDs
