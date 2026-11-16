@@ -2,7 +2,9 @@
 pragma solidity ^0.8.24;
 
 import {console} from "forge-std/console.sol";
+import {PublishedEnforcer} from "@univocity/contracts/PublishedEnforcer.sol";
 import {SpikeBase} from "./SpikeBase.s.sol";
+import {DelegationStatementPayload} from "./DelegationStatementPayload.sol";
 import {Delegation} from "../../test/shared/DelegationFrameworkV130.sol";
 
 interface IErc1271 {
@@ -12,13 +14,17 @@ interface IErc1271 {
         returns (bytes4);
 }
 
-/// @notice SPIKE-ONLY. Builds and signs the run's two hops, D_HA and
-///    D_AB, and writes them as signed (without args) to
-///    deployments/spike-7710/delegations.json, for the driver to publish
-///    as delegation statements (protocol spec/delegated-spend-statements.md
-///    §4). Broadcasts nothing; it checks the root accepts D_HA's
-///    signature over ERC-1271. SPIKE_CHAIN=h2 builds the second run's
-///    D_H2A and D_AB2 into delegations-h2.json instead.
+/// @notice SPIKE-ONLY. Builds and signs one chain's two hops, the root's
+///    hop to agent A and agent A's hop to agent B, and writes each as the
+///    payload of a delegation statement (protocol
+///    spec/delegated-spend-statements.md §4) for the CLI to sign and
+///    register: .spike-7710/statements/<name>.payload.cbor, with the
+///    delegation hash and target log in <name>.json beside it.
+///    SPIKE_CHAIN=h2 builds D_H2A and D_AB2 under the EIP-7702 root;
+///    otherwise D_HA and D_AB. Broadcasts nothing; it checks the root
+///    accepts its hop's signature over ERC-1271.
+/// @dev Key 6 names the delegate's own log: L_A for the root's hop, L_B
+///    for agent A's.
 contract BuildDelegations is SpikeBase {
     function run() external {
         Delegation memory dHA = _hopHA();
@@ -29,40 +35,58 @@ contract BuildDelegations is SpikeBase {
         require(
             IErc1271(dHA.delegator).isValidSignature(digest, dHA.signature)
                 == 0x1626ba7e,
-            "root refuses D_HA's signature"
+            "root refuses its hop's signature"
         );
 
         (string memory rootHop, string memory agentHop) = _hopNames();
-        vm.serializeString("d", rootHop, _json(rootHop, dHA));
-        string memory json =
-            vm.serializeString("d", agentHop, _json(agentHop, dAB));
-        vm.writeJson(
-            json,
-            string.concat(
-                RUN_DIR, _isH2() ? "delegations-h2.json" : "delegations.json"
-            )
+        vm.createDir(string.concat(RUN_DIR, "statements"), true);
+        _write(rootHop, dHA, _logH(), _logA(), 2, _rootDescription());
+        _write(
+            agentHop,
+            dAB,
+            _logA(),
+            _runBytes32(".logB"),
+            1,
+            "Spike 7710 live run: agent A lets agent B make single payments"
         );
-        console.log(rootHop, vm.toString(_hash(dHA)));
-        console.log(agentHop, vm.toString(_hash(dAB)));
     }
 
-    function _json(string memory o, Delegation memory d)
-        internal
-        returns (string memory)
-    {
-        address[] memory enforcers = new address[](d.caveats.length);
-        bytes[] memory terms = new bytes[](d.caveats.length);
-        for (uint256 i = 0; i < d.caveats.length; i++) {
-            enforcers[i] = d.caveats[i].enforcer;
-            terms[i] = d.caveats[i].terms;
-        }
-        vm.serializeAddress(o, "delegate", d.delegate);
-        vm.serializeAddress(o, "delegator", d.delegator);
-        vm.serializeBytes32(o, "authority", d.authority);
-        vm.serializeAddress(o, "enforcers", enforcers);
-        vm.serializeBytes(o, "terms", terms);
-        vm.serializeBytes32(o, "salt", bytes32(d.salt));
-        vm.serializeBytes(o, "signature", d.signature);
-        return vm.serializeBytes32(o, "hash", _hash(d));
+    function _rootDescription() internal view returns (string memory) {
+        return _isH2()
+            ? "Spike 7710 live run: the EIP-7702 household root lets agent A pay Forestrie fees and one seller"
+            : "Spike 7710 live run: the household root lets agent A pay Forestrie fees and one seller";
+    }
+
+    function _write(
+        string memory name,
+        Delegation memory d,
+        bytes32 log,
+        bytes32 delegateLog,
+        uint256 depth,
+        string memory description
+    ) internal {
+        bytes32 h = _hash(d);
+        bytes memory payload = DelegationStatementPayload.encode(
+            DelegationStatementPayload.Statement({
+                tag: PublishedEnforcer(_runAddress(".enforcer"))
+                    .DELEGATION_TAG(),
+                delegationHash: h,
+                chainId: block.chainid,
+                manager: address(DM),
+                delegateLog: delegateLog,
+                depth: depth,
+                description: description
+            }),
+            d
+        );
+        string memory dir = string.concat(RUN_DIR, "statements/", name);
+        vm.writeFileBinary(string.concat(dir, ".payload.cbor"), payload);
+        vm.serializeBytes32(name, "delegationHash", h);
+        vm.serializeBytes32(name, "log", log);
+        vm.serializeBytes32(name, "delegateLog", delegateLog);
+        vm.serializeAddress(name, "delegator", d.delegator);
+        string memory json = vm.serializeAddress(name, "delegate", d.delegate);
+        vm.writeJson(json, string.concat(dir, ".json"));
+        console.log(name, vm.toString(h), payload.length);
     }
 }

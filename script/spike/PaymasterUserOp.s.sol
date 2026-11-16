@@ -65,10 +65,11 @@ interface IUsdcPermit {
 ///    SPIKE_PURPOSE.
 /// @dev Builds and signs the user operation and the paymaster's EIP-2612
 ///    permit (paymasterData mode 0: token, permit amount, signature) with
-///    agent B's key, from the gas fields in SPIKE_GAS_* (the driver takes
-///    them from the bundler), and runs it through handleOps on the fork as
-///    a check. Broadcasts nothing; writes the RPC form of the operation to
-///    deployments/spike-7710/<SPIKE_PURPOSE>-userop.json for the driver.
+///    agent B's key, from the gas fields in SPIKE_GAS_* (the taskfile
+///    takes them from the bundler), and runs it through handleOps on the
+///    fork as a check. Broadcasts nothing; writes the RPC form of the
+///    operation to .spike-7710/<SPIKE_PURPOSE>-userop.json for
+///    `task spike-7710:userop`, and the stand-in checker's context.
 contract PaymasterUserOp is SpikeBase {
     IEntryPointV07 internal constant ENTRY_POINT =
         IEntryPointV07(0x0000000071727De22E5E9d8BAf0edAc6f37da032);
@@ -137,6 +138,7 @@ contract PaymasterUserOp is SpikeBase {
         op.signature = abi.encodePacked(r, s, v);
 
         _simulate(op, sender);
+        _writeContext(purpose, root);
         _write(purpose, op, g, paymasterData, _hash(leaf));
         console.log("leaf", vm.toString(_hash(leaf)));
         console.log("callData bytes", callData.length);

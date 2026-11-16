@@ -16,7 +16,8 @@ import {
 ///    publication enforcer (devdocs ARC-0032 §3.1, §5.2): the same chain
 ///    shapes as test/integration/DelegatedSpendForkBase.sol, built from
 ///    keys held in Doppler (univocity/dev, SPIKE_7710_*) and from the run
-///    record the driver keeps in deployments/spike-7710/run.json.
+///    record taskfiles/spike-7710.yml keeps in .spike-7710/run.json
+///    (gitignored, like everything the run writes).
 /// @dev Secrets arrive only as environment variables through
 ///    `doppler run`; nothing here logs one. Addresses derived from them
 ///    are public and are written to the run record.
@@ -25,8 +26,8 @@ abstract contract SpikeBase is Script {
         IDelegationManagerV130(FrameworkV130.DELEGATION_MANAGER);
     address internal constant USDC = FrameworkV130.BASE_SEPOLIA_USDC;
 
-    string internal constant RUN_DIR = "deployments/spike-7710/";
-    string internal constant RUN_FILE = "deployments/spike-7710/run.json";
+    string internal constant RUN_DIR = ".spike-7710/";
+    string internal constant RUN_FILE = ".spike-7710/run.json";
 
     uint256 internal constant PRICE = 2_500_000; // 2.5 USDC
     uint256 internal constant CAP_HA = 100_000_000;
@@ -302,23 +303,22 @@ abstract contract SpikeBase is Script {
         d.signature = abi.encodePacked(r, s, v);
     }
 
-    /// @notice Fills a hop's publication args (caveat 0) from the proof
-    ///    inputs the driver took from canopy's receipt route.
-    function _withProof(Delegation memory d, string memory key) internal view {
-        string memory run = _run();
+    /// @notice Fills a hop's publication args (caveat 0) from
+    ///    .spike-7710/proofs/<name>.json, which PublishedProof.s.sol writes
+    ///    from a path rebuilt from the log's public tiles.
+    function _withProof(Delegation memory d, string memory name)
+        internal
+        view
+    {
+        string memory p =
+            vm.readFile(string.concat(RUN_DIR, "proofs/", name, ".json"));
         d.caveats[0].args = abi.encode(
             PublishedEnforcer.PublishedArgs({
-                prefix: vm.parseJsonBytes(run, string.concat(key, ".prefix")),
-                suffix: vm.parseJsonBytes(run, string.concat(key, ".suffix")),
-                idTimestamp: uint64(
-                    vm.parseJsonUint(run, string.concat(key, ".idTimestamp"))
-                ),
-                mmrIndex: vm.parseJsonUint(
-                    run, string.concat(key, ".mmrIndex")
-                ),
-                path: vm.parseJsonBytes32Array(
-                        run, string.concat(key, ".path")
-                    )
+                prefix: vm.parseJsonBytes(p, ".prefix"),
+                suffix: vm.parseJsonBytes(p, ".suffix"),
+                idTimestamp: uint64(vm.parseJsonUint(p, ".idTimestamp")),
+                mmrIndex: vm.parseJsonUint(p, ".mmrIndex"),
+                path: vm.parseJsonBytes32Array(p, ".path")
             })
         );
     }
@@ -332,8 +332,8 @@ abstract contract SpikeBase is Script {
         Delegation memory dHA = _hopHA();
         Delegation memory dAB = _hopAB(_hash(dHA));
         (string memory rootHop, string memory agentHop) = _hopNames();
-        _withProof(dHA, string.concat(".proofs.", rootHop));
-        _withProof(dAB, string.concat(".proofs.", agentHop));
+        _withProof(dHA, rootHop);
+        _withProof(dAB, agentHop);
         dHA.caveats[3].args = abi.encode(
             SelectedGroup({groupIndex: payeeGroup, caveatArgs: new bytes[](1)})
         );
@@ -341,6 +341,47 @@ abstract contract SpikeBase is Script {
         chain[0] = leaf;
         chain[1] = dAB;
         chain[2] = dHA;
+    }
+
+    /// @notice The stand-in canopy checker's chain context and purpose
+    ///    (scripts/canopy_payment_check.py).
+    /// @notice Writes <purpose>-context.json for the stand-in checker.
+    function _writeContext(string memory purpose, address root) internal {
+        vm.writeFile(
+            string.concat(RUN_DIR, purpose, "-context.json"),
+            _context(purpose, root)
+        );
+    }
+
+    function _context(string memory purpose, address root)
+        internal
+        view
+        returns (string memory)
+    {
+        bytes32 digest = sha256(bytes(purpose));
+        return string.concat(
+            '{"chainId":',
+            vm.toString(block.chainid),
+            ',"usdc":"',
+            vm.toString(USDC),
+            '","payee":"',
+            vm.toString(_payee()),
+            '","delegationManagers":["',
+            vm.toString(address(DM)),
+            '"],"exactExecutionEnforcer":"',
+            vm.toString(FrameworkV130.EXACT_EXECUTION_ENFORCER),
+            '","limitedCallsEnforcer":"',
+            vm.toString(FrameworkV130.LIMITED_CALLS_ENFORCER),
+            '","purposes":[{"label":"',
+            purpose,
+            '","kind":1,"purposeDigest":"',
+            vm.toString(digest),
+            '","payer":"',
+            vm.toString(root),
+            '","nonce":"',
+            vm.toString(bytes32(_nonce(purpose, root))),
+            '","expect":"bound"}]}'
+        );
     }
 
     function _nonce(string memory label, address payer)

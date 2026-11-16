@@ -7,6 +7,11 @@ includes:
   imutable-deploy: taskfiles/imutable-deploy.yml
   contract-artefacts-release: taskfiles/contract-artefacts-release.yml
   anvil: taskfiles/anvil.yml
+  # Spike 7710: regenerate the publication enforcer's Base Sepolia live
+  # run (FOR-696). Writes only to the gitignored .spike-7710/.
+  spike-7710:
+    taskfile: taskfiles/spike-7710.yml
+    dir: .
 
 tasks:
   docs:lint:

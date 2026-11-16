@@ -12,10 +12,9 @@ import {SpikeBase} from "./SpikeBase.s.sol";
 ///    PublishedEnforcer, and builds the verifier of the run's univocity
 ///    instance (devdocs ARC-0032 §4.2). DEPLOY_KEY pays; nothing here is
 ///    the production factory or a deterministic address.
-/// @dev doppler run --project univocity --config dev -- forge script
-///    script/spike/DeployPublishedEnforcer.s.sol --rpc-url "$RPC_URL"
-///    --broadcast. Reads .instance from the run record and writes
-///    deployments/spike-7710/contracts.json.
+/// @dev Run by `task spike-7710:contracts` (broadcasts). Reads .instance
+///    from the run record and writes .spike-7710/contracts.json, which
+///    the task merges into it.
 contract DeployPublishedEnforcer is SpikeBase {
     function run() external {
         address instance = _runAddress(".instance");

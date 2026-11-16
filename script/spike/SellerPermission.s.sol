@@ -15,8 +15,8 @@ import {
 ///    MetaMask's dev and production facilitators in a RedeemerEnforcer,
 ///    so either host can settle it. Broadcasts nothing: it simulates the
 ///    redemption from each facilitator address, then writes
-///    deployments/spike-7710/
-///    <SPIKE_PURPOSE>.json for the driver's /verify and /settle calls.
+///    .spike-7710/<SPIKE_PURPOSE>.json for the /verify and /settle calls
+///    of `task spike-7710:seller`.
 /// @dev A seller payment carries no payment nonce; the salt is
 ///    sha256(SPIKE_PURPOSE), so each host gets its own single-use leaf.
 contract SellerPermission is SpikeBase {

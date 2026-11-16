@@ -20,8 +20,8 @@ interface IErc20Transfer {
 ///    HybridDeleGator (ERC1967 proxy, as the fork tests build it) owned by
 ///    SPIKE_7710_H_OWNER_KEY, and funds the run from DEPLOY_KEY: 20 test
 ///    USDC to the root and gas ETH to agent B, who redeems.
-/// @dev Writes the run's public addresses to
-///    deployments/spike-7710/accounts.json.
+/// @dev Writes the run's public addresses to .spike-7710/accounts.json,
+///    which `task spike-7710:accounts` merges into the run record.
 contract SetupRoot is SpikeBase {
     uint256 internal constant ROOT_USDC = 20_000_000;
     uint256 internal constant AGENT_B_ETH = 0.0003 ether;

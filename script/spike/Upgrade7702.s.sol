@@ -20,10 +20,9 @@ interface IErc20Transfer {
 /// @dev The authorization is signed in-process from the Doppler key; the
 ///    type-4 transaction calls the account itself with no data, which the
 ///    DeleGator's receive() accepts. Writes
-///    deployments/spike-7710/<SPIKE_PURPOSE>.json. Run with
-///    `--evm-version prague` (foundry.toml pins cancun, under which the
-///    fork runs a delegation designator as code); so must every script
-///    that calls an upgraded account (SPIKE_CHAIN=h2, PaymasterUserOp).
+///    .spike-7710/<SPIKE_PURPOSE>.json. The taskfile runs every spike
+///    script with `--evm-version prague`: foundry.toml pins cancun, under
+///    which a fork runs a delegation designator as code.
 contract Upgrade7702 is SpikeBase {
     /// @notice EIP7702StatelessDeleGator v1.3.0 on Base Sepolia (MetaMask
     ///    delegation-framework documents/Deployments.md).
