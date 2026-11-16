@@ -1,0 +1,38 @@
+{
+  "prod": {
+    "status": 200,
+    "methods": [
+      "eip3009",
+      "permit2",
+      "erc7710"
+    ],
+    "facilitators": [
+      "0xB01caEa8c6C47bbf4F4b4c5080Ca642043359C2E",
+      "0xB42F812A44c22cc6b861478900401ee759EbEAD6",
+      "0xC066ac5D385419B1A8c43A0E146fA439837a8B8c"
+    ],
+    "signers": [
+      "0xB42F812A44c22cc6b861478900401ee759EbEAD6",
+      "0xC066ac5D385419B1A8c43A0E146fA439837a8B8c",
+      "0xB01caEa8c6C47bbf4F4b4c5080Ca642043359C2E"
+    ],
+    "match": true,
+    "at": "2026-11-16T09:34:09.349Z"
+  },
+  "dev": {
+    "status": 200,
+    "methods": [
+      "eip3009",
+      "permit2",
+      "erc7710"
+    ],
+    "facilitators": [
+      "0xb4827A2a066CD2Ef88560EFdf063dD05C6c41cC7"
+    ],
+    "signers": [
+      "0xb4827A2a066CD2Ef88560EFdf063dD05C6c41cC7"
+    ],
+    "match": true,
+    "at": "2026-11-16T09:34:09.743Z"
+  }
+}

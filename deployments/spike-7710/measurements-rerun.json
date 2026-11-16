@@ -1,0 +1,310 @@
+{
+  "transactions": [
+    {
+      "step": "q91-h2-root-7702-upgrade-type4",
+      "tx": "0xa9beb87d5fe0db75c142999c285ddeab5b132b80d418925138ed6566b3cd85f7",
+      "type": "0x4",
+      "status": "0x1",
+      "block": "59498052",
+      "blockTime": "2026-11-16T09:31:19.000Z",
+      "from": "0xda30db778c4aae42bfae2e81d4b12deb0725f98c",
+      "to": "0xd89022914e534a6b39c5f1d57d5125464b2f2fc8",
+      "gasUsed": "46055",
+      "effectiveGasPrice": "5010000",
+      "l2FeeWei": "230735550000",
+      "l1FeeWei": "127",
+      "l1GasUsed": "2169"
+    },
+    {
+      "step": "q91-fund-h2-root-5-usdc",
+      "tx": "0x20563bd34e047eba18b55df2f9e763dcb659980d8f2e7ee54409bf87c653ee99",
+      "type": "0x2",
+      "status": "0x1",
+      "block": "59498063",
+      "blockTime": "2026-11-16T09:31:21.000Z",
+      "from": "0xda30db778c4aae42bfae2e81d4b12deb0725f98c",
+      "to": "0x036cbd53842c5426634e7929541ec2318f3dcf7e",
+      "gasUsed": "62159",
+      "effectiveGasPrice": "5010000",
+      "l2FeeWei": "311416590000",
+      "l1FeeWei": "94",
+      "l1GasUsed": "1600"
+    },
+    {
+      "step": "q91-lane-a-checkpoint-lH-lb-grant",
+      "tx": "0xcb0b3e63d234d80d4346e0de8a4d52559f8b1b4f453decf2aa9448885fe9bdd1",
+      "type": "0x2",
+      "status": "0x1",
+      "block": "59498427",
+      "blockTime": "2026-11-16T09:32:34.000Z",
+      "from": "0x0ac747da6379287699c655d2a4a830e4c597690a",
+      "to": "0xe27b00d45a8dbe97e394ce9d485ede74ccb867d3",
+      "gasUsed": "154472",
+      "effectiveGasPrice": "6000000",
+      "l2FeeWei": "926832000000",
+      "l1FeeWei": "557",
+      "l1GasUsed": "9477"
+    },
+    {
+      "step": "q91-lane-a-checkpoint-lH-dH2A",
+      "tx": "0xeca501bb41459eb7e0289255898215596692b3b642d21014495c137702b4e09d",
+      "type": "0x2",
+      "status": "0x1",
+      "block": "59498634",
+      "blockTime": "2026-11-16T09:33:15.000Z",
+      "from": "0x0ac747da6379287699c655d2a4a830e4c597690a",
+      "to": "0xe27b00d45a8dbe97e394ce9d485ede74ccb867d3",
+      "gasUsed": "166093",
+      "effectiveGasPrice": "6000000",
+      "l2FeeWei": "996558000000",
+      "l1FeeWei": "508",
+      "l1GasUsed": "8647"
+    },
+    {
+      "step": "q91-lane-a-checkpoint-lA-dAB2",
+      "tx": "0x9391a2c95d01d23701dec25ef412404a73ed4f36064ac9cde877f1569be73e89",
+      "type": "0x2",
+      "status": "0x1",
+      "block": "59498671",
+      "blockTime": "2026-11-16T09:33:23.000Z",
+      "from": "0x0ac747da6379287699c655d2a4a830e4c597690a",
+      "to": "0xe27b00d45a8dbe97e394ce9d485ede74ccb867d3",
+      "gasUsed": "150421",
+      "effectiveGasPrice": "6000000",
+      "l2FeeWei": "902526000000",
+      "l1FeeWei": "511",
+      "l1GasUsed": "8687"
+    },
+    {
+      "step": "q91-x402-prod-settle-seller",
+      "tx": "0xa64fd6dd8c7cd0e957c3b6f7e6a7194a0edabe6710d70a47015b8f3aa37268a3",
+      "type": "0x2",
+      "status": "0x1",
+      "block": "59498809",
+      "blockTime": "2026-11-16T09:33:50.000Z",
+      "from": "0xc066ac5d385419b1a8c43a0e146fa439837a8b8c",
+      "to": "0xdb9b1e94b5b69df7e401ddbede43491141047db3",
+      "gasUsed": "673852",
+      "effectiveGasPrice": "6002301",
+      "l2FeeWei": "4044662533452",
+      "l1FeeWei": "1796",
+      "l1GasUsed": "30516"
+    },
+    {
+      "step": "q91-x402-dev-settle-seller",
+      "tx": "0x7f73f0b47702166fe21dbae2b8e0b6a40c298961aa0ded2f7c74d5fc427a042c",
+      "type": "0x2",
+      "status": "0x1",
+      "block": "59498960",
+      "blockTime": "2026-11-16T09:34:20.000Z",
+      "from": "0xb4827a2a066cd2ef88560efdf063dd05c6c41cc7",
+      "to": "0xdb9b1e94b5b69df7e401ddbede43491141047db3",
+      "gasUsed": "617299",
+      "effectiveGasPrice": "6000001",
+      "l2FeeWei": "3703794617299",
+      "l1FeeWei": "1791",
+      "l1GasUsed": "30436"
+    },
+    {
+      "step": "q92-agent-b-7702-upgrade-type4",
+      "tx": "0xe578cac8587a9a159b013a43fce923995b84cf57ad8f24be0b0886ad79b983ef",
+      "type": "0x4",
+      "status": "0x1",
+      "block": "59499317",
+      "blockTime": "2026-11-16T09:35:32.000Z",
+      "from": "0xda30db778c4aae42bfae2e81d4b12deb0725f98c",
+      "to": "0x371ffb1ec445eb072ee7afb7cff8b7db92a4ff38",
+      "gasUsed": "36844",
+      "effectiveGasPrice": "5010000",
+      "l2FeeWei": "184588440000",
+      "l1FeeWei": "127",
+      "l1GasUsed": "2169"
+    },
+    {
+      "step": "q92-fund-agent-b-1-usdc",
+      "tx": "0xce91b049fe74b0b8fe63e1b6b8f859490fd6f103f9ede4b910f76c39328fb3dc",
+      "type": "0x2",
+      "status": "0x1",
+      "block": "59499327",
+      "blockTime": "2026-11-16T09:35:34.000Z",
+      "from": "0xda30db778c4aae42bfae2e81d4b12deb0725f98c",
+      "to": "0x036cbd53842c5426634e7929541ec2318f3dcf7e",
+      "gasUsed": "62159",
+      "effectiveGasPrice": "5010000",
+      "l2FeeWei": "311416590000",
+      "l1FeeWei": "94",
+      "l1GasUsed": "1600"
+    },
+    {
+      "step": "q92-userop-bundle-pays-payee",
+      "tx": "0x260627fe293e675e5c982e9b67bb186d8ffc6f0f8135cb605bd9f25b676784cd",
+      "type": "0x2",
+      "status": "0x1",
+      "block": "59500354",
+      "blockTime": "2026-11-16T09:38:59.000Z",
+      "from": "0x4337bd13646b1432a84287c1d6c3cd8fce633d9f",
+      "to": "0x0000000071727de22e5e9d8baf0edac6f37da032",
+      "gasUsed": "817157",
+      "effectiveGasPrice": "6478815",
+      "l2FeeWei": "5294209028955",
+      "l1FeeWei": "2020",
+      "l1GasUsed": "34331"
+    }
+  ],
+  "q91": {
+    "rootH2": "0xd89022914e534a6b39c5F1d57d5125464B2F2FC8",
+    "logB": {
+      "uuid": "b26cae63-a3a9-4fa2-a9fc-a52aa1d0edcf",
+      "logId": "0x00000000000000000000000000000000b26cae63a3a94fa2a9fca52aa1d0edcf",
+      "lbCreateStart": "2026-11-16T09:32:23.601Z",
+      "lbAnchored": "2026-11-16T09:32:43.491Z",
+      "deployKeyNonceBefore": "3452",
+      "deployKeyNonceAfter": "3452",
+      "deployKeyBroadcasts": "0",
+      "anchoredSize": "0"
+    },
+    "statements": {
+      "dH2A": {
+        "delegationHash": "0x722225fe33efe81e605c040d0343267f7ec70c913cfe926dc0df422d49239b13",
+        "log": "0x00000000000000000000000000000000e27b00d45a8dbe97e394ce9d485ede74",
+        "entryId": "a1e3b40616040b000000000000000007",
+        "receiptUrl": "https://api-a.forest-2.forestrie.dev/logs/e27b00d4-5a8d-be97-e394-ce9d485ede74/e27b00d4-5a8d-be97-e394-ce9d485ede74/14/entries/a1e3b40616040b000000000000000007/receipt",
+        "registeredFrom": "2026-11-16T09:33:06.812Z",
+        "receiptAt": "2026-11-16T09:33:10.776Z",
+        "registerSeconds": 3.964,
+        "statementBytes": 1720,
+        "tagOffset": 235,
+        "anchoredSeenAt": "2026-11-16T09:33:18.150Z",
+        "anchoredSize": "8",
+        "anchorLatencySeconds": 11.338
+      },
+      "dAB2": {
+        "delegationHash": "0xc7e438e9fd92957b9faed9ff80315ebe0b58fbd3279c71b4aea76236d4d6da82",
+        "log": "0x000000000000000000000000000000000bff6dde71c0419facb3bf4a46695021",
+        "entryId": "a1e3b41a7a040b000000000000000001",
+        "receiptUrl": "https://api-a.forest-2.forestrie.dev/logs/e27b00d4-5a8d-be97-e394-ce9d485ede74/0bff6dde-71c0-419f-acb3-bf4a46695021/14/entries/a1e3b41a7a040b000000000000000001/receipt",
+        "registeredFrom": "2026-11-16T09:33:10.830Z",
+        "receiptAt": "2026-11-16T09:33:17.669Z",
+        "registerSeconds": 6.839,
+        "statementBytes": 894,
+        "tagOffset": 235,
+        "anchoredSeenAt": "2026-11-16T09:33:23.825Z",
+        "anchoredSize": "3",
+        "anchorLatencySeconds": 12.995
+      }
+    },
+    "facilitators": {
+      "prod": {
+        "host": "prod",
+        "verify": {
+          "status": 200,
+          "seconds": 0.617,
+          "body": {
+            "isValid": true,
+            "payer": "0xd89022914e534a6b39c5f1d57d5125464b2f2fc8"
+          }
+        },
+        "settle": {
+          "status": 200,
+          "seconds": 1.623,
+          "body": {
+            "success": true,
+            "payer": "0xd89022914e534a6b39c5f1d57d5125464b2f2fc8",
+            "transaction": "0xa64fd6dd8c7cd0e957c3b6f7e6a7194a0edabe6710d70a47015b8f3aa37268a3",
+            "network": "eip155:84532",
+            "amount": "2500000"
+          }
+        }
+      },
+      "dev": {
+        "host": "dev",
+        "verify": {
+          "status": 200,
+          "seconds": 0.738,
+          "body": {
+            "isValid": true,
+            "payer": "0xd89022914e534a6b39c5f1d57d5125464b2f2fc8"
+          }
+        },
+        "settle": {
+          "status": 200,
+          "seconds": 2.104,
+          "body": {
+            "success": true,
+            "payer": "0xd89022914e534a6b39c5f1d57d5125464b2f2fc8",
+            "transaction": "0x7f73f0b47702166fe21dbae2b8e0b6a40c298961aa0ded2f7c74d5fc427a042c",
+            "network": "eip155:84532",
+            "amount": "2500000"
+          }
+        }
+      }
+    }
+  },
+  "q92": {
+    "userOpHash": "0x0219d00b8353944298ec001040bc1b2bc07894431868aeac9d360ffc1cab4071",
+    "success": true,
+    "bundleTx": "0x260627fe293e675e5c982e9b67bb186d8ffc6f0f8135cb605bd9f25b676784cd",
+    "bundler": "0x4337bD13646B1432a84287c1d6C3cd8FCE633d9f",
+    "bundleGasUsed": "817157",
+    "bundleEffectiveGasPrice": "6478815",
+    "bundleL2FeeWei": "5294209028955",
+    "bundleL1FeeWei": "2020",
+    "userOpActualGasUsed": "917711",
+    "userOpActualGasCostWei": "5552151550000",
+    "userOpEventSuccess": true,
+    "nativeTokenPrice": "3000000000",
+    "paymasterCharge": "17667",
+    "paymasterFeeTokenAmount": "0",
+    "senderUsdcBefore": "1000000",
+    "senderUsdcAfter": "982333",
+    "payeeUsdcDelta": "2500000",
+    "userOpCostInUsdc": 0.01665645465,
+    "bundleCostInUsdc": 0.015882627092925,
+    "surchargeOverUserOpCost": 0.06066989471856177,
+    "surchargeOverBundleCost": 0.11234746598501055,
+    "gas": {
+      "SPIKE_GAS_CALL": "1396603",
+      "SPIKE_GAS_VERIFICATION": "73902",
+      "SPIKE_GAS_PRE_VERIFICATION": "124610",
+      "SPIKE_GAS_MAX_FEE": "7350000",
+      "SPIKE_GAS_MAX_PRIORITY_FEE": "1050000",
+      "SPIKE_GAS_PM_VERIFICATION": "454269",
+      "SPIKE_GAS_PM_POST_OP": "40000"
+    },
+    "estimate": {
+      "preVerificationGas": "0x1e6c2",
+      "verificationGasLimit": "0xf091",
+      "callGasLimit": "0x11c23c",
+      "paymasterVerificationGasLimit": "0x5c6be",
+      "paymasterPostOpGasLimit": "0x305c"
+    },
+    "receiptSeconds": 2.316
+  },
+  "proofStaleness": {
+    "note": "Registering D_AB2 grew L_A from 1 to 3 and L_B and D_H2A grew L_H from 4 to 8, so the 6a proof inputs for D_AB and D_HA stopped verifying (NotPublished on a fork simulation of the user operation). The anchor step refreshed them from the receipt route before the user operation was built.",
+    "at6a": {
+      "dHA": {
+        "mmrIndex": "3",
+        "path": [],
+        "anchoredSize": "4"
+      },
+      "dAB": {
+        "mmrIndex": "0",
+        "path": [],
+        "anchoredSize": "1"
+      }
+    },
+    "refreshed": {
+      "dHA": {
+        "mmrIndex": "3",
+        "pathLength": 2,
+        "anchoredSize": "8"
+      },
+      "dAB": {
+        "mmrIndex": "0",
+        "pathLength": 1,
+        "anchoredSize": "3"
+      }
+    }
+  }
+}

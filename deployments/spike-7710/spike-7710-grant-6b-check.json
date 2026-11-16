@@ -1,0 +1,23 @@
+{
+  "outcome": "bound",
+  "payment": {
+    "manager": "0xdb9b1e94b5b69df7e401ddbede43491141047db3",
+    "binding_hash": "0xa4475708e7e797b02040b5084780c6a7bfcddfd94c606eb2aaccfe0a7b7a20b0",
+    "root": "0x5817c5828e64a1ab8daa0ea852e7e65da7e23d2d",
+    "amount": 2500000,
+    "transaction_hash": "0x260627fe293e675e5c982e9b67bb186d8ffc6f0f8135cb605bd9f25b676784cd",
+    "transfer_position": 6
+  },
+  "unbound": null,
+  "bindings": [
+    {
+      "position": 7,
+      "manager": "0xdb9b1e94b5b69df7e401ddbede43491141047db3",
+      "binding_hash": "0xa4475708e7e797b02040b5084780c6a7bfcddfd94c606eb2aaccfe0a7b7a20b0",
+      "root": "0x5817c5828e64a1ab8daa0ea852e7e65da7e23d2d",
+      "salt": 84585697021354573797500423489458131253093859363225246277199850887784641840561,
+      "amount": 2500000,
+      "has_call_limit": true
+    }
+  ]
+}
