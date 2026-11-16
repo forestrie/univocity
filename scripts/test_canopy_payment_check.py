@@ -285,6 +285,27 @@ class ReceiptShapeTest(unittest.TestCase):
         self.assertEqual(got.outcome, "bound")
         self.assertEqual(got.payments[0].transfer_position, pos + 1)
 
+    def test_bound_reading_also_reports_unbound_transfers(self) -> None:
+        v = copy.deepcopy(load("one-payment"))
+        pos = next(
+            i
+            for i, log in enumerate(v["logs"])
+            if log["topics"][0] == "0x" + TRANSFER_TOPIC.hex()
+        )
+        extra = copy.deepcopy(v["logs"][pos])
+        sender = "0x000000000000000000000000000000000000dEaD"
+        extra["topics"][1] = _topic_addr(sender)
+        extra["data"] = "0x" + (7).to_bytes(32, "big").hex()
+        v["logs"].insert(pos + 1, extra)
+        got = check(v, "grant-1")
+        self.assertEqual(got.outcome, "bound")
+        self.assertEqual(len(got.payments), 1)
+        self.assertEqual(got.payments[0].transfer_position, pos)
+        self.assertEqual(
+            [(u.position, u.sender.lower(), u.amount) for u in got.unbounds],
+            [(pos + 1, sender.lower(), 7)],
+        )
+
 
 def ctx_root(vector: dict) -> str:
     return vector["context"]["purposes"][0]["payer"]
