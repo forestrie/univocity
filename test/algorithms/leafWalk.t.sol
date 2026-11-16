@@ -9,7 +9,7 @@ import {
 } from "@univocity/algorithms/includedRoot.sol";
 import {
     committingPeakIndex,
-    completeLeafCount,
+    peaksBitmapComplete,
     leafCount,
     mmrSizeForLeafCount,
     peakIndex,
@@ -57,8 +57,9 @@ contract WalkHarness {
 }
 
 /// @notice The linear leaf walk's helpers agree with the reference
-///    algorithms they replace on the verifier's path: peaksBitmap, the
-///    committing-peak slot through committingPathLength, and includedRoot.
+///    algorithms they replace on the verifier's path: the committing-peak
+///    slot through committingPathLength, and includedRoot. The peak
+///    bitmap is checked against its definition.
 contract LeafWalkTest is Test {
     WalkHarness internal h = new WalkHarness();
 
@@ -101,27 +102,31 @@ contract LeafWalkTest is Test {
         ];
     }
 
-    function test_completeLeafCount_everySmallSize_matchesPeaksBitmap()
+    /// @dev The bitmap's value is the leaf count of the largest complete
+    ///    MMR that fits in `s`, and `s` is complete when that MMR fills it.
+    function _assertPeaksBitmapComplete(uint256 s) internal pure {
+        (uint256 bitmap, bool complete) = peaksBitmapComplete(s);
+        assertLe(mmrSizeForLeafCount(bitmap), s);
+        assertGt(mmrSizeForLeafCount(bitmap + 1), s);
+        assertEq(complete, mmrSizeForLeafCount(bitmap) == s);
+    }
+
+    function test_peaksBitmapComplete_everySmallSize_largestMMRThatFits()
         public
         pure
     {
         for (uint256 s = 0; s <= 300; s++) {
-            (uint256 leaves, bool complete) = completeLeafCount(s);
-            assertEq(leaves, peaksBitmap(s));
-            assertEq(complete, mmrSizeForLeafCount(peaksBitmap(s)) == s);
+            _assertPeaksBitmapComplete(s);
         }
     }
 
-    function test_completeLeafCount_largestSizes_matchPeaksBitmap()
+    function test_peaksBitmapComplete_largestSizes_largestMMRThatFits()
         public
         pure
     {
         uint256[6] memory sizes = _largeSizes();
         for (uint256 k = 0; k < sizes.length; k++) {
-            uint256 s = sizes[k];
-            (uint256 leaves, bool complete) = completeLeafCount(s);
-            assertEq(leaves, peaksBitmap(s));
-            assertEq(complete, mmrSizeForLeafCount(peaksBitmap(s)) == s);
+            _assertPeaksBitmapComplete(sizes[k]);
         }
     }
 
@@ -146,7 +151,7 @@ contract LeafWalkTest is Test {
         uint256[6] memory sizes = _largeSizes();
         for (uint256 k = 0; k < sizes.length; k++) {
             uint256 size = sizes[k];
-            (, bool complete) = completeLeafCount(size);
+            (, bool complete) = peaksBitmapComplete(size);
             if (!complete) continue;
             uint256 last = mmrSizeForLeafCount(peaksBitmap(size) - 1);
             uint256[4] memory ix = [0, size / 2, last, size - 1];
@@ -169,7 +174,7 @@ contract LeafWalkTest is Test {
         uint256 i = bound(index, 0, (1 << 41) - 1);
         uint256 g = indexHeight(i);
         // A node's leftmost leaf is the first of its 2^(g+1) - 1 nodes.
-        (uint256 leftmost,) = completeLeafCount(i + 2 - (2 << g));
+        (uint256 leftmost,) = peaksBitmapComplete(i + 2 - (2 << g));
         uint256 e = leftmost + bound(beneath, 0, (1 << g) - 1);
         bytes32[] memory path = _path(seed, bound(len, 0, 24));
         bytes32 node = keccak256(abi.encode(seed));

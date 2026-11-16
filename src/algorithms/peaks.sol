@@ -16,23 +16,12 @@ import {MAX_HEIGHT} from "@univocity/algorithms/constants.sol";
 /// @notice Returns the peak bitmap for the largest valid MMR with size <= mmrSize.
 /// @dev A set bit indicates a peak; the numeric value equals the leaf count.
 ///    Matches go-merklelog/mmr PeaksBitmap. Used by leafCount and PeakIndex.
+///    The one-value form of peaksBitmapComplete.
 /// @param mmrSize Number of nodes in the MMR (last index + 1). Zero returns 0.
-/// @return Bitmask whose popcount is the number of leaves (and of peaks).
-function peaksBitmap(uint256 mmrSize) pure returns (uint256) {
-    if (mmrSize == 0) return 0;
-    uint256 pos = mmrSize;
-    uint256 n = bitLength(mmrSize);
-    uint256 peakSize = n >= 256 ? type(uint256).max : (1 << n) - 1;
-    uint256 peakMap = 0;
-    while (peakSize > 0) {
-        peakMap <<= 1;
-        if (pos >= peakSize) {
-            pos -= peakSize;
-            peakMap |= 1;
-        }
-        peakSize >>= 1;
-    }
-    return peakMap;
+/// @return bitmap Bitmask whose popcount is the number of peaks; its value
+///    is the number of leaves.
+function peaksBitmap(uint256 mmrSize) pure returns (uint256 bitmap) {
+    (bitmap,) = peaksBitmapComplete(mmrSize);
 }
 
 /// @notice Node count of the complete MMR with `leaves` leaves:
@@ -54,19 +43,20 @@ function leafCount(uint256 mmrSize) pure returns (uint256) {
     return peaksBitmap(mmrSize);
 }
 
-/// @notice Leaf count of MMR(mmrSize), and whether mmrSize is complete.
-/// @dev The pass peaksBitmap makes, keeping what is left over: a size is
-///    complete exactly when its peaks use every node. A leaf's MMR index is
-///    the size of the complete MMR before it, so for a leaf's MMR index
-///    this returns the leaf's zero-based index among the leaves, and
-///    `complete` is false for the MMR index of any interior node. At most
-///    64 steps for a uint64 size.
+/// @notice Peak bitmap of MMR(mmrSize), as peaksBitmap, and whether
+///    mmrSize is complete.
+/// @dev Takes the largest peak that fits, highest first, and keeps what is
+///    left over: a size is complete exactly when its peaks use every node.
+///    The bitmap's value is the leaf count, so for a leaf's MMR index, which
+///    is the size of the complete MMR before it, the bitmap is the leaf's
+///    zero-based index among the leaves, and `complete` is false for the
+///    MMR index of any interior node. At most 64 steps for a uint64 size.
 /// @param mmrSize Number of nodes, or the MMR index of a node.
-/// @return leaves Same value as peaksBitmap(mmrSize).
+/// @return bitmap Same value as peaksBitmap(mmrSize): the leaf count.
 /// @return complete True if mmrSize is the size of a complete MMR.
-function completeLeafCount(uint256 mmrSize)
+function peaksBitmapComplete(uint256 mmrSize)
     pure
-    returns (uint256 leaves, bool complete)
+    returns (uint256 bitmap, bool complete)
 {
     uint256 rest = mmrSize;
     uint256 n = bitLength(mmrSize);
@@ -74,10 +64,10 @@ function completeLeafCount(uint256 mmrSize)
     // Unchecked: rest only drops by a peakSize it is at least.
     unchecked {
         while (peakSize > 0) {
-            leaves <<= 1;
+            bitmap <<= 1;
             if (rest >= peakSize) {
                 rest -= peakSize;
-                leaves |= 1;
+                bitmap |= 1;
             }
             peakSize >>= 1;
         }

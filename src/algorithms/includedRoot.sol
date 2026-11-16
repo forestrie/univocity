@@ -15,7 +15,7 @@ import {
     hashPosPair64
 } from "@univocity/algorithms/binUtils.sol";
 import {
-    completeLeafCount,
+    peaksBitmapComplete,
     leafCount,
     peakIndex
 } from "@univocity/algorithms/peaks.sol";
@@ -106,7 +106,7 @@ function verifyInclusionAtSize(
 ///    whole accumulator is never needed (see LibLogState.committingPeak).
 /// @dev Same witness-age rule and path trimming as verifyInclusionAtSize,
 ///    in work linear in the path length (at most 63 steps): two passes of
-///    completeLeafCount, then includedRootByLeafIndex. Leaf e of a log of L
+///    peaksBitmapComplete, then includedRootByLeafIndex. Leaf e of a log of L
 ///    leaves has its committing peak at height bitLength(e ^ L) - 1, the
 ///    highest bit where the two differ, and for a leaf that height is the
 ///    committing path length. The caller must take `peak` from the
@@ -129,9 +129,9 @@ function verifyInclusionAtPeak(
     // A leaf's MMR index is the size of the complete MMR before it, so the
     // leaf count at that size is the leaf's index. No interior node's index
     // is a complete size, so `isLeaf` is the leaf-only check.
-    (uint256 leafIndex, bool isLeaf) = completeLeafCount(leafMMRIndex);
+    (uint256 leafIndex, bool isLeaf) = peaksBitmapComplete(leafMMRIndex);
     if (!isLeaf) return false;
-    (uint256 leaves, bool complete) = completeLeafCount(mmrSize);
+    (uint256 leaves, bool complete) = peaksBitmapComplete(mmrSize);
     if (!complete) return false;
     // Both sizes are complete and leafMMRIndex < mmrSize, so leafIndex <
     // leaves and their xor is not zero.
@@ -158,7 +158,7 @@ function verifyInclusionAtPeak(
 /// @param g Height of that node: 0 for a leaf.
 /// @param leafIndex Zero-based index, among the leaves, of any leaf beneath
 ///    the node; bits below g are not read. For a leaf, its own index, as
-///    completeLeafCount(mmrIndex) returns it.
+///    peaksBitmapComplete(mmrIndex) returns it.
 /// @param nodeHash Hash of the node.
 /// @param path Sibling hashes from the node up.
 /// @return root The root the path implies; nodeHash for an empty path.
