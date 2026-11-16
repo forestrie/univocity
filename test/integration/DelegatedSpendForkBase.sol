@@ -54,8 +54,8 @@ abstract contract DelegatedSpendForkBase is AnchoredLogFixture {
     uint256 internal constant CAP_AB = 20_000_000;
 
     /// @notice The payment nonce of devdocs ARC-0032 §5.3,
-    ///    SHA-256(TAG ‖ kind ‖ purposeDigest ‖ payer), with a provisional
-    ///    tag and kind until protocol fixes them with vectors.
+    ///    SHA-256(TAG ‖ kind ‖ purposeDigest ‖ payer), with the tag and kind
+    ///    of protocol spec/payment-nonce-and-binding.md §2.
     bytes internal constant NONCE_TAG = "univocity/payment-nonce/v1";
     uint8 internal constant KIND_GRANT = 1;
 
@@ -445,7 +445,7 @@ abstract contract DelegatedSpendForkBase is AnchoredLogFixture {
         _redeemBatch(sender, chains, execs);
     }
 
-    // --- payment nonce (provisional) ---
+    // --- payment nonce (protocol payment-nonce-and-binding.md §2) ---
 
     function _purpose(string memory label) internal pure returns (bytes32) {
         return sha256(bytes(label));

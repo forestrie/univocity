@@ -26,9 +26,12 @@ no-usdc-to-payee, bound, unbound (money that can only be refunded) or
 not-this-request. Price, dust, depth and the used-payment record are
 canopy's (ADR-0076) and are left to the caller.
 
-The payment nonce and the binding rule are provisional until protocol
-publishes them as erc7710-leaf-salt/v1 with vectors (ARC-0032 section
-10).
+The payment nonce and the binding rule are protocol's, published as
+erc7710-leaf-salt/v1 with vectors (protocol
+spec/payment-nonce-and-binding.md sections 2 and 3). The purpose digest
+here is a label hash standing in for the grant digest of section 2. The
+CAIP-2 chain of the receipt, part of a payment's identity in section 3.2,
+is left to the caller.
 Standard library only, so CI runs it without installing anything.
 
 Usage:
@@ -128,8 +131,8 @@ TRANSFER_SELECTOR = bytes.fromhex("a9059cbb")
 # section 5.4).
 MAX_RELEVANT_LOGS = 256
 
-# Provisional payment nonce tag: ARC-0032 section 5.3 gives the formula
-# and protocol will fix the tag and kinds.
+# Payment nonce tag and kinds: protocol spec/payment-nonce-and-binding.md
+# section 2.
 NONCE_TAG = b"univocity/payment-nonce/v1"
 
 
@@ -341,9 +344,11 @@ class Binding:
 
 @dataclass(frozen=True)
 class BoundPayment:
-    """A payment's identity is its manager and binding delegation hash; the
-    Transfer key is the transaction hash and the Transfer's position among
-    the receipt's own logs, never the block-wide logIndex."""
+    """A payment's identity here is its manager and binding delegation hash;
+    protocol's identity (section 3.2) also has the CAIP-2 chain of the
+    receipt, which the caller supplies. The Transfer key is the transaction
+    hash and the Transfer's position among the receipt's own logs, never
+    the block-wide logIndex."""
 
     manager: str
     binding_hash: bytes

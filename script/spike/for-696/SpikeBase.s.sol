@@ -35,8 +35,9 @@ abstract contract SpikeBase is Script {
     /// @notice Hop expiry, as in the fork tests (18 May 2033).
     uint128 internal constant HOP_EXPIRY = 2_000_000_000;
 
-    /// @notice The provisional payment nonce of the fork tests
-    ///    (devdocs ARC-0032 §5.3): SHA-256(TAG ‖ kind ‖ purpose ‖ payer).
+    /// @notice The payment nonce of the fork tests
+    ///    (protocol payment-nonce-and-binding.md §2): SHA-256(TAG ‖ kind ‖
+    ///    purpose ‖ payer), the purpose a label hash, not the grant digest.
     bytes internal constant NONCE_TAG = "univocity/payment-nonce/v1";
     uint8 internal constant KIND_GRANT = 1;
 
