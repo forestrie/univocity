@@ -186,17 +186,7 @@ contract GrantDecodeHarness {
         out.minGrowth = g.minGrowth;
         out.ownerLogId = g.ownerLogId;
         out.grantDataKeccak = keccak256(g.grantData);
-        bytes32 inner = sha256(
-            abi.encodePacked(
-                g.logId,
-                g.grant,
-                g.maxHeight,
-                g.minGrowth,
-                g.ownerLogId,
-                g.grantData
-            )
-        );
-        out.leaf = sha256(abi.encodePacked(grantIDTimestampBe, inner));
+        out.leaf = _leafCommitment(grantIDTimestampBe, g);
     }
 }
 
@@ -211,17 +201,7 @@ contract GrantDecodeHarnessEncoded {
         bytes calldata encodedGrant
     ) external pure returns (bytes32 leaf) {
         PublishGrant memory g = abi.decode(encodedGrant, (PublishGrant));
-        bytes32 inner = sha256(
-            abi.encodePacked(
-                g.logId,
-                g.grant,
-                g.maxHeight,
-                g.minGrowth,
-                g.ownerLogId,
-                g.grantData
-            )
-        );
-        return sha256(abi.encodePacked(grantIDTimestampBe, inner));
+        return LibLeafEncoding.leafCommitment(grantIDTimestampBe, g);
     }
 }
 
