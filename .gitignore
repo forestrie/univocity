@@ -9,6 +9,20 @@ anvil.log
 /broadcast/*/31337/
 /broadcast/**/dry-run/
 
+# Spike 7710 live run (taskfiles/spike-7710.yml): everything it writes,
+# its broadcast logs included, goes to .spike-7710/ and is never
+# committed. The other paths are where the spike scripts wrote before.
+/.spike-7710/
+/deployments/spike-7710/
+/broadcast/BuildDelegations.s.sol/
+/broadcast/DeployPublishedEnforcer.s.sol/
+/broadcast/PaymasterUserOp.s.sol/
+/broadcast/PublishedProof.s.sol/
+/broadcast/RedeemAsAgent.s.sol/
+/broadcast/SellerPermission.s.sol/
+/broadcast/SetupRoot.s.sol/
+/broadcast/Upgrade7702.s.sol/
+
 # Generated docs (forge doc)
 docs/book/
 
