@@ -57,10 +57,10 @@ function leafCount(uint256 mmrSize) pure returns (uint256) {
 /// @notice Leaf count of MMR(mmrSize), and whether mmrSize is complete.
 /// @dev The pass peaksBitmap makes, keeping what is left over: a size is
 ///    complete exactly when its peaks use every node. A leaf's MMR index is
-///    the size of the complete MMR before it, so for a leaf's index this
-///    returns the leaf's number among the leaves, and `complete` is false
-///    for the index of any interior node. At most 64 steps for a uint64
-///    size.
+///    the size of the complete MMR before it, so for a leaf's MMR index
+///    this returns the leaf's zero-based index among the leaves, and
+///    `complete` is false for the MMR index of any interior node. At most
+///    64 steps for a uint64 size.
 /// @param mmrSize Number of nodes, or the MMR index of a node.
 /// @return leaves Same value as peaksBitmap(mmrSize).
 /// @return complete True if mmrSize is the size of a complete MMR.

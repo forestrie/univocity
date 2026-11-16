@@ -106,9 +106,9 @@ function verifyInclusionAtSize(
 ///    whole accumulator is never needed (see LibLogState.committingPeak).
 /// @dev Same witness-age rule and path trimming as verifyInclusionAtSize,
 ///    in work linear in the path length (at most 63 steps): two passes of
-///    completeLeafCount, then includedLeafRoot. Leaf e of a log of L leaves
-///    has its committing peak at height bitLength(e ^ L) - 1, the highest
-///    bit where the two differ, and for a leaf that height is the
+///    completeLeafCount, then includedRootByLeafIndex. Leaf e of a log of L
+///    leaves has its committing peak at height bitLength(e ^ L) - 1, the
+///    highest bit where the two differ, and for a leaf that height is the
 ///    committing path length. The caller must take `peak` from the
 ///    anchored state for the same mmrSize.
 /// @param leafMMRIndex Zero-based MMR index of the leaf.
@@ -126,49 +126,64 @@ function verifyInclusionAtPeak(
     uint256 mmrSize
 ) pure returns (bool) {
     if (leafMMRIndex >= mmrSize) return false;
-    (uint256 leafNumber, bool isLeaf) = completeLeafCount(leafMMRIndex);
+    // A leaf's MMR index is the size of the complete MMR before it, so the
+    // leaf count at that size is the leaf's index. No interior node's index
+    // is a complete size, so `isLeaf` is the leaf-only check.
+    (uint256 leafIndex, bool isLeaf) = completeLeafCount(leafMMRIndex);
     if (!isLeaf) return false;
     (uint256 leaves, bool complete) = completeLeafCount(mmrSize);
     if (!complete) return false;
-    // Both sizes are complete and leafMMRIndex < mmrSize, so leafNumber <
+    // Both sizes are complete and leafMMRIndex < mmrSize, so leafIndex <
     // leaves and their xor is not zero.
-    uint256 n = bitLength(leafNumber ^ leaves) - 1;
+    uint256 n = bitLength(leafIndex ^ leaves) - 1;
     if (proof.length < n) return false;
     if (peak == bytes32(0)) return false;
-    return
-        includedLeafRoot(leafMMRIndex, leafNumber, leafHash, proof[:n]) == peak;
+    return includedRootByLeafIndex(
+        leafMMRIndex, 0, leafIndex, leafHash, proof[:n]
+    ) == peak;
 }
 
-/// @notice includedRoot for a leaf, reading each step's direction from one
-///    bit of the leaf's number instead of from node heights.
-/// @dev Bit g of leafNumber is set when the leaf's ancestor at height g is
-///    a right child, whose parent is the next index, and clear when it is a
-///    left child, whose parent is 2^(g+1) further on. Constant work and one
-///    hash per sibling; includedRoot computes a height at every step. Walks
-///    the whole path, so the caller trims it.
-/// @param i Zero-based MMR index of the leaf.
-/// @param leafNumber The leaf's zero-based number among the leaves, as
-///    completeLeafCount(i) returns it.
-/// @param leafHash Hash of the leaf.
-/// @param path Sibling hashes from the leaf up.
-/// @return root The root the path implies; leafHash for an empty path.
-function includedLeafRoot(
-    uint256 i,
-    uint256 leafNumber,
-    bytes32 leafHash,
+/// @notice includedRoot from a node of known height, reading each step's
+///    direction from one bit of the index of a leaf beneath the node
+///    instead of from node heights.
+/// @dev Every leaf beneath a node of height g shares the node's bits from
+///    g up. Bit k of such a leaf's index is set when the ancestor at height
+///    k is a right child, whose parent is the next index, and clear when it
+///    is a left child, whose parent is 2^(k+1) further on. Constant work and
+///    one hash per sibling; includedRoot computes a height at every step.
+///    Nothing here checks that g is the height of mmrIndex or that
+///    leafIndex lies beneath it: the caller derives both. Walks the whole
+///    path, so the caller trims it.
+/// @param mmrIndex Zero-based MMR index of the node the path starts from.
+/// @param g Height of that node: 0 for a leaf.
+/// @param leafIndex Zero-based index, among the leaves, of any leaf beneath
+///    the node; bits below g are not read. For a leaf, its own index, as
+///    completeLeafCount(mmrIndex) returns it.
+/// @param nodeHash Hash of the node.
+/// @param path Sibling hashes from the node up.
+/// @return root The root the path implies; nodeHash for an empty path.
+function includedRootByLeafIndex(
+    uint256 mmrIndex,
+    uint256 g,
+    uint256 leafIndex,
+    bytes32 nodeHash,
     bytes32[] calldata path
 ) pure returns (bytes32 root) {
-    root = leafHash;
-    for (uint256 g = 0; g < path.length; g++) {
-        if ((leafNumber >> g) & 1 == 1) {
-            i = i + 1;
+    root = nodeHash;
+    for (uint256 j = 0; j < path.length; j++) {
+        if ((leafIndex >> g) & 1 == 1) {
+            mmrIndex = mmrIndex + 1;
             // forge-lint: disable-next-line(unsafe-typecast)
-            root = hashPosPair64(uint64(i + 1), path[g], root);
+            root = hashPosPair64(uint64(mmrIndex + 1), path[j], root);
         } else {
             // forge-lint: disable-next-line(incorrect-shift)
-            i = i + (2 << g);
+            mmrIndex = mmrIndex + (2 << g);
             // forge-lint: disable-next-line(unsafe-typecast)
-            root = hashPosPair64(uint64(i + 1), root, path[g]);
+            root = hashPosPair64(uint64(mmrIndex + 1), root, path[j]);
+        }
+        // Unchecked: g grows by one per sibling, far below 2^256.
+        unchecked {
+            g++;
         }
     }
 }

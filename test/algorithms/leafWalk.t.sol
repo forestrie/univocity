@@ -4,8 +4,8 @@ pragma solidity ^0.8.24;
 import {Test} from "forge-std/Test.sol";
 import {
     committingPathLength,
-    includedLeafRoot,
-    includedRoot
+    includedRoot,
+    includedRootByLeafIndex
 } from "@univocity/algorithms/includedRoot.sol";
 import {
     committingPeakIndex,
@@ -17,14 +17,15 @@ import {
 } from "@univocity/algorithms/peaks.sol";
 import {indexHeight, popcount64} from "@univocity/algorithms/binUtils.sol";
 
-contract LeafRootHarness {
-    function leafRoot(
-        uint256 i,
-        uint256 leafNumber,
-        bytes32 leaf,
+contract WalkHarness {
+    function walk(
+        uint256 mmrIndex,
+        uint256 g,
+        uint256 leafIndex,
+        bytes32 node,
         bytes32[] calldata path
     ) external pure returns (bytes32) {
-        return includedLeafRoot(i, leafNumber, leaf, path);
+        return includedRootByLeafIndex(mmrIndex, g, leafIndex, node, path);
     }
 
     function root(uint256 i, bytes32 leaf, bytes32[] calldata path)
@@ -59,7 +60,7 @@ contract LeafRootHarness {
 ///    algorithms they replace on the verifier's path: peaksBitmap, the
 ///    committing-peak slot through committingPathLength, and includedRoot.
 contract LeafWalkTest is Test {
-    LeafRootHarness internal h = new LeafRootHarness();
+    WalkHarness internal h = new WalkHarness();
 
     /// @dev 2^63 leaves: one peak, at the maximum height 63.
     uint256 internal constant MAX_SIZE = type(uint64).max;
@@ -158,19 +159,24 @@ contract LeafWalkTest is Test {
         }
     }
 
-    function testFuzz_includedLeafRoot_matchesIncludedRoot(
-        uint64 leafNumber,
+    function testFuzz_includedRootByLeafIndex_matchesIncludedRoot(
+        uint64 index,
+        uint64 beneath,
         uint8 len,
         bytes32 seed
     ) public view {
-        uint256 e = bound(leafNumber, 0, (1 << 40) - 1);
+        // Any node, leaf or interior, steered by any leaf beneath it.
+        uint256 i = bound(index, 0, (1 << 41) - 1);
+        uint256 g = indexHeight(i);
+        // A node's leftmost leaf is the first of its 2^(g+1) - 1 nodes.
+        (uint256 leftmost,) = completeLeafCount(i + 2 - (2 << g));
+        uint256 e = leftmost + bound(beneath, 0, (1 << g) - 1);
         bytes32[] memory path = _path(seed, bound(len, 0, 24));
-        uint256 i = mmrSizeForLeafCount(e);
-        bytes32 leaf = keccak256(abi.encode(seed));
-        assertEq(h.leafRoot(i, e, leaf, path), h.root(i, leaf, path));
+        bytes32 node = keccak256(abi.encode(seed));
+        assertEq(h.walk(i, g, e, node, path), h.root(i, node, path));
     }
 
-    function test_includedLeafRoot_maxHeight_matchesIncludedRoot()
+    function test_includedRootByLeafIndex_maxHeight_matchesIncludedRoot()
         public
         view
     {
@@ -181,7 +187,7 @@ contract LeafWalkTest is Test {
         for (uint256 k = 0; k < es.length; k++) {
             uint256 i = mmrSizeForLeafCount(es[k]);
             bytes32 leaf = keccak256(abi.encode(k));
-            assertEq(h.leafRoot(i, es[k], leaf, path), h.root(i, leaf, path));
+            assertEq(h.walk(i, 0, es[k], leaf, path), h.root(i, leaf, path));
         }
     }
 

@@ -3,8 +3,8 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 import {
-    includedLeafRoot,
     includedRoot,
+    includedRootByLeafIndex,
     verifyInclusionAtPeak,
     verifyInclusionAtSize
 } from "@univocity/algorithms/includedRoot.sol";
@@ -34,13 +34,14 @@ contract AtPeakHarness {
         return verifyInclusionAtSize(i, leaf, proof, acc, size);
     }
 
-    function leafRoot(
-        uint256 i,
-        uint256 leafNumber,
-        bytes32 leaf,
+    function walk(
+        uint256 mmrIndex,
+        uint256 g,
+        uint256 leafIndex,
+        bytes32 node,
         bytes32[] calldata proof
     ) external pure returns (bytes32) {
-        return includedLeafRoot(i, leafNumber, leaf, proof);
+        return includedRootByLeafIndex(mmrIndex, g, leafIndex, node, proof);
     }
 
     function root(uint256 i, bytes32 leaf, bytes32[] calldata proof)
@@ -85,8 +86,8 @@ contract VerifyInclusionAtPeakTest is Test {
     GasHarness internal gasH = new GasHarness();
 
     /// @dev The single-peak check at the maximum height, with 63 siblings,
-    ///    timed through GasHarness: measured 73,816 plus 15%.
-    uint256 internal constant CEILING_MAX_HEIGHT = 84_900;
+    ///    timed through GasHarness: measured 74,007 plus 15%.
+    uint256 internal constant CEILING_MAX_HEIGHT = 85_100;
 
     function _build(uint256 leaves)
         internal
@@ -184,7 +185,7 @@ contract VerifyInclusionAtPeakTest is Test {
         bytes32[] memory path = new bytes32[](2);
         path[0] = m.nodes[0];
         path[1] = m.nodes[5];
-        bytes32 peak = h.leafRoot(2, 1, m.nodes[2], path);
+        bytes32 peak = h.walk(2, 0, 1, m.nodes[2], path);
         assertFalse(h.atPeak(2, m.nodes[2], path, peak, 7));
     }
 
