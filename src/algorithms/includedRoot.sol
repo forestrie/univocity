@@ -9,14 +9,22 @@ pragma solidity ^0.8.24;
 // VerifyInclusion follows go-merklelog/mmr/verify.go: proven root must equal
 // the single peak that commits the leaf (determined by proof length).
 
-import {indexHeight, hashPosPair64} from "@univocity/algorithms/binUtils.sol";
-import {leafCount, peakIndex} from "@univocity/algorithms/peaks.sol";
+import {
+    bitLength,
+    indexHeight,
+    hashPosPair64
+} from "@univocity/algorithms/binUtils.sol";
+import {
+    completeLeafCount,
+    leafCount,
+    peakIndex
+} from "@univocity/algorithms/peaks.sol";
 
 /// @notice Verify that a node is included in the MMR committed to by
 ///    accumulator (with non-empty proof). Matches go-merklelog/mmr
 ///    VerifyInclusion: peak chosen by PeakIndex(LeafCount(mmrSize),
 ///    len(proof)); root compared to that peak.
-/// @param leafIndex Zero-based MMR index of the node.
+/// @param leafMMRIndex Zero-based MMR index of the leaf.
 /// @param nodeHash Hash of the node whose inclusion is proven.
 /// @param proof Sibling hashes on the path to the peak (calldata).
 /// @param accumulator Peak hashes for MMR(mmrSize-1), same order as peaks().
@@ -25,7 +33,7 @@ import {leafCount, peakIndex} from "@univocity/algorithms/peaks.sol";
 ///    empty (e.g. first leaf in single-peak MMR); pass the caller's path
 ///    from calldata.
 function verifyInclusion(
-    uint256 leafIndex,
+    uint256 leafMMRIndex,
     bytes32 nodeHash,
     bytes32[] calldata proof,
     bytes32[] memory accumulator,
@@ -36,7 +44,7 @@ function verifyInclusion(
     bytes32 root = proofLengthRoot(accumulator, mmrSize, proof.length);
     if (root == bytes32(0)) return false;
 
-    return root == includedRoot(leafIndex, nodeHash, proof);
+    return root == includedRoot(leafMMRIndex, nodeHash, proof);
 }
 
 /// @notice Length of the path from node `index` to the peak that commits it
@@ -70,57 +78,120 @@ function committingPathLength(uint256 index, uint256 mmrSize)
 ///    the prefix (built at an earlier size whose peak has since merged) is
 ///    refused. Leaves only: verifyInclusion picks the committing peak by
 ///    path length, which is right only for height-0 nodes.
-/// @param leafIndex Zero-based MMR index of the leaf.
+/// @param leafMMRIndex Zero-based MMR index of the leaf.
 /// @param leafHash Hash of the leaf.
 /// @param proof Sibling hashes from the leaf, at mmrSize or any later size.
 /// @param accumulator Peak hashes for MMR(mmrSize), as peaks() orders them.
 /// @param mmrSize Number of nodes in the anchored MMR.
 /// @return True if the trimmed path proves the leaf against its peak.
 function verifyInclusionAtSize(
-    uint256 leafIndex,
+    uint256 leafMMRIndex,
     bytes32 leafHash,
     bytes32[] calldata proof,
     bytes32[] memory accumulator,
     uint256 mmrSize
 ) pure returns (bool) {
-    if (leafIndex >= mmrSize) return false;
-    if (indexHeight(leafIndex) != 0) return false;
-    uint256 n = committingPathLength(leafIndex, mmrSize);
+    if (leafMMRIndex >= mmrSize) return false;
+    if (indexHeight(leafMMRIndex) != 0) return false;
+    uint256 n = committingPathLength(leafMMRIndex, mmrSize);
     if (proof.length < n) return false;
     return
-        verifyInclusion(leafIndex, leafHash, proof[:n], accumulator, mmrSize);
+        verifyInclusion(
+            leafMMRIndex, leafHash, proof[:n], accumulator, mmrSize
+        );
 }
 
 /// @notice Single-peak variant of verifyInclusionAtSize: the caller supplies
 ///    the one accumulator peak that commits the leaf at mmrSize, so the
 ///    whole accumulator is never needed (see LibLogState.committingPeak).
-/// @dev Same refusals and path trimming as verifyInclusionAtSize. The caller
-///    must take `peak` from the anchored state for the same mmrSize.
-/// @param leafIndex Zero-based MMR index of the leaf.
+/// @dev Same witness-age rule and path trimming as verifyInclusionAtSize,
+///    in work linear in the path length (at most 63 steps): two passes of
+///    completeLeafCount, then includedRootByLeafIndex. Leaf e of a log of L
+///    leaves has its committing peak at height bitLength(e ^ L) - 1, the
+///    highest bit where the two differ, and for a leaf that height is the
+///    committing path length. The caller must take `peak` from the
+///    anchored state for the same mmrSize.
+/// @param leafMMRIndex Zero-based MMR index of the leaf.
 /// @param leafHash Hash of the leaf.
 /// @param proof Sibling hashes from the leaf, at mmrSize or any later size.
 /// @param peak The peak committing the leaf in MMR(mmrSize).
-/// @param mmrSize Number of nodes in the anchored MMR.
+/// @param mmrSize Number of nodes in the anchored MMR; an incomplete size,
+///    which no anchored size is, is refused.
 /// @return True if the trimmed path proves the leaf against `peak`.
 function verifyInclusionAtPeak(
-    uint256 leafIndex,
+    uint256 leafMMRIndex,
     bytes32 leafHash,
     bytes32[] calldata proof,
     bytes32 peak,
     uint256 mmrSize
 ) pure returns (bool) {
-    if (leafIndex >= mmrSize) return false;
-    if (indexHeight(leafIndex) != 0) return false;
-    uint256 n = committingPathLength(leafIndex, mmrSize);
+    if (leafMMRIndex >= mmrSize) return false;
+    // A leaf's MMR index is the size of the complete MMR before it, so the
+    // leaf count at that size is the leaf's index. No interior node's index
+    // is a complete size, so `isLeaf` is the leaf-only check.
+    (uint256 leafIndex, bool isLeaf) = completeLeafCount(leafMMRIndex);
+    if (!isLeaf) return false;
+    (uint256 leaves, bool complete) = completeLeafCount(mmrSize);
+    if (!complete) return false;
+    // Both sizes are complete and leafMMRIndex < mmrSize, so leafIndex <
+    // leaves and their xor is not zero.
+    uint256 n = bitLength(leafIndex ^ leaves) - 1;
     if (proof.length < n) return false;
     if (peak == bytes32(0)) return false;
-    return includedRoot(leafIndex, leafHash, proof[:n]) == peak;
+    return includedRootByLeafIndex(
+        leafMMRIndex, 0, leafIndex, leafHash, proof[:n]
+    ) == peak;
+}
+
+/// @notice includedRoot from a node of known height, reading each step's
+///    direction from one bit of the index of a leaf beneath the node
+///    instead of from node heights.
+/// @dev Every leaf beneath a node of height g shares the node's bits from
+///    g up. Bit k of such a leaf's index is set when the ancestor at height
+///    k is a right child, whose parent is the next index, and clear when it
+///    is a left child, whose parent is 2^(k+1) further on. Constant work and
+///    one hash per sibling; includedRoot computes a height at every step.
+///    Nothing here checks that g is the height of mmrIndex or that
+///    leafIndex lies beneath it: the caller derives both. Walks the whole
+///    path, so the caller trims it.
+/// @param mmrIndex Zero-based MMR index of the node the path starts from.
+/// @param g Height of that node: 0 for a leaf.
+/// @param leafIndex Zero-based index, among the leaves, of any leaf beneath
+///    the node; bits below g are not read. For a leaf, its own index, as
+///    completeLeafCount(mmrIndex) returns it.
+/// @param nodeHash Hash of the node.
+/// @param path Sibling hashes from the node up.
+/// @return root The root the path implies; nodeHash for an empty path.
+function includedRootByLeafIndex(
+    uint256 mmrIndex,
+    uint256 g,
+    uint256 leafIndex,
+    bytes32 nodeHash,
+    bytes32[] calldata path
+) pure returns (bytes32 root) {
+    root = nodeHash;
+    for (uint256 j = 0; j < path.length; j++) {
+        if ((leafIndex >> g) & 1 == 1) {
+            mmrIndex = mmrIndex + 1;
+            // forge-lint: disable-next-line(unsafe-typecast)
+            root = hashPosPair64(uint64(mmrIndex + 1), path[j], root);
+        } else {
+            // forge-lint: disable-next-line(incorrect-shift)
+            mmrIndex = mmrIndex + (2 << g);
+            // forge-lint: disable-next-line(unsafe-typecast)
+            root = hashPosPair64(uint64(mmrIndex + 1), root, path[j]);
+        }
+        // Unchecked: g grows by one per sibling, far below 2^256.
+        unchecked {
+            g++;
+        }
+    }
 }
 
 /// @notice Storage variant of verifyInclusion; reads peak from storage via
 ///    proofLengthRootStorage (no full accumulator copy to memory).
 function verifyInclusionStorage(
-    uint256 leafIndex,
+    uint256 leafMMRIndex,
     bytes32 nodeHash,
     bytes32[] calldata proof,
     bytes32[] storage accumulator,
@@ -131,7 +202,7 @@ function verifyInclusionStorage(
     bytes32 root = proofLengthRootStorage(accumulator, mmrSize, proof.length);
     if (root == bytes32(0)) return false;
 
-    return root == includedRoot(leafIndex, nodeHash, proof);
+    return root == includedRoot(leafMMRIndex, nodeHash, proof);
 }
 
 /// @notice Returns the peak hash that commits a proof of the given length

@@ -28,12 +28,12 @@ contract VerifierAtAnchoredTest is Test {
     function _build(uint256 leaves)
         internal
         pure
-        returns (Mmr memory m, uint256[] memory leafIndex)
+        returns (Mmr memory m, uint256[] memory leafMMRIndex)
     {
         m = MmrBuilder.create(2 * leaves + 64);
-        leafIndex = new uint256[](leaves);
+        leafMMRIndex = new uint256[](leaves);
         for (uint256 i = 0; i < leaves; i++) {
-            leafIndex[i] = m.append(_leaf(i));
+            leafMMRIndex[i] = m.append(_leaf(i));
         }
     }
 

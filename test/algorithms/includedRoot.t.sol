@@ -26,14 +26,14 @@ contract IncludedRootHarness {
 /// @notice Harness to call verifyInclusion (proof as calldata).
 contract VerifyInclusionHarness {
     function callVerifyInclusion(
-        uint256 leafIndex,
+        uint256 leafMMRIndex,
         bytes32 nodeHash,
         bytes32[] calldata proof,
         bytes32[] memory accumulator,
         uint256 mmrSize
     ) external pure returns (bool) {
         return verifyInclusion(
-            leafIndex, nodeHash, proof, accumulator, mmrSize
+            leafMMRIndex, nodeHash, proof, accumulator, mmrSize
         );
     }
 }
@@ -77,12 +77,12 @@ contract VerifyInclusionStorageHarness {
     }
 
     function callVerifyInclusionStorage(
-        uint256 leafIndex,
+        uint256 leafMMRIndex,
         bytes32 nodeHash,
         bytes32[] calldata proof
     ) external view returns (bool) {
         return verifyInclusionStorage(
-            leafIndex, nodeHash, proof, accumulator, mmrSize
+            leafMMRIndex, nodeHash, proof, accumulator, mmrSize
         );
     }
 }

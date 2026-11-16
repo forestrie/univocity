@@ -3,6 +3,8 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 import {
+    includedRoot,
+    includedRootByLeafIndex,
     verifyInclusionAtPeak,
     verifyInclusionAtSize
 } from "@univocity/algorithms/includedRoot.sol";
@@ -31,6 +33,48 @@ contract AtPeakHarness {
     ) external pure returns (bool) {
         return verifyInclusionAtSize(i, leaf, proof, acc, size);
     }
+
+    function walk(
+        uint256 mmrIndex,
+        uint256 g,
+        uint256 leafIndex,
+        bytes32 node,
+        bytes32[] calldata proof
+    ) external pure returns (bytes32) {
+        return includedRootByLeafIndex(mmrIndex, g, leafIndex, node, proof);
+    }
+
+    function root(uint256 i, bytes32 leaf, bytes32[] calldata proof)
+        external
+        pure
+        returns (bytes32)
+    {
+        return includedRoot(i, leaf, proof);
+    }
+}
+
+/// @dev Only the two entries the gas test times, so other helpers added to
+///    AtPeakHarness cannot move the measured figure.
+contract GasHarness {
+    function atPeak(
+        uint256 i,
+        bytes32 leaf,
+        bytes32[] calldata proof,
+        bytes32 peak,
+        uint256 size
+    ) external pure returns (bool) {
+        return verifyInclusionAtPeak(i, leaf, proof, peak, size);
+    }
+
+    function atSize(
+        uint256 i,
+        bytes32 leaf,
+        bytes32[] calldata proof,
+        bytes32[] memory acc,
+        uint256 size
+    ) external pure returns (bool) {
+        return verifyInclusionAtSize(i, leaf, proof, acc, size);
+    }
 }
 
 /// @notice verifyInclusionAtPeak is verifyInclusionAtSize with the
@@ -39,6 +83,11 @@ contract VerifyInclusionAtPeakTest is Test {
     using MmrBuilder for Mmr;
 
     AtPeakHarness internal h = new AtPeakHarness();
+    GasHarness internal gasH = new GasHarness();
+
+    /// @dev The single-peak check at the maximum height, with 63 siblings,
+    ///    timed through GasHarness: measured 74,007 plus 15%.
+    uint256 internal constant CEILING_MAX_HEIGHT = 85_100;
 
     function _build(uint256 leaves)
         internal
@@ -126,6 +175,93 @@ contract VerifyInclusionAtPeakTest is Test {
         assertFalse(
             h.atPeak(2, m.nodes[2], m.pathAt(2, size), m.nodes[size - 1], size)
         );
+    }
+
+    function test_nonLeaf_onlyLeafCheckRefuses() public view {
+        (Mmr memory m,) = _build(4);
+        // Node 2 at size 7 with a 2-sibling path, which is as long as the
+        // walk requires, and the root that walk reaches as the peak. Only
+        // the leaf-only rule can refuse.
+        bytes32[] memory path = new bytes32[](2);
+        path[0] = m.nodes[0];
+        path[1] = m.nodes[5];
+        bytes32 peak = h.walk(2, 0, 1, m.nodes[2], path);
+        assertFalse(h.atPeak(2, m.nodes[2], path, peak, 7));
+    }
+
+    /// @dev The largest anchored size, 2^64 - 1, is one peak of height 63.
+    ///    Its last leaf has the longest committing path and the longest
+    ///    pass over its index's bits.
+    function _maxHeight()
+        internal
+        view
+        returns (
+            uint256 i,
+            bytes32 leaf,
+            bytes32[] memory path,
+            bytes32 peak,
+            uint256 size
+        )
+    {
+        size = type(uint64).max;
+        i = mmrSizeForLeafCount((1 << 63) - 1);
+        leaf = sha256("last leaf");
+        path = new bytes32[](64);
+        for (uint256 j = 0; j < path.length; j++) {
+            path[j] = sha256(abi.encodePacked(j));
+        }
+        bytes32[] memory committing = new bytes32[](63);
+        for (uint256 j = 0; j < committing.length; j++) {
+            committing[j] = path[j];
+        }
+        peak = h.root(i, leaf, committing);
+    }
+
+    function test_maxHeight_verifies_oneShortRefused() public view {
+        (
+            uint256 i,
+            bytes32 leaf,
+            bytes32[] memory path,
+            bytes32 peak,
+            uint256 size
+        ) = _maxHeight();
+        bytes32[] memory acc = new bytes32[](1);
+        acc[0] = peak;
+        // A 64-sibling path is trimmed to the 63 that reach the peak.
+        assertTrue(h.atPeak(i, leaf, path, peak, size));
+        assertTrue(h.atSize(i, leaf, path, acc, size));
+        assembly {
+            mstore(path, 62)
+        }
+        assertFalse(h.atPeak(i, leaf, path, peak, size));
+        assertFalse(h.atSize(i, leaf, path, acc, size));
+    }
+
+    function test_incompleteSize_refused() public view {
+        // Size 2 is leaves 0 and 1 without their parent: no anchored size.
+        bytes32 leaf = bytes32(uint256(7));
+        assertFalse(h.atPeak(0, leaf, new bytes32[](0), leaf, 2));
+    }
+
+    function test_gas_maxHeight() public {
+        (
+            uint256 i,
+            bytes32 leaf,
+            bytes32[] memory path,
+            bytes32 peak,
+            uint256 size
+        ) = _maxHeight();
+        bytes32[] memory acc = new bytes32[](1);
+        acc[0] = peak;
+        uint256 g0 = gasleft();
+        gasH.atPeak(i, leaf, path, peak, size);
+        uint256 atPeak = g0 - gasleft();
+        g0 = gasleft();
+        gasH.atSize(i, leaf, path, acc, size);
+        uint256 atSize = g0 - gasleft();
+        emit log_named_uint("verifyInclusionAtPeak, 63 siblings", atPeak);
+        emit log_named_uint("verifyInclusionAtSize, 63 siblings", atSize);
+        assertLt(atPeak, CEILING_MAX_HEIGHT);
     }
 
     function test_pathShorterThanCommittingPath_refused() public view {

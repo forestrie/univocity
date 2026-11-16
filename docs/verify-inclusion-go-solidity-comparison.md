@@ -51,7 +51,7 @@ verifyInclusion.
 
 ```solidity
 function verifyInclusion(
-    uint256 leafIndex,
+    uint256 leafMMRIndex,
     bytes32 nodeHash,
     bytes32[] memory proof,
     bytes32[] memory accumulator,
@@ -63,7 +63,7 @@ function verifyInclusion(
     uint256 ipeak = peakIndex(lc, proof.length);
     if (ipeak >= accumulator.length) return false;
 
-    bytes32 computedRoot = includedRoot(leafIndex, nodeHash, proof);
+    bytes32 computedRoot = includedRoot(leafMMRIndex, nodeHash, proof);
     return computedRoot == accumulator[ipeak];
 }
 ```
@@ -77,7 +77,7 @@ function verifyInclusion(
 - **peakIndex(leafCount, proof.length)** — Same as Go `PeakIndex`: returns the
   **accumulator index** (0-based) for the peak that commits a proof of that
   length.
-- **includedRoot(leafIndex, nodeHash, proof)** — Same role as Go
+- **includedRoot(leafMMRIndex, nodeHash, proof)** — Same role as Go
   `IncludedRoot`.
 
 So in Solidity: one direct lookup `accumulator[ipeak]` and one comparison, identical in structure to Go.
