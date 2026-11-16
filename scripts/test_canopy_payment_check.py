@@ -135,26 +135,26 @@ class BindingRuleTest(unittest.TestCase):
     def test_one_payment_binds_the_leaf(self) -> None:
         v = load("one-payment")
         got = check(v, "grant-1")
-        self.assertEqual(got.payment.binding_hash, self._hash(v, "leaf"))
-        self.assertEqual(got.payment.amount, 2_500_000)
+        self.assertEqual(got.payments[0].binding_hash, self._hash(v, "leaf"))
+        self.assertEqual(got.payments[0].amount, 2_500_000)
 
     def test_salted_hop_binds_not_the_leaf(self) -> None:
         v = load("salted-hop-above-salted-leaf")
         self.assertEqual(
-            check(v, "grant-2").payment.binding_hash, self._hash(v, "dAB")
+            check(v, "grant-2").payments[0].binding_hash, self._hash(v, "dAB")
         )
         self.assertEqual(check(v, "grant-1").outcome, "not-this-request")
 
     def test_stranger_child_leaves_the_leaf_binding(self) -> None:
         v = load("stranger-child-under-open-leaf")
         self.assertEqual(
-            check(v, "grant-1").payment.binding_hash, self._hash(v, "leaf")
+            check(v, "grant-1").payments[0].binding_hash, self._hash(v, "leaf")
         )
 
     def test_two_payments_pair_with_distinct_transfers(self) -> None:
         v = load("two-payments-one-root-one-tx")
-        a = check(v, "grant-1").payment
-        b = check(v, "grant-2").payment
+        a = check(v, "grant-1").payments[0]
+        b = check(v, "grant-2").payments[0]
         self.assertEqual(a.binding_hash, self._hash(v, "leaf1"))
         self.assertEqual(b.binding_hash, self._hash(v, "leaf2"))
         self.assertNotEqual(a.transfer_position, b.transfer_position)
@@ -163,7 +163,7 @@ class BindingRuleTest(unittest.TestCase):
     def test_one_transfer_for_two_bindings_pairs_the_first(self) -> None:
         v = load("two-bindings-one-transfer")
         self.assertEqual(
-            check(v, "grant-1").payment.binding_hash, self._hash(v, "l1")
+            check(v, "grant-1").payments[0].binding_hash, self._hash(v, "l1")
         )
         self.assertEqual(check(v, "grant-2").outcome, "not-this-request")
 
@@ -171,7 +171,48 @@ class BindingRuleTest(unittest.TestCase):
         v = load("leaf-without-call-limit")
         got = check(v, "grant-1")
         self.assertEqual(got.outcome, "unbound")
-        self.assertEqual(got.unbound.amount, 2_500_000)
+        self.assertEqual(got.unbounds[0].amount, 2_500_000)
+
+    def test_dust_transfer_does_not_hide_unbound_money(self) -> None:
+        v = copy.deepcopy(load("leaf-without-call-limit"))
+        pos = next(
+            i
+            for i, log in enumerate(v["logs"])
+            if log["topics"][0] == "0x" + TRANSFER_TOPIC.hex()
+        )
+        dust = copy.deepcopy(v["logs"][pos])
+        dust["data"] = "0x" + (1).to_bytes(32, "big").hex()
+        v["logs"].insert(pos, dust)
+        got = check(v, "grant-1")
+        self.assertEqual(got.outcome, "unbound")
+        self.assertEqual([u.amount for u in got.unbounds], [1, 2_500_000])
+
+    def test_second_binding_for_the_nonce_is_reported(self) -> None:
+        v = copy.deepcopy(load("two-payments-one-root-one-tx"))
+        ctx = ChainContext.from_json(v["context"])
+        managers = {m.lower() for m in ctx.managers}
+        leaves = [
+            log for log in v["logs"] if log["address"].lower() in managers
+        ]
+        # Each chain's first event is its leaf; give the second the
+        # first's salt.
+        salt = {
+            label: payment_nonce(p.kind, p.purpose_digest, ctx_root(v))
+            for label in ("grant-1", "grant-2")
+            for p in [purpose(v, label)]
+        }
+        old = salt["grant-2"].to_bytes(32, "big")
+        data = bytes.fromhex(leaves[3]["data"][2:])
+        self.assertEqual(data.count(old), 1)
+        leaves[3]["data"] = "0x" + data.replace(
+            old, salt["grant-1"].to_bytes(32, "big")
+        ).hex()
+        got = check(v, "grant-1")
+        self.assertEqual(got.outcome, "bound")
+        self.assertEqual(len(got.payments), 2)
+        self.assertLess(
+            got.payments[0].transfer_position, got.payments[1].transfer_position
+        )
 
     def test_eip3009_transfer_never_pairs_and_is_never_refunded(self) -> None:
         v = load("eip3009-beside-binding")
@@ -209,7 +250,7 @@ class ReceiptShapeTest(unittest.TestCase):
         for i, log in enumerate(moved["logs"]):
             log["logIndex"] = hex(1000 + i)
         self.assertEqual(
-            check(v, "grant-1").payment, check(moved, "grant-1").payment
+            check(v, "grant-1").payments, check(moved, "grant-1").payments
         )
 
     def test_transfer_from_another_token_is_not_usdc(self) -> None:
@@ -242,7 +283,11 @@ class ReceiptShapeTest(unittest.TestCase):
         v["logs"].insert(pos, stray)
         got = check(v, "grant-1")
         self.assertEqual(got.outcome, "bound")
-        self.assertEqual(got.payment.transfer_position, pos + 1)
+        self.assertEqual(got.payments[0].transfer_position, pos + 1)
+
+
+def ctx_root(vector: dict) -> str:
+    return vector["context"]["purposes"][0]["payer"]
 
 
 def _topic_addr(a: str) -> str:

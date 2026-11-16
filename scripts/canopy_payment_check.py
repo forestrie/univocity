@@ -363,9 +363,19 @@ class UnboundTransfer:
 
 @dataclass(frozen=True)
 class Reading:
+    """What one receipt shows for one request.
+
+    `payments` holds every call-limited binding whose salt is the
+    request's nonce, each with its Transfer, in log order. `unbounds`
+    holds every Transfer that no call-limited binding counted, dust
+    included. Neither is filtered: a second payment for the nonce, and
+    the money behind a dust Transfer, must reach the caller so it can
+    record them for refund (ARC-0032 section 5.4).
+    """
+
     outcome: str
-    payment: BoundPayment | None = None
-    unbound: UnboundTransfer | None = None
+    payments: tuple[BoundPayment, ...] = field(default_factory=tuple)
+    unbounds: tuple[UnboundTransfer, ...] = field(default_factory=tuple)
     bindings: tuple[Binding, ...] = field(default_factory=tuple)
 
 
@@ -476,32 +486,44 @@ def check_payment(receipt: dict, ctx: ChainContext, purpose: Purpose) -> Reading
             break
 
     tx = receipt.get("transactionHash", "")
+    nonces: dict[str, int] = {}
+    payments = []
     for b, t in pairs:
         if not b.has_call_limit:
             continue
-        if b.salt == payment_nonce(purpose.kind, purpose.purpose_digest, b.root):
-            return Reading(
-                "bound",
-                payment=BoundPayment(
+        nonce = nonces.setdefault(
+            b.root, payment_nonce(purpose.kind, purpose.purpose_digest, b.root)
+        )
+        if b.salt == nonce:
+            payments.append(
+                BoundPayment(
                     manager=b.manager,
                     binding_hash=b.binding_hash,
                     root=b.root,
                     amount=b.amount,
                     transaction_hash=tx,
                     transfer_position=t.position,
-                ),
-                bindings=tuple(bindings),
+                )
             )
 
     counted = {t.position for b, t in pairs if b.has_call_limit}
-    for t in transfers:
-        if t.position not in counted:
-            return Reading(
-                "unbound",
-                unbound=UnboundTransfer(tx, t.position, t.sender, t.amount),
-                bindings=tuple(bindings),
-            )
-    return Reading("not-this-request", bindings=tuple(bindings))
+    unbounds = tuple(
+        UnboundTransfer(tx, t.position, t.sender, t.amount)
+        for t in transfers
+        if t.position not in counted
+    )
+    if payments:
+        outcome = "bound"
+    elif unbounds:
+        outcome = "unbound"
+    else:
+        outcome = "not-this-request"
+    return Reading(
+        outcome,
+        payments=tuple(payments),
+        unbounds=unbounds,
+        bindings=tuple(bindings),
+    )
 
 
 # --- command line ---
