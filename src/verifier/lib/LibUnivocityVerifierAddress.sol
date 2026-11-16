@@ -3,9 +3,9 @@ pragma solidity ^0.8.24;
 
 /// @title LibUnivocityVerifierAddress
 /// @notice The CREATE2 address of an instance's verifier, derived from the
-///    instance alone (devdocs ARC-0032 section 4.2). The factory deploys at
-///    it and the publication enforcer computes it, so neither stores or
-///    looks it up.
+///    factory, its init-code hash and the instance (devdocs ARC-0032
+///    section 4.2). The factory deploys at it and the publication enforcer
+///    computes it, so neither stores or looks it up.
 library LibUnivocityVerifierAddress {
     /// @notice The CREATE2 salt for an instance's verifier.
     /// @param instance The univocity instance.

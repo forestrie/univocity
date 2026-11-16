@@ -3,9 +3,9 @@ pragma solidity ^0.8.24;
 
 /// @title IUnivocityVerifierFactory
 /// @notice Deploys and locates the one inclusion verifier of a univocity
-///    instance, at an address derived from the instance alone, so the
-///    publication enforcer is never told which verifier to trust
-///    (devdocs ARC-0032 section 4.2).
+///    instance, at an address derived from the factory, its init-code hash
+///    and the instance, so the publication enforcer is never told which
+///    verifier to trust (devdocs ARC-0032 section 4.2).
 interface IUnivocityVerifierFactory {
     /// @notice Emitted once per instance, when its verifier is deployed.
     /// @param instance The univocity instance.

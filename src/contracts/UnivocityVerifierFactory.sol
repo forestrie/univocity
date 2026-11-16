@@ -11,10 +11,10 @@ import {
 
 /// @title UnivocityVerifierFactory
 /// @notice Permissionless CREATE2 factory of UnivocityVerifier, one per
-///    instance, at an address any contract derives from the instance alone
-///    (devdocs ARC-0032 section 4.2). Nobody can name a wrong verifier for
-///    an instance: the address is a function of the factory, the creation
-///    code and the instance.
+///    instance, at an address any contract derives from the factory, its
+///    init-code hash and the instance (devdocs ARC-0032 section 4.2).
+///    Nobody can name a wrong verifier for an instance: the address is a
+///    function of the factory, the creation code and the instance.
 /// @dev A verifier deployed for an address that is not a univocity instance
 ///    only weakens delegations that name it.
 contract UnivocityVerifierFactory is IUnivocityVerifierFactory {
