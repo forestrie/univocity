@@ -285,6 +285,20 @@ class ReceiptShapeTest(unittest.TestCase):
         self.assertEqual(got.outcome, "bound")
         self.assertEqual(got.payments[0].transfer_position, pos + 1)
 
+    def test_pairs_the_exact_amount_not_an_earlier_larger_transfer(self) -> None:
+        v = copy.deepcopy(load("one-payment"))
+        pos = next(
+            i
+            for i, log in enumerate(v["logs"])
+            if log["topics"][0] == "0x" + TRANSFER_TOPIC.hex()
+        )
+        larger = copy.deepcopy(v["logs"][pos])
+        larger["data"] = "0x" + (int(larger["data"], 16) + 1).to_bytes(32, "big").hex()
+        v["logs"].insert(pos, larger)
+        got = check(v, "grant-1")
+        self.assertEqual(got.outcome, "bound")
+        self.assertEqual(got.payments[0].transfer_position, pos + 1)
+
     def test_bound_reading_also_reports_unbound_transfers(self) -> None:
         v = copy.deepcopy(load("one-payment"))
         pos = next(
@@ -353,6 +367,11 @@ class BindingPinTest(unittest.TestCase):
             amount = int(t["data"], 16)
             t["data"] = "0x" + (amount - 1).to_bytes(32, "big").hex()
 
+        def transfer_above_pinned_price(v: dict) -> None:
+            t = self._transfer(v)
+            amount = int(t["data"], 16)
+            t["data"] = "0x" + (amount + 1).to_bytes(32, "big").hex()
+
         def call_limit_two(v: dict) -> None:
             self._patch_leaf(v, word(32) + word(1), word(32) + word(2))
 
@@ -405,6 +424,7 @@ class BindingPinTest(unittest.TestCase):
             "pinned value non-zero": pinned_value_nonzero,
             "transfer from another address": transfer_from_other,
             "transfer below the pinned price": transfer_below_pinned_price,
+            "transfer above the pinned price": transfer_above_pinned_price,
             "call limit 2": call_limit_two,
             "look-alike limit enforcer": look_alike_limit_enforcer,
             "pinned token changed": pinned_token_changed,
@@ -482,6 +502,20 @@ class BindingPinTest(unittest.TestCase):
             sender = "0x" + self._transfer(v)["topics"][1][26:]
             v["logs"].insert(0, auth_used(usdc, sender))
 
+        def authorization_used_after_the_transfer(v: dict) -> None:
+            # An AuthorizationUsed marks only the Transfer right after it;
+            # one following the payee Transfer, ahead of a Transfer to
+            # someone else, leaves the payment delegated.
+            pos = next(
+                i
+                for i, x in enumerate(v["logs"])
+                if x["topics"][0] == "0x" + TRANSFER_TOPIC.hex()
+            )
+            sender = "0x" + v["logs"][pos]["topics"][1][26:]
+            elsewhere = copy.deepcopy(v["logs"][pos])
+            elsewhere["topics"][2] = _topic_addr(other)
+            v["logs"][pos + 1 : pos + 1] = [auth_used(usdc, sender), elsewhere]
+
         rows = {
             "disabled-delegation copy": disabled_delegation_copy,
             "approval from the root": approval_from_root,
@@ -489,6 +523,9 @@ class BindingPinTest(unittest.TestCase):
             "authorization used by another authorizer": authorization_used_by_another,
             "root authorization used away from the transfer": (
                 authorization_used_by_root_not_adjacent
+            ),
+            "root authorization used after the transfer": (
+                authorization_used_after_the_transfer
             ),
         }
         for name, edit in rows.items():
