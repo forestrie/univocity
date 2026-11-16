@@ -111,6 +111,14 @@ contract VerifyInclusionAtPeakTest is Test {
         assertFalse(h.atPeak(0, bytes32(0), new bytes32[](0), bytes32(0), 1));
     }
 
+    function test_leafAtOrPastSize_peakEqualsLeaf_refused() public view {
+        // Indices 3 and 4 lie at or past the 3-node MMR. With an empty path
+        // and the leaf as the peak, only the size check can refuse.
+        bytes32 leaf = bytes32(uint256(7));
+        assertFalse(h.atPeak(3, leaf, new bytes32[](0), leaf, 3));
+        assertFalse(h.atPeak(4, leaf, new bytes32[](0), leaf, 3));
+    }
+
     function test_nonLeaf_refused() public view {
         (Mmr memory m,) = _build(4);
         uint256 size = mmrSizeForLeafCount(4);
