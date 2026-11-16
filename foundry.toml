@@ -34,6 +34,8 @@ exclude_lints = [
 
 [profile.default]
 
+# A solc bump moves UnivocityVerifierFactory and every verifier address
+# (see no-metadata-hash below).
 solc_version = "0.8.30"
 evm_version = "cancun"
 optimizer = true
@@ -64,16 +66,23 @@ build_info_path = "out/build-info"
 # factory does ([profile.factory]). It deploys through Arachnid's CREATE2
 # proxy, so its address commits to its bytes, and through the
 # UnivocityVerifier creation code it embeds, so does every verifier
-# address. Without the hash the bytes change only when the code or the
-# compiler does; the CBOR tail still names the solc version, since
-# per-file profiles cannot drop it. Foundry builds the factory, and every
-# file importing it, under this profile. Changing it moves the factory and
-# every verifier on every chain.
+# address. The profile pins optimizer, optimizer_runs, via_ir,
+# evm_version and bytecode_hash, but Foundry takes nothing else from it:
+# solc_version, cbor_metadata, revert_strings and optimizer_details come
+# from the active profile ([profile.default] or [profile.ci]). A change
+# to any of them, in either profile, moves the factory and every
+# verifier. Without the hash the bytes otherwise change only when the
+# code does. To decouple the factory, build it in an isolated project
+# like script/create3-factory/. Foundry builds the factory, and every
+# file importing it, under this profile. Changing it moves the factory
+# and every verifier on every chain.
 additional_compiler_profiles = [
-  { name = "no-metadata-hash", bytecode_hash = "None" },
+  { name = "no-metadata-hash", bytecode_hash = "None", optimizer = true, optimizer_runs = 200, via_ir = true, evm_version = "cancun" },
 ]
+# The optimizer_runs restriction also requires the optimizer to be on;
+# restrictions have no optimizer field of their own.
 compilation_restrictions = [
-  { paths = "src/contracts/UnivocityVerifierFactory.sol", bytecode_hash = "None" },
+  { paths = "src/contracts/UnivocityVerifierFactory.sol", bytecode_hash = "None", optimizer_runs = 200, via_ir = true, evm_version = "cancun" },
 ]
 
 # for audit tools and upgrade safety checks 
@@ -110,12 +119,14 @@ ignored_warnings_from = ["test/**", "script/**"]
 
 # CI profile: same as default. Used when FOUNDRY_PROFILE=ci in .github/workflows.
 [profile.ci]
+# A solc bump moves UnivocityVerifierFactory and every verifier address.
 solc_version = "0.8.30"
 evm_version = "cancun"
 optimizer = true
 optimizer_runs = 200
 via_ir = true
 bytecode_hash = "ipfs"
+# Changing cbor_metadata moves the factory and every verifier address.
 cbor_metadata = true
 src = "src"
 out = "out"
