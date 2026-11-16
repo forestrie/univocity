@@ -223,4 +223,66 @@ contract PublishedEnforcerTest is Test {
             bytes4(keccak256(bytes(string.concat("afterAllHook", args))))
         );
     }
+
+    function test_enforcer_readsInitCodeHashFromFactory() public view {
+        assertEq(
+            enforcer.verifierInitCodeHash(), factory.verifierInitCodeHash()
+        );
+    }
+
+    /// @notice Verifiers for A and B; the statement is anchored only in B.
+    ///    A hop whose terms name A with B's logId cannot be satisfied by B's
+    ///    anchoring.
+    function test_wrongInstance_refusedNotPublished() public {
+        StubUnivocal a = new StubUnivocal();
+        factory.deploy(address(a));
+        // Anchored in `instance` (B) under LOG only.
+        bytes memory args = _publish(LOG, HOP, STATEMENT_LEAF, ANCHORED_LEAVES);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                PublishedEnforcer.NotPublished.selector, HOP, LOG
+            )
+        );
+        _beforeHook(_terms(address(a), LOG), args, HOP);
+        // The same args pass when the terms name the right instance.
+        _beforeHook(_terms(address(instance), LOG), args, HOP);
+    }
+
+    /// @notice Anchor 5 leaves, path built then; anchor 8, whose checkpoint
+    ///    merged the leaf's peak. The old path is refused; one built at the
+    ///    new size, or later, verifies.
+    function test_stalePath_refused_extendedPath_verifies() public {
+        bytes memory fresh = _publish(LOG, HOP, 4, 5);
+        PublishedEnforcer.PublishedArgs memory a =
+            abi.decode(fresh, (PublishedEnforcer.PublishedArgs));
+        // The path at 5 leaves for leaf 4 is empty: a lone peak.
+        Mmr memory m = MmrBuilder.create(64);
+        uint256 index;
+        for (uint256 i = 0; i < LOG_LEAVES; i++) {
+            bytes32 leaf = i == 4
+                ? st.leafFor(enforcer.DELEGATION_TAG(), HOP, ID_TS)
+                : sha256(abi.encodePacked(i));
+            uint256 ix = m.append(leaf);
+            if (i == 4) index = ix;
+        }
+        uint256 s5 = mmrSizeForLeafCount(5);
+        uint256 s8 = mmrSizeForLeafCount(8);
+        a.path = m.pathAt(index, s5);
+        assertEq(a.path.length, 0);
+        // Anchor 8 leaves: leaf 4's peak merged into the height-3 peak.
+        // forge-lint: disable-next-line(unsafe-typecast)
+        instance.setLogState(LOG, m.accumulatorAt(s8), uint64(s8));
+        bytes memory stale = abi.encode(a);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                PublishedEnforcer.NotPublished.selector, HOP, LOG
+            )
+        );
+        _beforeHook(_terms(address(instance), LOG), stale, HOP);
+
+        a.path = m.pathAt(index, s8);
+        _beforeHook(_terms(address(instance), LOG), abi.encode(a), HOP);
+        a.path = m.pathAt(index, mmrSizeForLeafCount(LOG_LEAVES));
+        _beforeHook(_terms(address(instance), LOG), abi.encode(a), HOP);
+    }
 }
