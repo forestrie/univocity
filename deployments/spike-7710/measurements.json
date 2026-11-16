@@ -1,0 +1,196 @@
+{
+  "transactions": [
+    {
+      "step": "forest-deploy-imutable-univocity",
+      "tx": "0x2bdbfa7eb945c33d16ce23cf78dd651645b4b637b35ad373aec6859eca4f3988",
+      "status": "0x1",
+      "block": "59490148",
+      "blockTime": "2026-11-16T09:04:58.000Z",
+      "from": "0xda30db778c4aae42bfae2e81d4b12deb0725f98c",
+      "to": null,
+      "contractAddress": "0xe27b00d45a8dbe97e394ce9d485ede74ccb867d3",
+      "gasUsed": "4396259",
+      "effectiveGasPrice": "6003346",
+      "l2FeeWei": "26392263882614",
+      "l1FeeWei": "19977",
+      "l1GasUsed": "199583"
+    },
+    {
+      "step": "deploy-provisional-verifier-factory",
+      "tx": "0xf22304c636407aafe248b642c60bce5f477893ed770829700119ce222ead6462",
+      "status": "0x1",
+      "block": "59490812",
+      "blockTime": "2026-11-16T09:07:11.000Z",
+      "from": "0xda30db778c4aae42bfae2e81d4b12deb0725f98c",
+      "to": null,
+      "contractAddress": "0x068ed17564c6d51db90679d7dc2eaeae4d10c5ef",
+      "gasUsed": "867604",
+      "effectiveGasPrice": "6004724",
+      "l2FeeWei": "5209722561296",
+      "l1FeeWei": "3662",
+      "l1GasUsed": "36593"
+    },
+    {
+      "step": "deploy-published-enforcer",
+      "tx": "0x6b101a00f3d9c4710e97cab8e9112e1614d268e166db32514b158bf2b3f86755",
+      "status": "0x1",
+      "block": "59490822",
+      "blockTime": "2026-11-16T09:07:13.000Z",
+      "from": "0xda30db778c4aae42bfae2e81d4b12deb0725f98c",
+      "to": null,
+      "contractAddress": "0x811053428f7103584a0e22cc92253306c6daaab4",
+      "gasUsed": "418215",
+      "effectiveGasPrice": "6004474",
+      "l2FeeWei": "2511161093910",
+      "l1FeeWei": "1871",
+      "l1GasUsed": "18698"
+    },
+    {
+      "step": "factory-deploy-instance-verifier",
+      "tx": "0xba0e566b2998387e2f8956e9e4abb9c74ced7f983af2efeea921d62ade95a8fe",
+      "status": "0x1",
+      "block": "59490824",
+      "blockTime": "2026-11-16T09:07:13.000Z",
+      "from": "0xda30db778c4aae42bfae2e81d4b12deb0725f98c",
+      "to": "0x068ed17564c6d51db90679d7dc2eaeae4d10c5ef",
+      "contractAddress": null,
+      "gasUsed": "714605",
+      "effectiveGasPrice": "6000000",
+      "l2FeeWei": "4287630000000",
+      "l1FeeWei": "160",
+      "l1GasUsed": "1600"
+    },
+    {
+      "step": "deploy-root-hybrid-delegator",
+      "tx": "0xf356c2665305e7e77970b13cbace356690837f9e11b1a73b12199b02f12d9cdc",
+      "status": "0x1",
+      "block": "59490969",
+      "blockTime": "2026-11-16T09:07:42.000Z",
+      "from": "0xda30db778c4aae42bfae2e81d4b12deb0725f98c",
+      "to": null,
+      "contractAddress": "0x5817c5828e64a1ab8daa0ea852e7e65da7e23d2d",
+      "gasUsed": "169881",
+      "effectiveGasPrice": "6005482",
+      "l2FeeWei": "1020217287642",
+      "l1FeeWei": "958",
+      "l1GasUsed": "9570"
+    },
+    {
+      "step": "fund-root-20-usdc",
+      "tx": "0x88f1308b071e580c8f53a0d7d0a0213e36fbd8989bcdca980efc7d1ee256cafa",
+      "status": "0x1",
+      "block": "59490971",
+      "blockTime": "2026-11-16T09:07:43.000Z",
+      "from": "0xda30db778c4aae42bfae2e81d4b12deb0725f98c",
+      "to": "0x036cbd53842c5426634e7929541ec2318f3dcf7e",
+      "contractAddress": null,
+      "gasUsed": "62159",
+      "effectiveGasPrice": "6000000",
+      "l2FeeWei": "372954000000",
+      "l1FeeWei": "160",
+      "l1GasUsed": "1600"
+    },
+    {
+      "step": "fund-agent-b-gas-eth",
+      "tx": "0x8ac8236544065e5fa1d25a80089996bed881420cc390ffb8b58e7a55918d35c3",
+      "status": "0x1",
+      "block": "59490982",
+      "blockTime": "2026-11-16T09:07:45.000Z",
+      "from": "0xda30db778c4aae42bfae2e81d4b12deb0725f98c",
+      "to": "0x371ffb1ec445eb072ee7afb7cff8b7db92a4ff38",
+      "contractAddress": null,
+      "gasUsed": "21000",
+      "effectiveGasPrice": "6006952",
+      "l2FeeWei": "126145992000",
+      "l1FeeWei": "160",
+      "l1GasUsed": "1600"
+    },
+    {
+      "step": "lane-a-checkpoint-anchoring-dHA",
+      "tx": "0xf2ea7c299a9820cdba244aa7adb6a574b437392b518b30e6c7b81576f23260a3",
+      "status": "0x1",
+      "block": "59491127",
+      "blockTime": "2026-11-16T09:08:14.000Z",
+      "from": "0x0ac747da6379287699c655d2a4a830e4c597690a",
+      "to": "0xe27b00d45a8dbe97e394ce9d485ede74ccb867d3",
+      "contractAddress": null,
+      "gasUsed": "162132",
+      "effectiveGasPrice": "6000000",
+      "l2FeeWei": "972792000000",
+      "l1FeeWei": "825",
+      "l1GasUsed": "8245"
+    },
+    {
+      "step": "lane-a-checkpoint-anchoring-dAB",
+      "tx": "0xba027b22dc74d85a5bed73e6c0eee4cf1e620560ceb2b81f1295f1880e699e32",
+      "status": "0x1",
+      "block": "59491166",
+      "blockTime": "2026-11-16T09:08:22.000Z",
+      "from": "0x0ac747da6379287699c655d2a4a830e4c597690a",
+      "to": "0xe27b00d45a8dbe97e394ce9d485ede74ccb867d3",
+      "contractAddress": null,
+      "gasUsed": "318274",
+      "effectiveGasPrice": "6001984",
+      "l2FeeWei": "1910275455616",
+      "l1FeeWei": "830",
+      "l1GasUsed": "8299"
+    },
+    {
+      "step": "6a-agent-b-redeems-pays-payee",
+      "tx": "0xb7b4af57a6e848da70593e5969c1205b2b35bd10ef2e24bf04a504d11f8e99e5",
+      "status": "0x1",
+      "block": "59491411",
+      "blockTime": "2026-11-16T09:09:11.000Z",
+      "from": "0x371ffb1ec445eb072ee7afb7cff8b7db92a4ff38",
+      "to": "0xdb9b1e94b5b69df7e401ddbede43491141047db3",
+      "contractAddress": null,
+      "gasUsed": "643908",
+      "effectiveGasPrice": "6001801",
+      "l2FeeWei": "3864607678308",
+      "l1FeeWei": "2817",
+      "l1GasUsed": "28147"
+    }
+  ],
+  "hookGas6a": {
+    "note": "cast run --quick replay of the 6a transaction",
+    "dAB_beforeHook_first_cold": 30920,
+    "dHA_beforeHook_second_warm": 27419,
+    "dAB_verifyInclusionAtAnchored": 17906,
+    "dHA_verifyInclusionAtAnchored": 20606,
+    "noopHooksPerHop": 2848
+  },
+  "proofArgs6a": {
+    "dHA": {
+      "argsBytes": 1984,
+      "calldataGas": 18244,
+      "eventDataGas": 15872,
+      "statementBytes": 1714,
+      "pathLength": 0
+    },
+    "dAB": {
+      "argsBytes": 1152,
+      "calldataGas": 12960,
+      "eventDataGas": 9216,
+      "statementBytes": 897,
+      "pathLength": 0
+    }
+  },
+  "calldata6a": {
+    "bytes": 8004,
+    "eip2028Gas": 62724,
+    "execGas": 560184,
+    "eip7623FloorGas": 156810
+  },
+  "anchoring": {
+    "dHA": {
+      "registerStart": "2026-11-16T09:08:05.248Z",
+      "receiptReturned": "2026-11-16T09:08:11.699Z",
+      "checkpointTx": "0xf2ea7c299a9820cdba244aa7adb6a574b437392b518b30e6c7b81576f23260a3"
+    },
+    "dAB": {
+      "registerStart": "2026-11-16T09:08:11.734Z",
+      "receiptReturned": "2026-11-16T09:08:18.617Z",
+      "checkpointTx": "0xba027b22dc74d85a5bed73e6c0eee4cf1e620560ceb2b81f1295f1880e699e32"
+    }
+  }
+}
