@@ -4,24 +4,33 @@ pragma solidity ^0.8.24;
 import {console} from "forge-std/console.sol";
 import {PublishedEnforcer} from "@univocity/contracts/PublishedEnforcer.sol";
 import {
-    ProvisionalVerifierFactory
-} from "../../../test/shared/ProvisionalVerifierFactory.sol";
+    IUnivocityVerifierFactory
+} from "@univocity/interfaces/IUnivocityVerifierFactory.sol";
+import {
+    DeployUnivocityVerifierFactory
+} from "../../temporary/DeployUnivocityVerifierFactory.s.sol";
 import {SpikeBase} from "./SpikeBase.s.sol";
 
-/// @notice SPIKE-ONLY. Deploys the provisional verifier factory and
-///    PublishedEnforcer, and builds the verifier of the run's univocity
-///    instance (devdocs ARC-0032 §4.2). DEPLOY_KEY pays; nothing here is
-///    the production factory or a deterministic address.
-/// @dev Run by `task spike-for-696:contracts` (broadcasts). Reads .instance
-///    from the run record and writes .spike/for-696/contracts.json, which
-///    the task merges into it.
+/// @notice SPIKE-ONLY. Ensures UnivocityVerifierFactory at its
+///    deterministic address, deploys PublishedEnforcer against it, and
+///    builds the verifier of the run's univocity instance (devdocs ARC-0032
+///    §4.2). DEPLOY_KEY pays.
+/// @dev The factory goes through the temporary deploy script (until
+///    FOR-701), which deploys it only where it has no code: on Base Sepolia
+///    it is already there; on a fork taken before that, the run deploys it
+///    at the same address. Run by `task spike-for-696:contracts`
+///    (broadcasts). Reads .instance from the run record and writes
+///    .spike/for-696/contracts.json, which the task merges into it.
 contract DeployPublishedEnforcer is SpikeBase {
     function run() external {
         address instance = _runAddress(".instance");
         require(instance.code.length > 0, "instance has no code");
 
+        IUnivocityVerifierFactory factory = IUnivocityVerifierFactory(
+            new DeployUnivocityVerifierFactory().run()
+        );
+
         vm.startBroadcast(vm.envUint("DEPLOY_KEY"));
-        ProvisionalVerifierFactory factory = new ProvisionalVerifierFactory();
         PublishedEnforcer enforcer = new PublishedEnforcer(factory);
         address verifier = factory.deploy(instance);
         vm.stopBroadcast();

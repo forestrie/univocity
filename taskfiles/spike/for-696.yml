@@ -184,8 +184,9 @@ tasks:
 
   contracts:
     desc: >-
-      BROADCASTS (DEPLOY_KEY): deploy the provisional verifier factory and
-      PublishedEnforcer, and the instance's verifier.
+      BROADCASTS (DEPLOY_KEY): deploy UnivocityVerifierFactory at its
+      deterministic address where it has no code, PublishedEnforcer, and the
+      instance's verifier.
     prompt: Deploy the factory, enforcer and verifier from DEPLOY_KEY?
     cmds:
       - doppler run {{.DOPPLER}} -- task -d '{{.ROOT_DIR}}' spike-for-696:_contracts

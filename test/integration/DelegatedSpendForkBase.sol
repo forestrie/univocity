@@ -8,8 +8,8 @@ import {
 import {ImutableUnivocity} from "@univocity/contracts/ImutableUnivocity.sol";
 import {PublishedEnforcer} from "@univocity/contracts/PublishedEnforcer.sol";
 import {
-    ProvisionalVerifierFactory
-} from "../shared/ProvisionalVerifierFactory.sol";
+    UnivocityVerifierFactory
+} from "@univocity/contracts/UnivocityVerifierFactory.sol";
 import {AnchoredLogFixture} from "../shared/AnchoredLogFixture.sol";
 import {
     ProvisionalDelegationStatement,
@@ -67,7 +67,7 @@ abstract contract DelegatedSpendForkBase is AnchoredLogFixture {
     address internal stranger;
     address internal payee;
     address internal seller;
-    ProvisionalVerifierFactory internal factory;
+    UnivocityVerifierFactory internal factory;
     PublishedEnforcer internal enforcer;
     SplitStatement internal st;
     /// @notice Hop expiry, fixed so receipt vectors do not depend on the
@@ -99,7 +99,7 @@ abstract contract DelegatedSpendForkBase is AnchoredLogFixture {
         root = _newHybridRoot(vm.addr(HUMAN_PK));
         _mintUsdc(root, 1_000_000_000);
 
-        factory = new ProvisionalVerifierFactory();
+        factory = new UnivocityVerifierFactory();
         enforcer = new PublishedEnforcer(factory);
         st = ProvisionalDelegationStatement.split(block.chainid);
     }
