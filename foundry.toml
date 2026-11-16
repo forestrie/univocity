@@ -79,8 +79,10 @@ build_info_path = "out/build-info"
 additional_compiler_profiles = [
   { name = "no-metadata-hash", bytecode_hash = "None", optimizer = true, optimizer_runs = 200, via_ir = true, evm_version = "cancun" },
 ]
+# The optimizer_runs restriction also requires the optimizer to be on;
+# restrictions have no optimizer field of their own.
 compilation_restrictions = [
-  { paths = "src/contracts/UnivocityVerifierFactory.sol", bytecode_hash = "None", optimizer = true, optimizer_runs = 200, via_ir = true, evm_version = "cancun" },
+  { paths = "src/contracts/UnivocityVerifierFactory.sol", bytecode_hash = "None", optimizer_runs = 200, via_ir = true, evm_version = "cancun" },
 ]
 
 # for audit tools and upgrade safety checks 
