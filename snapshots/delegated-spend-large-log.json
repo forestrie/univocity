@@ -1,0 +1,10 @@
+{
+  "before-hook-dAB-warm": "54719",
+  "before-hook-dHA-cold": "77232",
+  "per-published-hop-calldata": "10492",
+  "per-published-hop-exec": "96670",
+  "redeem-no-publication-calldata": "21876",
+  "redeem-no-publication-exec": "318080",
+  "redeem-two-published-hops-calldata": "42860",
+  "redeem-two-published-hops-exec": "511421"
+}
