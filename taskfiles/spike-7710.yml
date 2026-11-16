@@ -17,7 +17,8 @@
 # wraps itself in `doppler run` (univocity/dev; system-testing/dev only
 # for the canopy operator token) and runs a hidden `_<step>` task with
 # them in its environment; the scripts name secrets only as $VARS, pass
-# them to the CLI through `env -i`, and never print them. A step whose
+# them to the CLI in its environment (never in an argument list, which
+# ps shows), and never print them. A step whose
 # description starts BROADCASTS sends Base Sepolia transactions from a
 # spike key; REGISTERS writes to Lane A's canopy; SETTLES and SUBMITS
 # have a facilitator or a bundler send a transaction that spends the
@@ -62,7 +63,43 @@ vars:
   SH: |
     set -euo pipefail
     now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
-    cli() { env -i PATH="$PATH" HOME="$HOME" NO_COLOR=1 "$@"; }
+    # cli [NAME=value…] CMD ARGS… runs CMD with PATH, HOME, NO_COLOR and
+    # the NAME=value pairs given, and nothing else from this environment.
+    # The pairs are exported inside this shell function, so a secret
+    # travels in CMD's environment and never in an argument list, which
+    # ps shows to other processes of the same user.
+    cli() {
+      (
+        keep=" PATH HOME NO_COLOR "
+        while :; do
+          case "$1" in
+            [A-Za-z_]*=*) k=${1%%=*}; export "$k=${1#*=}"; keep="$keep$k "; shift ;;
+            *) break ;;
+          esac
+        done
+        for v in $(env | sed -n 's/^\([A-Za-z_][A-Za-z0-9_]*\)=.*/\1/p'); do
+          case "$keep" in
+            *" $v "*) ;;
+            *) unset "$v" 2>/dev/null || true ;;
+          esac
+        done
+        NO_COLOR=1 "$@"
+      )
+    }
+    # cast_rpc ARGS… runs cast against RPC_URL, which may carry an API key:
+    # the URL goes in ETH_RPC_URL, not an argument, and is masked in any
+    # error output, as forge_spike masks it in its logs.
+    cast_rpc() {
+      err=$(mktemp)
+      if ETH_RPC_URL="$RPC_URL" cast "$@" 2> "$err"; then
+        rm -f "$err"
+      else
+        rc=$?
+        awk -v u="$RPC_URL" '{ while ((i = index($0, u)) > 0) $0 = substr($0, 1, i - 1) "<RPC_URL>" substr($0, i + length(u)); print }' "$err" >&2
+        rm -f "$err"
+        return $rc
+      fi
+    }
     forge_spike() {
       name=$1; shift
       mkdir -p "$OUT/logs"
@@ -299,8 +336,10 @@ tasks:
           '{instance: $d[0].imutableUnivocity, genesisLogId: $d[0].genesisLogId,
             logH: $lh, forestTimes: {deployStart: $t}}' > "$OUT/run.json"
         doppler run {{.ADMIN_DOPPLER}} -- sh -c \
-          'env -i PATH="$PATH" HOME="$HOME" NO_COLOR=1 CANOPY_OPS_ADMIN_TOKEN="$CANOPY_OPS_ADMIN_TOKEN" \
-            "$CLI" admin onboard-token --base-url {{.CANOPY}} --deployment "$OUT/deployment.json" \
+          'for v in $(env | awk -F= "/^[A-Za-z_][A-Za-z0-9_]*=/ {print \$1}"); do
+             case " PATH HOME CANOPY_OPS_ADMIN_TOKEN CLI OUT " in *" $v "*) ;; *) unset "$v" 2>/dev/null || true ;; esac
+           done
+           NO_COLOR=1 "$CLI" admin onboard-token --base-url {{.CANOPY}} --deployment "$OUT/deployment.json" \
             --label spike-7710 --out "$OUT/tmp/onboard-token"'
         cli ONBOARD_TOKEN="$(cat "$OUT/tmp/onboard-token")" "$CLI" onboard-genesis \
           --base-url {{.CANOPY}} --deployment "$OUT/deployment.json" --bootstrap-pem "$OUT/tmp/h.pem" \
@@ -420,7 +459,7 @@ tasks:
           # size); size is the third word of the raw return.
           START=$(date +%s)
           while :; do
-            RAW=$(cast call "$INSTANCE" 'logState(bytes32)' "$LOG" --rpc-url "$RPC_URL")
+            RAW=$(cast_rpc call "$INSTANCE" 'logState(bytes32)' "$LOG")
             SIZE=$(printf %d "0x$(printf %s "$RAW" | cut -c131-194)")
             [ "$SIZE" -gt "$INDEX" ] && break
             [ $(( $(date +%s) - START )) -lt {{.ANCHOR_TIMEOUT}} ] || { echo "$n: not anchored (size $SIZE)"; exit 1; }
@@ -459,7 +498,7 @@ tasks:
         export SPIKE_PURPOSE={{.PURPOSE}}
         forge_spike {{.PURPOSE}} script/spike/RedeemAsAgent.s.sol --broadcast --slow
         TX=$(jq -r '.receipts[0].transactionHash' "$OUT/broadcast/RedeemAsAgent.s.sol/{{.CHAIN_ID}}/run-latest.json")
-        cast receipt "$TX" --json --rpc-url "$RPC_URL" > "$OUT/{{.PURPOSE}}-receipt.json"
+        cast_rpc receipt "$TX" --json > "$OUT/{{.PURPOSE}}-receipt.json"
         python3 -I scripts/canopy_payment_check.py --receipt "$OUT/{{.PURPOSE}}-receipt.json" \
           --context "$OUT/{{.PURPOSE}}-context.json" --label {{.PURPOSE}} | tee "$OUT/{{.PURPOSE}}-check.json"
 
@@ -574,7 +613,7 @@ tasks:
         done
         echo "user operation $HASH: success $(jq -r .result.success "$R/receipt.json")"
         TX=$(jq -r .result.receipt.transactionHash "$R/receipt.json")
-        cast receipt "$TX" --json --rpc-url "$RPC_URL" > "$OUT/$P-receipt.json"
+        cast_rpc receipt "$TX" --json > "$OUT/$P-receipt.json"
         python3 -I scripts/canopy_payment_check.py --receipt "$OUT/$P-receipt.json" \
           --context "$OUT/$P-context.json" --label "$P" | tee "$OUT/$P-check.json"
 
@@ -588,7 +627,7 @@ tasks:
         rows="$OUT/measure-rows.jsonl"
         : > "$rows"
         row() {
-          cast receipt "$2" --json --rpc-url "$RPC_URL" | jq -c --arg step "$1" "$HEX"'
+          cast_rpc receipt "$2" --json | jq -c --arg step "$1" "$HEX"'
             {step: $step, tx: .transactionHash, type, status, block: (.blockNumber | hex),
              from, to, gasUsed: (.gasUsed | hex), effectiveGasPrice: (.effectiveGasPrice | hex),
              l2FeeWei: ((.gasUsed | hex) * (.effectiveGasPrice | hex)),
