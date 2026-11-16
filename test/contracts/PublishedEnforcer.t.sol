@@ -99,6 +99,14 @@ contract PublishedEnforcerTest is Test {
         _beforeHook(_terms(address(instance), LOG), args, HOP);
     }
 
+    /// @dev Q72: a tag-18 statement only adds 0xd2 to the prefix; the
+    ///    enforcer never parses the statement, so no contract change.
+    function test_tag18Statement_passes() public {
+        st.prefix = abi.encodePacked(bytes1(0xd2), st.prefix);
+        bytes memory args = _publish(LOG, HOP, STATEMENT_LEAF, ANCHORED_LEAVES);
+        _beforeHook(_terms(address(instance), LOG), args, HOP);
+    }
+
     function test_statementForAnotherDelegation_refused() public {
         bytes memory args = _publish(LOG, HOP, STATEMENT_LEAF, ANCHORED_LEAVES);
         bytes32 other = keccak256("another-hop");
