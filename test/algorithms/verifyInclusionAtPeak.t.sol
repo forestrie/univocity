@@ -106,6 +106,11 @@ contract VerifyInclusionAtPeakTest is Test {
         );
     }
 
+    function test_zeroLeafAgainstZeroPeak_refused() public view {
+        // One-leaf MMR: empty committing path, so the leaf is the peak.
+        assertFalse(h.atPeak(0, bytes32(0), new bytes32[](0), bytes32(0), 1));
+    }
+
     function test_nonLeaf_refused() public view {
         (Mmr memory m,) = _build(4);
         uint256 size = mmrSizeForLeafCount(4);

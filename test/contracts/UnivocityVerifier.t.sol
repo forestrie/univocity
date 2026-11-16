@@ -102,6 +102,20 @@ contract UnivocityVerifierTest is Test {
         );
     }
 
+    function test_zeroLeafAgainstZeroPeak_refused() public {
+        bytes32[] memory acc = new bytes32[](1);
+        getterSrc.setLogState(LOG, acc, 1);
+        plainSrc.setLogState(LOG, acc, 1);
+        bytes32[] memory none = new bytes32[](0);
+        assertFalse(oracle.verifyInclusionAtAnchored(LOG, 0, bytes32(0), none));
+        assertFalse(
+            viaGetter.verifyInclusionAtAnchored(LOG, 0, bytes32(0), none)
+        );
+        assertFalse(
+            viaFallback.verifyInclusionAtAnchored(LOG, 0, bytes32(0), none)
+        );
+    }
+
     function test_nonLeafIndex_refused() public {
         _anchor(8);
         uint256 size = mmrSizeForLeafCount(8);

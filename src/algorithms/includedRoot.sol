@@ -113,6 +113,7 @@ function verifyInclusionAtPeak(
     if (indexHeight(leafIndex) != 0) return false;
     uint256 n = committingPathLength(leafIndex, mmrSize);
     if (proof.length < n) return false;
+    if (peak == bytes32(0)) return false;
     return includedRoot(leafIndex, leafHash, proof[:n]) == peak;
 }
 
