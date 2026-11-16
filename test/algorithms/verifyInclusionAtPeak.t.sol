@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 import {
+    includedLeafRoot,
     includedRoot,
     verifyInclusionAtPeak,
     verifyInclusionAtSize
@@ -31,6 +32,15 @@ contract AtPeakHarness {
         uint256 size
     ) external pure returns (bool) {
         return verifyInclusionAtSize(i, leaf, proof, acc, size);
+    }
+
+    function leafRoot(
+        uint256 i,
+        uint256 leafNumber,
+        bytes32 leaf,
+        bytes32[] calldata proof
+    ) external pure returns (bytes32) {
+        return includedLeafRoot(i, leafNumber, leaf, proof);
     }
 
     function root(uint256 i, bytes32 leaf, bytes32[] calldata proof)
@@ -139,6 +149,18 @@ contract VerifyInclusionAtPeakTest is Test {
         assertFalse(
             h.atPeak(2, m.nodes[2], m.pathAt(2, size), m.nodes[size - 1], size)
         );
+    }
+
+    function test_nonLeaf_onlyLeafCheckRefuses() public view {
+        (Mmr memory m,) = _build(4);
+        // Node 2 at size 7 with a 2-sibling path, which is as long as the
+        // walk requires, and the root that walk reaches as the peak. Only
+        // the leaf-only rule can refuse.
+        bytes32[] memory path = new bytes32[](2);
+        path[0] = m.nodes[0];
+        path[1] = m.nodes[5];
+        bytes32 peak = h.leafRoot(2, 1, m.nodes[2], path);
+        assertFalse(h.atPeak(2, m.nodes[2], path, peak, 7));
     }
 
     /// @dev The largest anchored size, 2^64 - 1, is one peak of height 63.
