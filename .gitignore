@@ -9,6 +9,21 @@ anvil.log
 /broadcast/*/31337/
 /broadcast/**/dry-run/
 
+# Spike output: each spike's taskfile (taskfiles/spike/<issue>.yml)
+# writes everything, its broadcast logs included, to .spike/<issue>/,
+# never committed. The other paths are where the FOR-696 spike scripts
+# wrote before they moved under script/spike/for-696/.
+/.spike/
+/deployments/spike-7710/
+/broadcast/BuildDelegations.s.sol/
+/broadcast/DeployPublishedEnforcer.s.sol/
+/broadcast/PaymasterUserOp.s.sol/
+/broadcast/PublishedProof.s.sol/
+/broadcast/RedeemAsAgent.s.sol/
+/broadcast/SellerPermission.s.sol/
+/broadcast/SetupRoot.s.sol/
+/broadcast/Upgrade7702.s.sol/
+
 # Generated docs (forge doc)
 docs/book/
 

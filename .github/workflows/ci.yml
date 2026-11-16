@@ -41,6 +41,9 @@ jobs:
       - name: Deploy manifest generator tests
         run: python3 -m unittest scripts/test_generate_deploy_manifest.py scripts/test_verify_deploy_manifest_artifact.py
 
+      - name: Stand-in canopy payment check tests
+        run: python3 -m unittest scripts/spike/for-696/test_canopy_payment_check.py
+
       - name: Install mise
         uses: jdx/mise-action@v3
         with:
