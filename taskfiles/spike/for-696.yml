@@ -58,9 +58,11 @@ vars:
   USDC: '0x036CbD53842c5426634e7929541eC2318f3dCF7e'
   STATEMENTS: dHA dAB dH2A dAB2
   # Shell helpers every step starts with. forge_spike NAME ARGS… runs a
-  # spike forge script against RPC_URL, keeps its output in
+  # spike forge script forked from RPC_URL, keeps its output in
   # .spike/for-696/logs/NAME.log with the RPC URL masked, shows its console
-  # lines, and fails (showing the whole log) if forge fails.
+  # lines, and fails (showing the whole log) if forge fails. The URL goes
+  # in FOUNDRY_ETH_RPC_URL, never an argument: forge script ignores
+  # ETH_RPC_URL and would run unforked.
   SH: |
     set -euo pipefail
     now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
@@ -104,7 +106,7 @@ vars:
     forge_spike() {
       name=$1; shift
       mkdir -p "$OUT/logs"
-      { ETH_RPC_URL="$RPC_URL" $FORGE_SPIKE "$@" 2>&1 && echo "forge: ok" || echo "forge: failed"; } \
+      { FOUNDRY_ETH_RPC_URL="$RPC_URL" $FORGE_SPIKE "$@" 2>&1 && echo "forge: ok" || echo "forge: failed"; } \
         | awk -v u="$RPC_URL" '{ while ((i = index($0, u)) > 0) $0 = substr($0, 1, i - 1) "<RPC_URL>" substr($0, i + length(u)); print }' \
         > "$OUT/logs/$name.log"
       if [ "$(tail -1 "$OUT/logs/$name.log")" != "forge: ok" ]; then
