@@ -9,6 +9,33 @@ import {
     UnivocityVerifierFactory
 } from "@univocity/contracts/UnivocityVerifierFactory.sol";
 
+/// @notice Deployer whose record is wrong, to exercise the record checks.
+contract MismatchedRecordDeployer is DeployUnivocityVerifierFactory {
+    address internal immutable wrongFactory;
+    bytes32 internal immutable wrongHash;
+
+    constructor(address wrongFactory_, bytes32 wrongHash_) {
+        wrongFactory = wrongFactory_;
+        wrongHash = wrongHash_;
+    }
+
+    function recordedFactory() public view override returns (address) {
+        return
+            wrongFactory == address(0) ? super.recordedFactory() : wrongFactory;
+    }
+
+    function recordedVerifierInitCodeHash()
+        public
+        view
+        override
+        returns (bytes32)
+    {
+        return wrongHash == bytes32(0)
+            ? super.recordedVerifierInitCodeHash()
+            : wrongHash;
+    }
+}
+
 /// @notice TEMPORARY, with the script it tests: FOR-701 removes both. It
 ///    fails when this build no longer deploys the factory deployment.json
 ///    records, the signal that a code change moves the factory and every
@@ -47,5 +74,35 @@ contract DeployUnivocityVerifierFactoryTest is Test {
             DeployUnivocityVerifierFactory.ArachnidProxyMissing.selector
         );
         deployer.run();
+    }
+
+    function test_run_wrongRecordedAddress_reverts() public {
+        address built = deployer.predict();
+        MismatchedRecordDeployer bad =
+            new MismatchedRecordDeployer(address(0xBAD), bytes32(0));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                DeployUnivocityVerifierFactory.FactoryAddressMismatch.selector,
+                built,
+                address(0xBAD)
+            )
+        );
+        bad.run();
+    }
+
+    function test_run_wrongRecordedHash_reverts() public {
+        bytes32 deployed =
+            UnivocityVerifierFactory(deployer.run()).verifierInitCodeHash();
+        MismatchedRecordDeployer bad =
+            new MismatchedRecordDeployer(address(0), bytes32(uint256(0xBAD)));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                DeployUnivocityVerifierFactory.VerifierInitCodeHashMismatch
+                .selector,
+                deployed,
+                bytes32(uint256(0xBAD))
+            )
+        );
+        bad.run();
     }
 }
