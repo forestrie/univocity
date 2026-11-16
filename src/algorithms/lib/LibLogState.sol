@@ -7,9 +7,7 @@ import {
     verifyInclusionAtSize as _verifyInclusionAtSize,
     verifyInclusionStorage as _verifyInclusionStorage
 } from "@univocity/algorithms/includedRoot.sol";
-import {committingPathLength} from "@univocity/algorithms/includedRoot.sol";
-import {indexHeight} from "@univocity/algorithms/binUtils.sol";
-import {leafCount, peakIndex} from "@univocity/algorithms/peaks.sol";
+import {committingPeakIndex} from "@univocity/algorithms/peaks.sol";
 
 function _leafCommitment(bytes8 grantIDTimestampBe, PublishGrant calldata g)
     pure
@@ -30,10 +28,9 @@ function _leafCommitment(bytes8 grantIDTimestampBe, PublishGrant calldata g)
 
 library LibLogState {
     /// @notice Accumulator slot of the peak that commits MMR node `index` in
-    ///    the complete MMR(size). The one formula behind both committing-peak
-    ///    readers: the node's peak height is its own height plus the length
-    ///    of its path to the peak, and peakIndex maps that height to a slot
-    ///    (draft-bryce-cose-receipts-mmr-profile).
+    ///    the complete MMR(size): the peak whose tree holds the node. The
+    ///    one formula behind both committing-peak readers, found in one pass
+    ///    over the peaks by committingPeakIndex.
     /// @param index Zero-based MMR index of the node; index < size.
     /// @param size Number of nodes in the complete MMR; size > 0.
     /// @return Index into the accumulator of the committing peak.
@@ -42,10 +39,7 @@ library LibLogState {
         pure
         returns (uint256)
     {
-        return peakIndex(
-            leafCount(size),
-            indexHeight(index) + committingPathLength(index, size)
-        );
+        return committingPeakIndex(index, size);
     }
 
     /// @notice Storage variant: the anchored size and the peak committing

@@ -54,6 +54,72 @@ function leafCount(uint256 mmrSize) pure returns (uint256) {
     return peaksBitmap(mmrSize);
 }
 
+/// @notice Leaf count of MMR(mmrSize), and whether mmrSize is complete.
+/// @dev The pass peaksBitmap makes, keeping what is left over: a size is
+///    complete exactly when its peaks use every node. A leaf's MMR index is
+///    the size of the complete MMR before it, so for a leaf's index this
+///    returns the leaf's number among the leaves, and `complete` is false
+///    for the index of any interior node. At most 64 steps for a uint64
+///    size.
+/// @param mmrSize Number of nodes, or the MMR index of a node.
+/// @return leaves Same value as peaksBitmap(mmrSize).
+/// @return complete True if mmrSize is the size of a complete MMR.
+function completeLeafCount(uint256 mmrSize)
+    pure
+    returns (uint256 leaves, bool complete)
+{
+    uint256 rest = mmrSize;
+    uint256 n = bitLength(mmrSize);
+    uint256 peakSize = n >= 256 ? type(uint256).max : (1 << n) - 1;
+    // Unchecked: rest only drops by a peakSize it is at least.
+    unchecked {
+        while (peakSize > 0) {
+            leaves <<= 1;
+            if (rest >= peakSize) {
+                rest -= peakSize;
+                leaves |= 1;
+            }
+            peakSize >>= 1;
+        }
+    }
+    complete = rest == 0;
+}
+
+/// @notice Accumulator index of the peak whose tree holds node `index` in
+///    the complete MMR(mmrSize), for any node, leaf or not.
+/// @dev One pass over the peaks, highest first as the accumulator orders
+///    them, stopping at the first peak whose index range reaches `index`.
+///    At most 64 steps for a uint64 size. Equal to
+///    peakIndex(leafCount(mmrSize), indexHeight(index) +
+///    committingPathLength(index, mmrSize)), which costs a height
+///    computation per step.
+/// @param index Zero-based MMR index of the node.
+/// @param mmrSize Number of nodes in the complete MMR.
+/// @return slot Index into the accumulator; the peak count, which names no
+///    slot, when index >= mmrSize.
+function committingPeakIndex(uint256 index, uint256 mmrSize)
+    pure
+    returns (uint256 slot)
+{
+    uint256 rest = mmrSize;
+    uint256 end = 0;
+    uint256 n = bitLength(mmrSize);
+    uint256 peakSize = n >= 256 ? type(uint256).max : (1 << n) - 1;
+    // Unchecked: rest only drops by a peakSize it is at least, end never
+    // passes mmrSize, and there are at most 256 peaks.
+    unchecked {
+        while (peakSize > 0) {
+            if (rest >= peakSize) {
+                rest -= peakSize;
+                end += peakSize;
+                if (index < end) return slot;
+                slot++;
+            }
+            peakSize >>= 1;
+        }
+    }
+}
+
 /// @notice Returns the accumulator index for the peak that commits a proof of length d.
 /// @dev Matches go-merklelog/mmr PeakIndex(leafCount, d). By construction no two
 ///    peaks have the same height, so (leafCount, d) uniquely identifies the peak.

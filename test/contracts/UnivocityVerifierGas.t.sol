@@ -33,8 +33,8 @@ contract UnivocityVerifierGasTest is Test {
     uint64 internal constant ID_TS = 0x0000019a2b3c4d5e;
 
     /// @dev Getter-path beforeHook ceilings: measured plus ~15%.
-    uint256 internal constant CEILING_HOOK_SMALL = 39_000;
-    uint256 internal constant CEILING_HOOK_LARGE = 79_700;
+    uint256 internal constant CEILING_HOOK_SMALL = 19_700;
+    uint256 internal constant CEILING_HOOK_LARGE = 29_800;
 
     UnivocityVerifierFactory internal factory;
     PublishedEnforcer internal enforcer;
