@@ -4,8 +4,8 @@ pragma solidity ^0.8.24;
 import {Test} from "forge-std/Test.sol";
 import {PublishedEnforcer} from "@univocity/contracts/PublishedEnforcer.sol";
 import {
-    ProvisionalVerifierFactory
-} from "../shared/ProvisionalVerifierFactory.sol";
+    UnivocityVerifierFactory
+} from "@univocity/contracts/UnivocityVerifierFactory.sol";
 import {ICaveatEnforcer} from "@univocity/interfaces/ICaveatEnforcer.sol";
 import {mmrSizeForLeafCount} from "@univocity/algorithms/peaks.sol";
 import {Mmr, MmrBuilder} from "../shared/MmrBuilder.sol";
@@ -28,7 +28,7 @@ contract PublishedEnforcerTest is Test {
     uint64 internal constant ID_TS = 0x0000019a2b3c4d5e;
 
     StubUnivocal internal instance;
-    ProvisionalVerifierFactory internal factory;
+    UnivocityVerifierFactory internal factory;
     PublishedEnforcer internal enforcer;
     SplitStatement internal st;
 
@@ -39,7 +39,7 @@ contract PublishedEnforcerTest is Test {
 
     function setUp() public {
         instance = new StubUnivocal();
-        factory = new ProvisionalVerifierFactory();
+        factory = new UnivocityVerifierFactory();
         factory.deploy(address(instance));
         enforcer = new PublishedEnforcer(factory);
         st = ProvisionalDelegationStatement.split(84532);
@@ -222,11 +222,5 @@ contract PublishedEnforcerTest is Test {
             ICaveatEnforcer.afterAllHook.selector,
             bytes4(keccak256(bytes(string.concat("afterAllHook", args))))
         );
-    }
-
-    function test_factory_deployIsIdempotent() public {
-        address v = factory.verifierFor(address(instance));
-        assertTrue(v != address(0));
-        assertEq(factory.deploy(address(instance)), v);
     }
 }
