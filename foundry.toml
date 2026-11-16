@@ -34,6 +34,8 @@ exclude_lints = [
 
 [profile.default]
 
+# A solc bump moves UnivocityVerifierFactory and every verifier address
+# (see no-metadata-hash below).
 solc_version = "0.8.30"
 evm_version = "cancun"
 optimizer = true
@@ -64,16 +66,21 @@ build_info_path = "out/build-info"
 # factory does ([profile.factory]). It deploys through Arachnid's CREATE2
 # proxy, so its address commits to its bytes, and through the
 # UnivocityVerifier creation code it embeds, so does every verifier
-# address. Without the hash the bytes change only when the code or the
-# compiler does; the CBOR tail still names the solc version, since
-# per-file profiles cannot drop it. Foundry builds the factory, and every
-# file importing it, under this profile. Changing it moves the factory and
+# address. The profile pins every setting except solc itself (optimizer,
+# optimizer_runs, via_ir, evm_version, bytecode_hash), so a change to
+# [profile.default] does not move the factory. Without the hash the bytes
+# change only when the code or the solc version does: the CBOR tail still
+# names the solc version, and per-file profiles can drop neither it nor
+# the global `solc_version`. A solc bump moves the factory and every
+# verifier; to decouple it, build the factory in an isolated project like
+# script/create3-factory/. Foundry builds the factory, and every file
+# importing it, under this profile. Changing it moves the factory and
 # every verifier on every chain.
 additional_compiler_profiles = [
-  { name = "no-metadata-hash", bytecode_hash = "None" },
+  { name = "no-metadata-hash", bytecode_hash = "None", optimizer = true, optimizer_runs = 200, via_ir = true, evm_version = "cancun" },
 ]
 compilation_restrictions = [
-  { paths = "src/contracts/UnivocityVerifierFactory.sol", bytecode_hash = "None" },
+  { paths = "src/contracts/UnivocityVerifierFactory.sol", bytecode_hash = "None", optimizer = true, optimizer_runs = 200, via_ir = true, evm_version = "cancun" },
 ]
 
 # for audit tools and upgrade safety checks 
