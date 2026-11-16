@@ -60,6 +60,22 @@ ast = true
 build_info = true
 build_info_path = "out/build-info"
 
+# UnivocityVerifierFactory builds without a metadata hash, as the CREATE3
+# factory does ([profile.factory]). It deploys through Arachnid's CREATE2
+# proxy, so its address commits to its bytes, and through the
+# UnivocityVerifier creation code it embeds, so does every verifier
+# address. Without the hash the bytes change only when the code or the
+# compiler does; the CBOR tail still names the solc version, since
+# per-file profiles cannot drop it. Foundry builds the factory, and every
+# file importing it, under this profile. Changing it moves the factory and
+# every verifier on every chain.
+additional_compiler_profiles = [
+  { name = "no-metadata-hash", bytecode_hash = "None" },
+]
+compilation_restrictions = [
+  { paths = "src/contracts/UnivocityVerifierFactory.sol", bytecode_hash = "None" },
+]
+
 # for audit tools and upgrade safety checks 
 extra_output = [
   "storageLayout",
