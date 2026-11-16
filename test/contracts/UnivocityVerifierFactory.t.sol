@@ -97,7 +97,7 @@ contract UnivocityVerifierFactoryTest is Test {
     }
 
     function test_deploy_zeroInstance_reverts() public {
-        vm.expectRevert(UnivocityVerifier.NoInstance.selector);
+        vm.expectRevert(IUnivocityVerifierFactory.ZeroInstance.selector);
         factory.deploy(address(0));
     }
 

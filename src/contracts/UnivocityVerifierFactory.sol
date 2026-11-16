@@ -31,6 +31,7 @@ contract UnivocityVerifierFactory is IUnivocityVerifierFactory {
 
     /// @inheritdoc IUnivocityVerifierFactory
     function deploy(address instance) external returns (address verifier) {
+        if (instance == address(0)) revert ZeroInstance();
         verifier = verifierFor(instance);
         if (verifier.code.length != 0) return verifier;
         _building = instance;

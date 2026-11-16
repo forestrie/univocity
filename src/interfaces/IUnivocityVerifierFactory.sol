@@ -12,6 +12,9 @@ interface IUnivocityVerifierFactory {
     /// @param verifier The verifier reading that instance.
     event VerifierDeployed(address indexed instance, address indexed verifier);
 
+    /// @notice The zero address is not an instance.
+    error ZeroInstance();
+
     /// @notice A verifier deployed somewhere other than its derived address.
     error VerifierAddressMismatch();
 

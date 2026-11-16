@@ -128,7 +128,7 @@ abstract contract _Univocity is IUnivocity, IUnivocityErrors {
         view
         returns (uint64 size, bytes32 peak)
     {
-        return _logs[logId].committingPeakStorage(index);
+        (size, peak) = _logs[logId].committingPeakStorage(index);
     }
 
     /// @notice Returns the immutable config of a log (kind, authLogId, rootKey, initializedAt).
