@@ -438,7 +438,9 @@ contract PublishedEnforcerForkTest is DelegatedSpendForkBase {
         console.log("per published hop: total", perHopExec + perHopData);
 
         // The enforcer's own share: D_HA's hook with every account cold,
-        // then D_AB's with the instance already warm, as in the redemption.
+        // then D_AB's with the instance already warm. A redemption runs the
+        // hooks leaf to root, so there D_AB's hook is first and cold; the
+        // figures are named by hop, not by redemption order.
         // The rest of the per-hop cost is the manager decoding, hashing and
         // re-emitting the larger delegation in RedeemedDelegation.
         vm.revertToState(snap);
@@ -454,7 +456,7 @@ contract PublishedEnforcerForkTest is DelegatedSpendForkBase {
         vm.snapshotValue(group, "redeem-no-publication-calldata", plainData);
         vm.snapshotValue(group, "per-published-hop-exec", perHopExec);
         vm.snapshotValue(group, "per-published-hop-calldata", perHopData);
-        vm.snapshotValue(group, "before-hook-first-hop", hookHA);
-        vm.snapshotValue(group, "before-hook-second-hop", hookAB);
+        vm.snapshotValue(group, "before-hook-dHA-cold", hookHA);
+        vm.snapshotValue(group, "before-hook-dAB-warm", hookAB);
     }
 }

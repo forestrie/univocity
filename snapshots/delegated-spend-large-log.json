@@ -1,6 +1,6 @@
 {
-  "before-hook-first-hop": "77232",
-  "before-hook-second-hop": "54719",
+  "before-hook-dAB-warm": "54719",
+  "before-hook-dHA-cold": "77232",
   "per-published-hop-calldata": "10492",
   "per-published-hop-exec": "96670",
   "redeem-no-publication-calldata": "21876",
