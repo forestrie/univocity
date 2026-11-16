@@ -166,17 +166,18 @@ tasks:
 
   run:
     desc: >-
-      BROADCASTS, SETTLES and SUBMITS: every step from forest to measure,
-      in order (needs keys and cli first).
+      BROADCASTS, REGISTERS, SETTLES and SUBMITS: every step from forest to
+      measure, in order (needs keys and cli first).
     prompt: Run the whole spike on Base Sepolia and Lane A, spending DEPLOY_KEY gas and test USDC?
     cmds:
       - doppler run {{.DOPPLER}} -- task -d '{{.ROOT_DIR}}' spike-for-696:_run
 
   forest:
     desc: >-
-      BROADCASTS (DEPLOY_KEY): deploy a univocity instance with the CLI,
-      onboard it on Lane A, create the root log L_H and agent A's and agent
-      B's logs L_A and L_B, each waited on until anchored.
+      BROADCASTS (DEPLOY_KEY) and REGISTERS (Lane A canopy): deploy a
+      univocity instance with the CLI, onboard it on Lane A, create the
+      root log L_H and agent A's and agent B's logs L_A and L_B, each
+      waited on until anchored.
     prompt: Deploy a new univocity instance from DEPLOY_KEY and create three Lane A logs?
     cmds:
       - doppler run {{.DOPPLER}} -- task -d '{{.ROOT_DIR}}' spike-for-696:_forest
