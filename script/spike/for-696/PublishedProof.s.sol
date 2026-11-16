@@ -13,7 +13,7 @@ import {SpikeBase} from "./SpikeBase.s.sol";
 ///    §4.1): the statement bytes before and after TAG ‖ delegationHash,
 ///    the idtimestamp, the MMR index and the path. It checks the leaf
 ///    with the instance's verifier at the anchored size and writes
-///    .spike-7710/proofs/<SPIKE_STATEMENT>.json. Broadcasts nothing.
+///    .spike/for-696/proofs/<SPIKE_STATEMENT>.json. Broadcasts nothing.
 /// @dev The path comes from proofs/<name>-inclusion.json, which the
 ///    taskfile rebuilds from the log's public massif tile and newest
 ///    checkpoint before every redemption: a path taken before a later

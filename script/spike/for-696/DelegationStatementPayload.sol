@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Delegation} from "../../test/shared/DelegationFrameworkV130.sol";
+import {Delegation} from "../../../test/shared/DelegationFrameworkV130.sol";
 
 /// @notice SPIKE-ONLY. The payload of an ERC-7710 delegation statement
 ///    (protocol spec/delegated-spend-statements.md §4), in deterministic

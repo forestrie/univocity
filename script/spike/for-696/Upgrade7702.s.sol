@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {console} from "forge-std/console.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {SpikeBase} from "./SpikeBase.s.sol";
-import {IUsdc} from "../../test/shared/DelegationFrameworkV130.sol";
+import {IUsdc} from "../../../test/shared/DelegationFrameworkV130.sol";
 
 interface IErc20Transfer {
     function transfer(address to, uint256 amount) external returns (bool);
@@ -20,7 +20,7 @@ interface IErc20Transfer {
 /// @dev The authorization is signed in-process from the Doppler key; the
 ///    type-4 transaction calls the account itself with no data, which the
 ///    DeleGator's receive() accepts. Writes
-///    .spike-7710/<SPIKE_PURPOSE>.json. The taskfile runs every spike
+///    .spike/for-696/<SPIKE_PURPOSE>.json. The taskfile runs every spike
 ///    script with `--evm-version prague`: foundry.toml pins cancun, under
 ///    which a fork runs a delegation designator as code.
 contract Upgrade7702 is SpikeBase {

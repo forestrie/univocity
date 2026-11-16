@@ -10,13 +10,13 @@ import {
     FrameworkV130,
     IDelegationManagerV130,
     SelectedGroup
-} from "../../test/shared/DelegationFrameworkV130.sol";
+} from "../../../test/shared/DelegationFrameworkV130.sol";
 
 /// @notice SPIKE-ONLY base for the Base Sepolia live run of the
 ///    publication enforcer (devdocs ARC-0032 §3.1, §5.2): the same chain
 ///    shapes as test/integration/DelegatedSpendForkBase.sol, built from
 ///    keys held in Doppler (univocity/dev, SPIKE_7710_*) and from the run
-///    record taskfiles/spike-7710.yml keeps in .spike-7710/run.json
+///    record taskfiles/spike/for-696.yml keeps in .spike/for-696/run.json
 ///    (gitignored, like everything the run writes).
 /// @dev Secrets arrive only as environment variables through
 ///    `doppler run`; nothing here logs one. Addresses derived from them
@@ -26,8 +26,8 @@ abstract contract SpikeBase is Script {
         IDelegationManagerV130(FrameworkV130.DELEGATION_MANAGER);
     address internal constant USDC = FrameworkV130.BASE_SEPOLIA_USDC;
 
-    string internal constant RUN_DIR = ".spike-7710/";
-    string internal constant RUN_FILE = ".spike-7710/run.json";
+    string internal constant RUN_DIR = ".spike/for-696/";
+    string internal constant RUN_FILE = ".spike/for-696/run.json";
 
     uint256 internal constant PRICE = 2_500_000; // 2.5 USDC
     uint256 internal constant CAP_HA = 100_000_000;
@@ -304,7 +304,7 @@ abstract contract SpikeBase is Script {
     }
 
     /// @notice Fills a hop's publication args (caveat 0) from
-    ///    .spike-7710/proofs/<name>.json, which PublishedProof.s.sol writes
+    ///    .spike/for-696/proofs/<name>.json, which PublishedProof.s.sol writes
     ///    from a path rebuilt from the log's public tiles.
     function _withProof(Delegation memory d, string memory name)
         internal
@@ -344,7 +344,7 @@ abstract contract SpikeBase is Script {
     }
 
     /// @notice The stand-in canopy checker's chain context and purpose
-    ///    (scripts/canopy_payment_check.py).
+    ///    (scripts/spike/for-696/canopy_payment_check.py).
     /// @notice Writes <purpose>-context.json for the stand-in checker.
     function _writeContext(string memory purpose, address root) internal {
         vm.writeFile(

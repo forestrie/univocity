@@ -7,14 +7,14 @@ import {
     Caveat,
     Delegation,
     FrameworkV130
-} from "../../test/shared/DelegationFrameworkV130.sol";
+} from "../../../test/shared/DelegationFrameworkV130.sol";
 
 /// @notice SPIKE-ONLY. Run 1 of the slice (devdocs ARC-0032 §5.1 to
 ///    §5.4): agent B redeems [leaf, D_AB, D_HA] from its own account,
 ///    paying gas in ETH, and pays the Forestrie test payee PRICE. The
 ///    leaf is the open payment leaf of §5.3, salted with the provisional
 ///    payment nonce for grant purpose SPIKE_PURPOSE over the root.
-/// @dev Writes the hashes to .spike-7710/<SPIKE_PURPOSE>.json and the
+/// @dev Writes the hashes to .spike/for-696/<SPIKE_PURPOSE>.json and the
 ///    stand-in canopy checker's context beside it.
 contract RedeemAsAgent is SpikeBase {
     function run() external {

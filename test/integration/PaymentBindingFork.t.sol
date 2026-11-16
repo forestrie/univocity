@@ -62,8 +62,8 @@ contract Batch {
 ///    Base Sepolia fork. Each test records its redemption's logs as a
 ///    receipt vector under test/fixtures/delegated-spend/ with the outcome
 ///    a request for each purpose must get, for the stand-in canopy
-///    checker (scripts/canopy_payment_check.py) and protocol's binding
-///    vectors.
+///    checker (scripts/spike/for-696/canopy_payment_check.py) and
+///    protocol's binding vectors.
 contract PaymentBindingForkTest is DelegatedSpendForkBase {
     /// @dev Published D_HA and D_AB, anchored; hop D_AB may carry extra
     ///    caveats and a salt to stand in for an agent salting its own hop.

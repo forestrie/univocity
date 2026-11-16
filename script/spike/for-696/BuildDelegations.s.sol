@@ -5,7 +5,7 @@ import {console} from "forge-std/console.sol";
 import {PublishedEnforcer} from "@univocity/contracts/PublishedEnforcer.sol";
 import {SpikeBase} from "./SpikeBase.s.sol";
 import {DelegationStatementPayload} from "./DelegationStatementPayload.sol";
-import {Delegation} from "../../test/shared/DelegationFrameworkV130.sol";
+import {Delegation} from "../../../test/shared/DelegationFrameworkV130.sol";
 
 interface IErc1271 {
     function isValidSignature(bytes32 digest, bytes calldata signature)
@@ -18,7 +18,7 @@ interface IErc1271 {
 ///    hop to agent A and agent A's hop to agent B, and writes each as the
 ///    payload of a delegation statement (protocol
 ///    spec/delegated-spend-statements.md §4) for the CLI to sign and
-///    register: .spike-7710/statements/<name>.payload.cbor, with the
+///    register: .spike/for-696/statements/<name>.payload.cbor, with the
 ///    delegation hash and target log in <name>.json beside it.
 ///    SPIKE_CHAIN=h2 builds D_H2A and D_AB2 under the EIP-7702 root;
 ///    otherwise D_HA and D_AB. Broadcasts nothing; it checks the root

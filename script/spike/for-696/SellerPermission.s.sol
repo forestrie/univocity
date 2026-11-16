@@ -6,7 +6,7 @@ import {SpikeBase} from "./SpikeBase.s.sol";
 import {
     Caveat,
     Delegation
-} from "../../test/shared/DelegationFrameworkV130.sol";
+} from "../../../test/shared/DelegationFrameworkV130.sol";
 
 /// @notice SPIKE-ONLY. Run 2 of the slice (devdocs ARC-0032 §5.6): the
 ///    seller leaf agent B signs for an x402 facilitator, and the
@@ -15,8 +15,8 @@ import {
 ///    MetaMask's dev and production facilitators in a RedeemerEnforcer,
 ///    so either host can settle it. Broadcasts nothing: it simulates the
 ///    redemption from each facilitator address, then writes
-///    .spike-7710/<SPIKE_PURPOSE>.json for the /verify and /settle calls
-///    of `task spike-7710:seller`.
+///    .spike/for-696/<SPIKE_PURPOSE>.json for the /verify and /settle calls
+///    of `task spike-for-696:seller`.
 /// @dev A seller payment carries no payment nonce; the salt is
 ///    sha256(SPIKE_PURPOSE), so each host gets its own single-use leaf.
 contract SellerPermission is SpikeBase {

@@ -5,15 +5,15 @@ import {console} from "forge-std/console.sol";
 import {PublishedEnforcer} from "@univocity/contracts/PublishedEnforcer.sol";
 import {
     ProvisionalVerifierFactory
-} from "../../test/shared/ProvisionalVerifierFactory.sol";
+} from "../../../test/shared/ProvisionalVerifierFactory.sol";
 import {SpikeBase} from "./SpikeBase.s.sol";
 
 /// @notice SPIKE-ONLY. Deploys the provisional verifier factory and
 ///    PublishedEnforcer, and builds the verifier of the run's univocity
 ///    instance (devdocs ARC-0032 §4.2). DEPLOY_KEY pays; nothing here is
 ///    the production factory or a deterministic address.
-/// @dev Run by `task spike-7710:contracts` (broadcasts). Reads .instance
-///    from the run record and writes .spike-7710/contracts.json, which
+/// @dev Run by `task spike-for-696:contracts` (broadcasts). Reads .instance
+///    from the run record and writes .spike/for-696/contracts.json, which
 ///    the task merges into it.
 contract DeployPublishedEnforcer is SpikeBase {
     function run() external {

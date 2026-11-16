@@ -1,4 +1,4 @@
-"""Tests for scripts/canopy_payment_check.py, the stand-in canopy check.
+"""Tests for scripts/spike/for-696/canopy_payment_check.py, the stand-in canopy check.
 
 The receipt vectors under test/fixtures/delegated-spend/ come from
 test/integration/PaymentBindingFork.t.sol, redeemed against the
@@ -31,7 +31,7 @@ from canopy_payment_check import (  # noqa: E402
 )
 
 FIXTURES = (
-    Path(__file__).resolve().parent.parent / "test" / "fixtures" / "delegated-spend"
+    Path(__file__).resolve().parents[3] / "test" / "fixtures" / "delegated-spend"
 )
 
 

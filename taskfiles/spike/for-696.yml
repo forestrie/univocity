@@ -1,5 +1,6 @@
-# Spike 7710: the Base Sepolia live run of the publication enforcer
-# (devdocs ARC-0032 §4 and §5; FOR-696), end to end on Forestrie's Lane A.
+# Spike FOR-696: the Base Sepolia live run of the publication enforcer
+# for ERC-7710 delegations (devdocs ARC-0032 §4 and §5), end to end on
+# Forestrie's Lane A. Included from Taskfile.dist.yml as spike-for-696.
 #
 # One task per step, in this order:
 #
@@ -12,7 +13,7 @@
 # path read before a later checkpoint merged the leaf's peak no longer
 # reaches a peak on chain.
 #
-# Every step writes to .spike-7710/ (gitignored), and the forge broadcast
+# Every step writes to .spike/for-696/ (gitignored), and the forge broadcast
 # logs go there too (FOUNDRY_BROADCAST). Each step that needs secrets
 # wraps itself in `doppler run` (univocity/dev; system-testing/dev only
 # for the canopy operator token) and runs a hidden `_<step>` task with
@@ -24,7 +25,7 @@
 # have a facilitator or a bundler send a transaction that spends the
 # spike's test USDC. Each of those asks first (--yes skips the prompt).
 #
-# Forge scripts do the encoding, signing and on-chain work (script/spike/);
+# Forge scripts do the encoding, signing and on-chain work (script/spike/for-696/);
 # the forestrie CLI talks to canopy and signs COSE statements; curl talks
 # to the log store, the x402 facilitators and the bundler. Every forge
 # script runs under the Prague EVM in its own build directory: an EIP-7702
@@ -32,7 +33,7 @@
 version: '3'
 
 vars:
-  OUT: .spike-7710
+  OUT: .spike/for-696
   DOPPLER: --project univocity --config dev
   ADMIN_DOPPLER: --project system-testing --config dev
   CLI_VERSION: v0.15.0
@@ -58,7 +59,7 @@ vars:
   STATEMENTS: dHA dAB dH2A dAB2
   # Shell helpers every step starts with. forge_spike NAME ARGS… runs a
   # spike forge script against RPC_URL, keeps its output in
-  # .spike-7710/logs/NAME.log with the RPC URL masked, shows its console
+  # .spike/for-696/logs/NAME.log with the RPC URL masked, shows its console
   # lines, and fails (showing the whole log) if forge fails.
   SH: |
     set -euo pipefail
@@ -150,7 +151,7 @@ tasks:
         done
 
   cli:
-    desc: Download the release-pinned forestrie CLI into .spike-7710/bin and check its sha256.
+    desc: Download the release-pinned forestrie CLI into .spike/for-696/bin and check its sha256.
     status:
       - test -x "$CLI"
     cmds:
@@ -167,7 +168,7 @@ tasks:
       in order (needs keys and cli first).
     prompt: Run the whole spike on Base Sepolia and Lane A, spending DEPLOY_KEY gas and test USDC?
     cmds:
-      - doppler run {{.DOPPLER}} -- task -d '{{.ROOT_DIR}}' spike-7710:_run
+      - doppler run {{.DOPPLER}} -- task -d '{{.ROOT_DIR}}' spike-for-696:_run
 
   forest:
     desc: >-
@@ -176,7 +177,7 @@ tasks:
       B's logs L_A and L_B, each waited on until anchored.
     prompt: Deploy a new univocity instance from DEPLOY_KEY and create three Lane A logs?
     cmds:
-      - doppler run {{.DOPPLER}} -- task -d '{{.ROOT_DIR}}' spike-7710:_forest
+      - doppler run {{.DOPPLER}} -- task -d '{{.ROOT_DIR}}' spike-for-696:_forest
 
   contracts:
     desc: >-
@@ -184,7 +185,7 @@ tasks:
       PublishedEnforcer, and the instance's verifier.
     prompt: Deploy the factory, enforcer and verifier from DEPLOY_KEY?
     cmds:
-      - doppler run {{.DOPPLER}} -- task -d '{{.ROOT_DIR}}' spike-7710:_contracts
+      - doppler run {{.DOPPLER}} -- task -d '{{.ROOT_DIR}}' spike-for-696:_contracts
 
   accounts:
     desc: >-
@@ -192,7 +193,7 @@ tasks:
       20 test USDC and send agent B gas ETH.
     prompt: Deploy root H and fund it and agent B from DEPLOY_KEY?
     cmds:
-      - doppler run {{.DOPPLER}} -- task -d '{{.ROOT_DIR}}' spike-7710:_accounts
+      - doppler run {{.DOPPLER}} -- task -d '{{.ROOT_DIR}}' spike-for-696:_accounts
 
   upgrade-h2-root:
     desc: >-
@@ -201,7 +202,7 @@ tasks:
       it 5 test USDC.
     prompt: Upgrade H2 by EIP-7702 and send it 5 USDC from DEPLOY_KEY?
     cmds:
-      - doppler run {{.DOPPLER}} -- task -d '{{.ROOT_DIR}}' spike-7710:_upgrade ACCOUNT=SPIKE_7710_H2_ROOT_KEY PURPOSE=spike-7710-h2-upgrade USDC_AMOUNT=5000000
+      - doppler run {{.DOPPLER}} -- task -d '{{.ROOT_DIR}}' spike-for-696:_upgrade ACCOUNT=SPIKE_7710_H2_ROOT_KEY PURPOSE=for-696-h2-upgrade USDC_AMOUNT=5000000
 
   upgrade-agent-b:
     desc: >-
@@ -210,14 +211,14 @@ tasks:
       paymaster run.
     prompt: Upgrade agent B by EIP-7702 and send it 1 USDC from DEPLOY_KEY?
     cmds:
-      - doppler run {{.DOPPLER}} -- task -d '{{.ROOT_DIR}}' spike-7710:_upgrade ACCOUNT=SPIKE_7710_AGENT_B_KEY PURPOSE=spike-7710-b-upgrade USDC_AMOUNT=1000000
+      - doppler run {{.DOPPLER}} -- task -d '{{.ROOT_DIR}}' spike-for-696:_upgrade ACCOUNT=SPIKE_7710_AGENT_B_KEY PURPOSE=for-696-b-upgrade USDC_AMOUNT=1000000
 
   delegations:
     desc: >-
       Build and sign both chains' hops (D_HA, D_AB under H; D_H2A, D_AB2
       under H2) and write their statement payloads. Simulates only.
     cmds:
-      - doppler run {{.DOPPLER}} -- task -d '{{.ROOT_DIR}}' spike-7710:_delegations
+      - doppler run {{.DOPPLER}} -- task -d '{{.ROOT_DIR}}' spike-for-696:_delegations
 
   register:
     desc: >-
@@ -226,7 +227,7 @@ tasks:
       D_AB2 in L_A; the lane's publisher anchors them on chain.
     prompt: Register the four delegation statements on Lane A?
     cmds:
-      - doppler run {{.DOPPLER}} -- task -d '{{.ROOT_DIR}}' spike-7710:_register
+      - doppler run {{.DOPPLER}} -- task -d '{{.ROOT_DIR}}' spike-for-696:_register
 
   proofs:
     desc: >-
@@ -234,7 +235,7 @@ tasks:
       the log's public massif tile and newest checkpoint, and check it with
       the verifier at the anchored size. Reads only; run before redeeming.
     cmds:
-      - doppler run {{.DOPPLER}} -- task -d '{{.ROOT_DIR}}' spike-7710:_proofs NAMES='{{.NAMES | default .STATEMENTS}}'
+      - doppler run {{.DOPPLER}} -- task -d '{{.ROOT_DIR}}' spike-for-696:_proofs NAMES='{{.NAMES | default .STATEMENTS}}'
 
   redeem:
     desc: >-
@@ -243,7 +244,7 @@ tasks:
       reads the receipt.
     prompt: Redeem from agent B's key, paying the payee 2.5 USDC from root H?
     cmds:
-      - doppler run {{.DOPPLER}} -- task -d '{{.ROOT_DIR}}' spike-7710:_redeem
+      - doppler run {{.DOPPLER}} -- task -d '{{.ROOT_DIR}}' spike-for-696:_redeem
 
   seller:
     desc: >-
@@ -256,7 +257,7 @@ tasks:
         - name: HOST
           enum: [prod, dev]
     cmds:
-      - doppler run {{.DOPPLER}} -- task -d '{{.ROOT_DIR}}' spike-7710:_seller HOST={{.HOST}}
+      - doppler run {{.DOPPLER}} -- task -d '{{.ROOT_DIR}}' spike-for-696:_seller HOST={{.HOST}}
 
   userop:
     desc: >-
@@ -265,15 +266,15 @@ tasks:
       Paymaster v0.7; then the stand-in canopy check reads the bundle.
     prompt: Submit agent B's user operation, paying the payee 2.5 USDC and the paymaster in USDC?
     cmds:
-      - doppler run {{.DOPPLER}} -- task -d '{{.ROOT_DIR}}' spike-7710:_userop
+      - doppler run {{.DOPPLER}} -- task -d '{{.ROOT_DIR}}' spike-for-696:_userop
 
   measure:
     desc: >-
       Read every transaction of the run (gas, L1 fee, outcome) and the
-      paymaster's charge and surcharge into .spike-7710/measurements.json.
+      paymaster's charge and surcharge into .spike/for-696/measurements.json.
       Reads only.
     cmds:
-      - doppler run {{.DOPPLER}} -- task -d '{{.ROOT_DIR}}' spike-7710:_measure
+      - doppler run {{.DOPPLER}} -- task -d '{{.ROOT_DIR}}' spike-for-696:_measure
 
   # --- the steps, inside doppler run (hidden: no desc) ---
 
@@ -283,9 +284,9 @@ tasks:
       - task: _contracts
       - task: _accounts
       - task: _upgrade
-        vars: {ACCOUNT: SPIKE_7710_H2_ROOT_KEY, PURPOSE: spike-7710-h2-upgrade, USDC_AMOUNT: '5000000'}
+        vars: {ACCOUNT: SPIKE_7710_H2_ROOT_KEY, PURPOSE: for-696-h2-upgrade, USDC_AMOUNT: '5000000'}
       - task: _upgrade
-        vars: {ACCOUNT: SPIKE_7710_AGENT_B_KEY, PURPOSE: spike-7710-b-upgrade, USDC_AMOUNT: '1000000'}
+        vars: {ACCOUNT: SPIKE_7710_AGENT_B_KEY, PURPOSE: for-696-b-upgrade, USDC_AMOUNT: '1000000'}
       - task: _delegations
       - task: _register
       - task: _redeem
@@ -315,7 +316,7 @@ tasks:
       - sh: test ! -e {{.OUT}}/run.json
         msg: '{{.OUT}}/run.json exists: move the old run aside first'
       - sh: test -x "$CLI"
-        msg: run task spike-7710:cli first
+        msg: run task spike-for-696:cli first
     cmds:
       - |
         {{.SH}}
@@ -340,7 +341,7 @@ tasks:
              case " PATH HOME CANOPY_OPS_ADMIN_TOKEN CLI OUT " in *" $v "*) ;; *) unset "$v" 2>/dev/null || true ;; esac
            done
            NO_COLOR=1 "$CLI" admin onboard-token --base-url {{.CANOPY}} --deployment "$OUT/deployment.json" \
-            --label spike-7710 --out "$OUT/tmp/onboard-token"'
+            --label spike-for-696 --out "$OUT/tmp/onboard-token"'
         cli ONBOARD_TOKEN="$(cat "$OUT/tmp/onboard-token")" "$CLI" onboard-genesis \
           --base-url {{.CANOPY}} --deployment "$OUT/deployment.json" --bootstrap-pem "$OUT/tmp/h.pem" \
           --chain-id {{.CHAIN_ID}} --coordinator-url {{.COORDINATOR}} --out "$OUT/genesis.cbor"
@@ -374,7 +375,7 @@ tasks:
     cmds:
       - |
         {{.SH}}
-        forge_spike contracts script/spike/DeployPublishedEnforcer.s.sol --broadcast --slow
+        forge_spike contracts script/spike/for-696/DeployPublishedEnforcer.s.sol --broadcast --slow
       - task: _merge
         vars: {FILE: contracts.json}
 
@@ -383,7 +384,7 @@ tasks:
     cmds:
       - |
         {{.SH}}
-        forge_spike accounts script/spike/SetupRoot.s.sol --broadcast --slow
+        forge_spike accounts script/spike/for-696/SetupRoot.s.sol --broadcast --slow
       - task: _merge
         vars: {FILE: accounts.json}
 
@@ -395,7 +396,7 @@ tasks:
       - |
         {{.SH}}
         export SPIKE_ACCOUNT={{.ACCOUNT}} SPIKE_PURPOSE={{.PURPOSE}} SPIKE_USDC={{.USDC_AMOUNT}}
-        forge_spike {{.PURPOSE}} script/spike/Upgrade7702.s.sol --broadcast --slow
+        forge_spike {{.PURPOSE}} script/spike/for-696/Upgrade7702.s.sol --broadcast --slow
         if [ {{.ACCOUNT}} = SPIKE_7710_H2_ROOT_KEY ]; then
           jq --slurpfile u "$OUT/{{.PURPOSE}}.json" '.rootH2 = $u[0].account' "$OUT/run.json" \
             > "$OUT/run.json.next" && mv "$OUT/run.json.next" "$OUT/run.json"
@@ -408,7 +409,7 @@ tasks:
         cmd: |
           {{.SH}}
           export SPIKE_CHAIN={{.ITEM}}
-          forge_spike delegations-{{.ITEM}} script/spike/BuildDelegations.s.sol
+          forge_spike delegations-{{.ITEM}} script/spike/for-696/BuildDelegations.s.sol
 
   _register:
     deps: [_secrets]
@@ -483,23 +484,23 @@ tasks:
             > "$OUT/proofs/$n-inclusion.json"
           rm -f "$OUT/proofs/$n.json"
           export SPIKE_STATEMENT=$n
-          forge_spike proof-$n script/spike/PublishedProof.s.sol
+          forge_spike proof-$n script/spike/for-696/PublishedProof.s.sol
         done
 
   _redeem:
     deps: [_secrets]
     vars:
-      PURPOSE: spike-7710-grant-6a
+      PURPOSE: for-696-grant-6a
     cmds:
       - task: _proofs
         vars: {NAMES: dHA dAB}
       - |
         {{.SH}}
         export SPIKE_PURPOSE={{.PURPOSE}}
-        forge_spike {{.PURPOSE}} script/spike/RedeemAsAgent.s.sol --broadcast --slow
+        forge_spike {{.PURPOSE}} script/spike/for-696/RedeemAsAgent.s.sol --broadcast --slow
         TX=$(jq -r '.receipts[0].transactionHash' "$OUT/broadcast/RedeemAsAgent.s.sol/{{.CHAIN_ID}}/run-latest.json")
         cast_rpc receipt "$TX" --json > "$OUT/{{.PURPOSE}}-receipt.json"
-        python3 -I scripts/canopy_payment_check.py --receipt "$OUT/{{.PURPOSE}}-receipt.json" \
+        python3 -I scripts/spike/for-696/canopy_payment_check.py --receipt "$OUT/{{.PURPOSE}}-receipt.json" \
           --context "$OUT/{{.PURPOSE}}-context.json" --label {{.PURPOSE}} | tee "$OUT/{{.PURPOSE}}-check.json"
 
   _seller:
@@ -511,7 +512,7 @@ tasks:
     vars:
       BASE: '{{if eq .HOST "prod"}}{{.X402_PROD}}{{else}}{{.X402_DEV}}{{end}}'
       LIST: '{{if eq .HOST "prod"}}{{.FACILITATORS_PROD}}{{else}}{{.FACILITATORS_DEV}}{{end}}'
-      PURPOSE: spike-7710-seller-{{.HOST}}
+      PURPOSE: for-696-seller-{{.HOST}}
     cmds:
       - task: _proofs
         vars: {NAMES: dH2A dAB2}
@@ -529,7 +530,7 @@ tasks:
           || { echo "{{.HOST}}: the facilitator list has changed; stopping"; exit 3; }
         export SPIKE_CHAIN=h2 SPIKE_PURPOSE={{.PURPOSE}}
         rm -f "$OUT/{{.PURPOSE}}.json"
-        forge_spike {{.PURPOSE}} script/spike/SellerPermission.s.sol
+        forge_spike {{.PURPOSE}} script/spike/for-696/SellerPermission.s.sol
         jq -n --slurpfile l "$OUT/{{.PURPOSE}}.json" --arg list "{{.LIST}}" '
           {scheme: "exact", network: "eip155:{{.CHAIN_ID}}", amount: ($l[0].amount | tostring),
            asset: "{{.USDC}}", payTo: $l[0].payTo, maxTimeoutSeconds: 300,
@@ -537,7 +538,7 @@ tasks:
                    facilitatorAddresses: ($list | split(","))}} as $req
           | {x402Version: 2,
              paymentPayload: {x402Version: 2,
-               resource: {url: "https://forestrie.dev/spike-7710/seller-resource",
+               resource: {url: "https://forestrie.dev/spike/for-696/seller-resource",
                           description: "Spike 7710 seller payment (Base Sepolia test USDC)",
                           mimeType: "application/json"},
                accepted: $req,
@@ -563,7 +564,7 @@ tasks:
   _userop:
     deps: [_secrets]
     vars:
-      PURPOSE: spike-7710-grant-6b
+      PURPOSE: for-696-grant-6b
     cmds:
       - task: _proofs
         vars: {NAMES: dHA dAB}
@@ -579,7 +580,7 @@ tasks:
         export SPIKE_PURPOSE=$P SPIKE_PERMIT_AMOUNT=1000000
         build() {
           rm -f "$OUT/$P-userop.json"
-          forge_spike "$P-userop" script/spike/PaymasterUserOp.s.sol
+          forge_spike "$P-userop" script/spike/for-696/PaymasterUserOp.s.sol
           jq -c 'del(.leaf)' "$OUT/$P-userop.json"
         }
         call() { jq -nc --arg m "$1" --argjson p "$2" '{jsonrpc: "2.0", id: 1, method: $m, params: $p}'; }
@@ -614,7 +615,7 @@ tasks:
         echo "user operation $HASH: success $(jq -r .result.success "$R/receipt.json")"
         TX=$(jq -r .result.receipt.transactionHash "$R/receipt.json")
         cast_rpc receipt "$TX" --json > "$OUT/$P-receipt.json"
-        python3 -I scripts/canopy_payment_check.py --receipt "$OUT/$P-receipt.json" \
+        python3 -I scripts/spike/for-696/canopy_payment_check.py --receipt "$OUT/$P-receipt.json" \
           --context "$OUT/$P-context.json" --label "$P" | tee "$OUT/$P-check.json"
 
   _measure:
@@ -640,11 +641,11 @@ tasks:
           for t in $(jq -r '.receipts[].transactionHash' "$f"); do row "$S" "$t"; done
         done
         for h in prod dev; do
-          F="$OUT/spike-7710-seller-$h-settle.json"
+          F="$OUT/for-696-seller-$h-settle.json"
           T=$( [ -f "$F" ] && jq -r '.transaction // empty' "$F" || true)
           if [ -n "$T" ]; then row "x402-$h-settle" "$T"; fi
         done
-        U="$OUT/spike-7710-grant-6b-userop-record/receipt.json"
+        U="$OUT/for-696-grant-6b-userop-record/receipt.json"
         if [ -f "$U" ]; then row userop-bundle "$(jq -r .result.receipt.transactionHash "$U")"; fi
         # The paymaster's charge: UserOperationSponsored(token, sender,
         # userOpHash, nativeTokenPrice, actualTokenNeeded, feeTokenAmount).

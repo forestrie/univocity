@@ -77,7 +77,7 @@ fs_permissions = [
   { access = "read", path = "./script/create3-factory/out" },
   { access = "read-write", path = "./deployments" },
   { access = "read-write", path = "./test/fixtures/delegated-spend" },
-  { access = "read-write", path = "./.spike-7710" },
+  { access = "read-write", path = "./.spike/for-696" },
 ]
 
 # ---- Import Remappings ----
@@ -121,7 +121,7 @@ fs_permissions = [
   { access = "read", path = "./script/create3-factory/out" },
   { access = "read-write", path = "./deployments" },
   { access = "read-write", path = "./test/fixtures/delegated-spend" },
-  { access = "read-write", path = "./.spike-7710" },
+  { access = "read-write", path = "./.spike/for-696" },
 ]
 remappings = [
   "forge-std/=lib/forge-std/src/",

@@ -6,7 +6,7 @@ import {SpikeBase} from "./SpikeBase.s.sol";
 import {
     Caveat,
     Delegation
-} from "../../test/shared/DelegationFrameworkV130.sol";
+} from "../../../test/shared/DelegationFrameworkV130.sol";
 
 /// @notice ERC-4337 v0.7 packed user operation.
 struct PackedUserOperation {
@@ -68,8 +68,8 @@ interface IUsdcPermit {
 ///    agent B's key, from the gas fields in SPIKE_GAS_* (the taskfile
 ///    takes them from the bundler), and runs it through handleOps on the
 ///    fork as a check. Broadcasts nothing; writes the RPC form of the
-///    operation to .spike-7710/<SPIKE_PURPOSE>-userop.json for
-///    `task spike-7710:userop`, and the stand-in checker's context.
+///    operation to .spike/for-696/<SPIKE_PURPOSE>-userop.json for
+///    `task spike-for-696:userop`, and the stand-in checker's context.
 contract PaymasterUserOp is SpikeBase {
     IEntryPointV07 internal constant ENTRY_POINT =
         IEntryPointV07(0x0000000071727De22E5E9d8BAf0edAc6f37da032);
