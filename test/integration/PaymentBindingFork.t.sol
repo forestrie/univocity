@@ -395,6 +395,42 @@ contract PaymentBindingForkTest is DelegatedSpendForkBase {
         assertEq(USDC.balanceOf(payee), PRICE);
     }
 
+    /// @notice Two binding delegations from two distinct roots in one
+    ///    redeemDelegations batch. The nonce is computed over each
+    ///    chain's own root (ARC-0032 §5.4 step 3), so both bind.
+    function test_fork_vector_twoRootsOneBatch() public onlyFork {
+        ScriptedRoot rA = new ScriptedRoot(true);
+        ScriptedRoot rB = new ScriptedRoot(true);
+        _mintUsdc(address(rA), 10 * PRICE);
+        _mintUsdc(address(rB), 10 * PRICE);
+        Delegation memory lA = _rootLeaf(address(rA), "grant-1");
+        Delegation memory lB = _rootLeaf(address(rB), "grant-2");
+        Delegation[][] memory chains = new Delegation[][](2);
+        chains[0] = new Delegation[](1);
+        chains[0][0] = lA;
+        chains[1] = new Delegation[](1);
+        chains[1][0] = lB;
+        bytes[] memory execs = new bytes[](2);
+        execs[0] = _exec(address(USDC), _transfer(payee, PRICE));
+        execs[1] = execs[0];
+
+        vm.recordLogs();
+        _redeemBatch(gasAccount, chains, execs);
+        _writeReceipt(
+            "two-roots-one-batch",
+            _recorded(),
+            string.concat(
+                _purposeJson("grant-1", address(rA), "bound"),
+                ",",
+                _purposeJson("grant-2", address(rB), "bound")
+            ),
+            string.concat(
+                _delegationJson("lA", lA), ",", _delegationJson("lB", lB)
+            )
+        );
+        assertEq(USDC.balanceOf(payee), 2 * PRICE);
+    }
+
     /// @dev A root-level open leaf from `r`, salted for `label` over `r`.
     function _rootLeaf(address r, string memory label)
         internal
