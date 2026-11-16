@@ -63,6 +63,13 @@ contract UnivocityVerifierFactoryTest is Test {
         );
     }
 
+    function test_salt_isInstanceLeftPadded() public pure {
+        assertEq(
+            LibUnivocityVerifierAddress.salt(INSTANCE),
+            bytes32(uint256(0x1234))
+        );
+    }
+
     function test_verifier_knowsItsInstance() public {
         UnivocityVerifier v = UnivocityVerifier(factory.deploy(INSTANCE));
         assertEq(v.instance(), INSTANCE);
