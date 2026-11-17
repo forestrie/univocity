@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 import {
+    committingPathLength,
     includedRoot,
     includedRootByLeafIndex
 } from "@univocity/algorithms/includedRoot.sol";
@@ -80,9 +81,10 @@ contract RootGasHarness {
 }
 
 /// @notice The linear forms built on the leaf walk agree with the reference
-///    algorithms they replace (IncludedRootOracle.sol): includedRoot for
-///    any node, the walk itself, and the committing-peak slot. The peak
-///    bitmap is checked against its definition.
+///    algorithms they replace (IncludedRootOracle.sol): includedRoot and
+///    committingPathLength for any node, the walk itself, and the
+///    committing-peak slot. The peak bitmap is checked against its
+///    definition.
 contract LeafWalkTest is Test {
     WalkHarness internal h = new WalkHarness();
     RootGasHarness internal gasH = new RootGasHarness();
@@ -298,6 +300,40 @@ contract LeafWalkTest is Test {
                 assertEq(
                     h.root(ix[j], node, path),
                     h.referenceRoot(ix[j], node, path)
+                );
+            }
+        }
+    }
+
+    function test_committingPathLength_everyNodeTo64Leaves_matchesReference()
+        public
+        pure
+    {
+        for (uint256 a = 1; a <= 64; a++) {
+            uint256 size = mmrSizeForLeafCount(a);
+            for (uint256 i = 0; i < size; i++) {
+                assertEq(
+                    committingPathLength(i, size),
+                    committingPathLengthReference(i, size)
+                );
+            }
+        }
+    }
+
+    function test_committingPathLength_largestSizes_matchReference()
+        public
+        pure
+    {
+        uint256[6] memory sizes = _largeSizes();
+        for (uint256 k = 0; k < sizes.length; k++) {
+            uint256 size = sizes[k];
+            (, bool complete) = peaksBitmapComplete(size);
+            if (!complete) continue;
+            uint256[] memory ix = _largeSizeNodes(size);
+            for (uint256 j = 0; j < ix.length; j++) {
+                assertEq(
+                    committingPathLength(ix[j], size),
+                    committingPathLengthReference(ix[j], size)
                 );
             }
         }
