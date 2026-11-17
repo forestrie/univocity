@@ -151,7 +151,8 @@ function verifyInclusionAtPeak(
 ///    k is a right child, whose parent is the next index, and clear when it
 ///    is a left child, whose parent is 2^(k+1) further on. Constant work and
 ///    one hash per sibling; includedRoot derives g and a leaf index for any
-///    node, then runs this walk.
+///    node, then runs this walk, and the consistency fold
+///    (consistentRootsForSizes) knows both for each origin peak.
 ///    Nothing here checks that g is the height of mmrIndex or that
 ///    leafIndex lies beneath it: the caller derives both. Walks the whole
 ///    path, so the caller trims it.
@@ -244,7 +245,7 @@ function proofLengthRootStorage(
 ///    height once, its leftmost leaf's index from one pass of
 ///    peaksBitmapComplete, then includedRootByLeafIndex, which reads each
 ///    step's direction from one bit of that index. Proof is calldata to
-///    avoid copy when called from consistency chain or verifyInclusion.
+///    avoid a copy when called from verifyInclusion.
 /// @param i The zero-based MMR index where `nodeHash` is located.
 /// @param nodeHash The hash of the node whose inclusion is being proven.
 /// @param proof The sibling hashes required to produce the root from nodeHash.

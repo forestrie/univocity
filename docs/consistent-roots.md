@@ -139,13 +139,22 @@ the split: one `rightPeak`. Result `[old h3, proven h1]`, `expectedRight = 1`.
 
 ## Node indexes and the offset
 
-`includedRoot` needs each old peak's node index to know, at every level,
-whether the sibling is on the left or the right. A peak of height `h` roots a
-subtree of `2^(h+1) - 1` nodes, and peaks are laid out left to right, so the
-index of a peak is the number of nodes before its subtree plus its subtree
-size minus one. The fold keeps `offset`, the node count of all subtrees to
-the left of the current peak, and advances it by each peak's subtree size as
-it goes. For the first example: offsets 0, 7, 10 give peak indexes 6, 9, 10.
+Each buried peak's path is walked by `includedRootByLeafIndex`, which needs
+two indexes for the peak. Its node index gives the position each hash
+commits to. A peak of height `h` roots a subtree of `2^(h+1) - 1` nodes, and
+peaks are laid out left to right, so the index of a peak is the number of
+nodes before its subtree plus its subtree size minus one. The fold keeps
+`offset`, the node count of all subtrees to the left of the current peak,
+and advances it by each peak's subtree size as it goes. For the first
+example: offsets 0, 7, 10 give peak indexes 6, 9, 10.
+
+The index of a leaf under the peak tells the walk, at every level, whether
+the sibling is on the left or the right: bit `k` is set when the ancestor at
+height `k` is a right child. Every leaf under the peak of height `h` shares
+the bits of `from` above `h`, so `from` with bit `h` and those below cleared
+is the index of the peak's leftmost leaf. In the first example, where
+`from = 0111`, the peaks h2, h1 and h0 take leaf indexes 0, 4 and 6. The
+fold computes no node height, and each step costs one hash.
 
 ## What each check prevents
 

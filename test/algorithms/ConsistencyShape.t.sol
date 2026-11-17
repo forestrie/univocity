@@ -50,14 +50,34 @@ contract ConsistencyShapeHarness {
     }
 }
 
+/// @dev Only the fold, so helpers added to ConsistencyShapeHarness cannot
+///    move the measured figure.
+contract FoldGasHarness {
+    function prove(
+        uint64 sizeFrom,
+        uint64 sizeTo,
+        bytes32[] memory acc,
+        bytes32[][] calldata proofs
+    ) external pure returns (bytes32[] memory roots, uint256 expectedRight) {
+        return consistentRootsForSizes(sizeFrom, sizeTo, acc, proofs);
+    }
+}
+
 contract ConsistencyShapeTest is Test {
     /// @dev Leaf counts up to 2^62 keep sizes inside uint64.
     uint256 internal constant MAX_LEAVES = uint256(1) << 62;
 
+    /// @dev The fold from 2^20 - 1 to 2^20 leaves, its worst case at that
+    ///    size (20 buried peaks, 210 siblings), timed through
+    ///    FoldGasHarness: measured 262,199 plus 15%.
+    uint256 internal constant CEILING_FOLD_2POW20 = 301_500;
+
     ConsistencyShapeHarness internal harness;
+    FoldGasHarness internal gasHarness;
 
     function setUp() public {
         harness = new ConsistencyShapeHarness();
+        gasHarness = new FoldGasHarness();
     }
 
     /// @notice Node count of the complete MMR with `leaves` leaves.
@@ -261,5 +281,28 @@ contract ConsistencyShapeTest is Test {
             );
             harness.prove(0, bad[i], none, noProofs);
         }
+    }
+
+    /// @notice Gas for one fold, from proofs built as _wellFormedProof
+    ///    builds them.
+    function _timeFold(uint256 leavesFrom, uint256 leavesTo)
+        internal
+        returns (uint256 used)
+    {
+        uint64 sizeFrom = _mmrSize(leavesFrom);
+        uint64 sizeTo = _mmrSize(leavesTo);
+        (bytes32[] memory acc, bytes32[][] memory proofs,) =
+            _wellFormedProof(sizeFrom, sizeTo);
+        uint256 g0 = gasleft();
+        gasHarness.prove(sizeFrom, sizeTo, acc, proofs);
+        used = g0 - gasleft();
+    }
+
+    function test_gas_fold() public {
+        uint256 worst = _timeFold((1 << 20) - 1, 1 << 20);
+        uint256 step = _timeFold(1_000_000, 1_001_000);
+        emit log_named_uint("fold, 2^20 - 1 to 2^20 leaves", worst);
+        emit log_named_uint("fold, 1,000,000 to 1,001,000 leaves", step);
+        assertLt(worst, CEILING_FOLD_2POW20);
     }
 }
