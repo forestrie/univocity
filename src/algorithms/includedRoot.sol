@@ -150,7 +150,8 @@ function verifyInclusionAtPeak(
 ///    g up. Bit k of such a leaf's index is set when the ancestor at height
 ///    k is a right child, whose parent is the next index, and clear when it
 ///    is a left child, whose parent is 2^(k+1) further on. Constant work and
-///    one hash per sibling; includedRoot computes a height at every step.
+///    one hash per sibling; includedRoot derives g and a leaf index for any
+///    node, then runs this walk.
 ///    Nothing here checks that g is the height of mmrIndex or that
 ///    leafIndex lies beneath it: the caller derives both. Walks the whole
 ///    path, so the caller trims it.
@@ -238,8 +239,12 @@ function proofLengthRootStorage(
 
 /// @notice Computes the MMR root implied by the inclusion proof for a node.
 /// @dev Traverses the proof path from the node at index `i` up to the root,
-///    hashing with each sibling along the way. Proof is calldata to avoid
-///    copy when called from consistency chain or verifyInclusion.
+///    hashing with each sibling along the way, for a node of any height,
+///    leaf or interior. Work is linear in the path length: the node's
+///    height once, its leftmost leaf's index from one pass of
+///    peaksBitmapComplete, then includedRootByLeafIndex, which reads each
+///    step's direction from one bit of that index. Proof is calldata to
+///    avoid copy when called from consistency chain or verifyInclusion.
 /// @param i The zero-based MMR index where `nodeHash` is located.
 /// @param nodeHash The hash of the node whose inclusion is being proven.
 /// @param proof The sibling hashes required to produce the root from nodeHash.
@@ -249,20 +254,16 @@ function includedRoot(uint256 i, bytes32 nodeHash, bytes32[] calldata proof)
     pure
     returns (bytes32 root)
 {
-    root = nodeHash;
     uint256 g = indexHeight(i);
-    for (uint256 j = 0; j < proof.length; j++) {
-        bytes32 sibling = proof[j];
-        if (indexHeight(i + 1) > g) {
-            i = i + 1;
-            // forge-lint: disable-next-line(unsafe-typecast)
-            root = hashPosPair64(uint64(i + 1), sibling, root);
-        } else {
-            // forge-lint: disable-next-line(incorrect-shift)
-            i = i + (2 << g);
-            // forge-lint: disable-next-line(unsafe-typecast)
-            root = hashPosPair64(uint64(i + 1), root, sibling);
-        }
-        g = g + 1;
+    // A node of height g is the last of the 2^(g+1) - 1 nodes of its
+    // subtree, and the first is its leftmost leaf. Unchecked: that index
+    // lies in [0, i], so arithmetic modulo 2^256, which wraps only for an
+    // index at the top of the range, still lands on it.
+    uint256 first;
+    unchecked {
+        // forge-lint: disable-next-line(incorrect-shift)
+        first = i + 2 - (2 << g);
     }
+    (uint256 leafIndex,) = peaksBitmapComplete(first);
+    return includedRootByLeafIndex(i, g, leafIndex, nodeHash, proof);
 }

@@ -23,11 +23,11 @@ import {
 } from "@univocity/algorithms/peaks.sol";
 import {indexHeight} from "@univocity/algorithms/binUtils.sol";
 import {IUnivocityErrors} from "@univocity/interfaces/IUnivocityErrors.sol";
-import {includedRoot} from "@univocity/algorithms/includedRoot.sol";
+import {includedRootReference} from "./IncludedRootOracle.sol";
 import {inclusionProofPathLength} from "./InclusionProofPathOracle.sol";
 
-/// @notice consistentRootsForSizes and includedRoot take calldata paths;
-///    tests hold memory.
+/// @notice consistentRootsForSizes and the reference included_root take
+///    calldata paths; tests hold memory.
 contract ConsistencyShapeHarness {
     function prove(
         uint64 sizeFrom,
@@ -46,7 +46,7 @@ contract ConsistencyShapeHarness {
         bytes32[] calldata path,
         uint256 len
     ) external pure returns (bytes32) {
-        return includedRoot(i, node, path[:len]);
+        return includedRootReference(i, node, path[:len]);
     }
 }
 
@@ -77,7 +77,8 @@ contract ConsistencyShapeTest is Test {
     ///    reaches the height of the next origin peak j, where the chain is
     ///    j's right sibling and j is the chain's left sibling; above that the
     ///    merged chain continues and every peak in it shares each further
-    ///    sibling. Chain values are computed with includedRoot on the path
+    ///    sibling. Chain values are computed with the reference
+    ///    included_root (IncludedRootOracle.sol) on the path
     ///    prefix, so the construction is exactly what a real tree yields.
     ///    Also returns the number of proven roots the walk predicts.
     function _wellFormedProof(uint64 sizeFrom, uint64 sizeTo)
