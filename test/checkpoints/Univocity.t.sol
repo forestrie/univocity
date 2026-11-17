@@ -1172,9 +1172,10 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
         );
     }
 
-    /// @notice LibLeafEncoding.leafCommitment must match _leafCommitment for the
-    ///    same grant (canonical encoding for off-chain and tests).
-    function test_leafEncoding_matchesLeafCommitment() public view {
+    /// @notice LibLeafEncoding.leafCommitment (memory copy for scripts and
+    ///    tests) must equal the production calldata _leafCommitment in
+    ///    LibLogState, reached through ES256ReceiptDecodeVerifier.
+    function test_leafEncoding_matchesLeafCommitment() public {
         PublishGrant memory g = _publishGrant(
             AUTHORITY_LOG_ID,
             GRANT_ROOT,
@@ -1185,9 +1186,16 @@ contract UnivocityTest is UnivocityTestHelper, IUnivocityEvents {
             abi.encodePacked(KS256_SIGNER)
         );
         bytes32 leafLib = LibLeafEncoding.leafCommitment(IDTIMESTAMP_AUTH, g);
-        bytes32 leafHelper = _leafCommitment(IDTIMESTAMP_AUTH, g);
+        ConsistencyReceipt memory consistency =
+            _buildConsistencyReceiptES256(_toAcc(leafLib), 1);
+        ES256ReceiptDecodeVerifier verifier = new ES256ReceiptDecodeVerifier();
+        bytes32 leafProduction = verifier.getLeafCommitment(
+            consistency, _emptyInclusionProof(), IDTIMESTAMP_AUTH, g
+        );
         assertEq(
-            leafLib, leafHelper, "LibLeafEncoding must match _leafCommitment"
+            leafLib,
+            leafProduction,
+            "LibLeafEncoding must match production _leafCommitment"
         );
     }
 

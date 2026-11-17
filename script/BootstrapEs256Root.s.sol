@@ -11,6 +11,7 @@ import {
     GC_AUTH_LOG
 } from "@univocity/interfaces/constants.sol";
 import {buildSigStructure} from "@univocity/cosecbor/cosecbor.sol";
+import {LibLeafEncoding} from "@univocity/algorithms/lib/LibLeafEncoding.sol";
 import {P256} from "@openzeppelin/contracts/utils/cryptography/P256.sol";
 import {
     ConsistencyProof,
@@ -48,7 +49,7 @@ contract BootstrapEs256Root is Script {
             grantData: abi.encodePacked(es256X, es256Y)
         });
 
-        bytes32 leaf0 = _leafCommitment(IDTIMESTAMP_AUTH, grant);
+        bytes32 leaf0 = LibLeafEncoding.leafCommitment(IDTIMESTAMP_AUTH, grant);
         bytes32[] memory accMem = _toAcc(leaf0);
 
         ConsistencyProof[] memory proofs = new ConsistencyProof[](1);
@@ -99,24 +100,6 @@ contract BootstrapEs256Root is Script {
         unchecked {
             return sv > P256.N / 2 ? bytes32(P256.N - sv) : s;
         }
-    }
-
-    function _leafCommitment(bytes8 grantIDTimestampBe, PublishGrant memory g)
-        internal
-        pure
-        returns (bytes32)
-    {
-        bytes32 inner = sha256(
-            abi.encodePacked(
-                g.logId,
-                g.grant,
-                g.maxHeight,
-                g.minGrowth,
-                g.ownerLogId,
-                g.grantData
-            )
-        );
-        return sha256(abi.encodePacked(grantIDTimestampBe, inner));
     }
 
     function _toAcc(bytes32 peak)

@@ -27,6 +27,8 @@ import {Test} from "forge-std/Test.sol";
 import {ImutableUnivocity} from "@univocity/contracts/ImutableUnivocity.sol";
 import {hashPosPair64} from "@univocity/algorithms/binUtils.sol";
 import {includedRoot} from "@univocity/algorithms/includedRoot.sol";
+import {_leafCommitment} from "@univocity/algorithms/lib/LibLogState.sol";
+import {LibLeafEncoding} from "@univocity/algorithms/lib/LibLeafEncoding.sol";
 import {ALG_ES256, ALG_KS256} from "@univocity/cosecbor/constants.sol";
 import {
     cborUint,
@@ -145,23 +147,14 @@ contract ES256ReceiptDecodeVerifier {
 
     /// @notice Same 4-arg layout as publishCheckpoint; returns leaf commitment
     ///    so tests can assert grant decodes identically (same leaf as helper).
+    ///    Calls the production calldata _leafCommitment from LibLogState.
     function getLeafCommitment(
         ConsistencyReceipt calldata,
         InclusionProof calldata,
         bytes8 grantIDTimestampBe,
         PublishGrant calldata g
     ) external pure returns (bytes32) {
-        bytes32 inner = sha256(
-            abi.encodePacked(
-                g.logId,
-                g.grant,
-                g.maxHeight,
-                g.minGrowth,
-                g.ownerLogId,
-                g.grantData
-            )
-        );
-        return sha256(abi.encodePacked(grantIDTimestampBe, inner));
+        return _leafCommitment(grantIDTimestampBe, g);
     }
 }
 
@@ -193,17 +186,7 @@ contract GrantDecodeHarness {
         out.minGrowth = g.minGrowth;
         out.ownerLogId = g.ownerLogId;
         out.grantDataKeccak = keccak256(g.grantData);
-        bytes32 inner = sha256(
-            abi.encodePacked(
-                g.logId,
-                g.grant,
-                g.maxHeight,
-                g.minGrowth,
-                g.ownerLogId,
-                g.grantData
-            )
-        );
-        out.leaf = sha256(abi.encodePacked(grantIDTimestampBe, inner));
+        out.leaf = _leafCommitment(grantIDTimestampBe, g);
     }
 }
 
@@ -218,17 +201,7 @@ contract GrantDecodeHarnessEncoded {
         bytes calldata encodedGrant
     ) external pure returns (bytes32 leaf) {
         PublishGrant memory g = abi.decode(encodedGrant, (PublishGrant));
-        bytes32 inner = sha256(
-            abi.encodePacked(
-                g.logId,
-                g.grant,
-                g.maxHeight,
-                g.minGrowth,
-                g.ownerLogId,
-                g.grantData
-            )
-        );
-        return sha256(abi.encodePacked(grantIDTimestampBe, inner));
+        return LibLeafEncoding.leafCommitment(grantIDTimestampBe, g);
     }
 }
 
@@ -355,17 +328,7 @@ abstract contract UnivocityTestHelper is Test {
         pure
         returns (bytes32)
     {
-        bytes32 inner = sha256(
-            abi.encodePacked(
-                g.logId,
-                g.grant,
-                g.maxHeight,
-                g.minGrowth,
-                g.ownerLogId,
-                g.grantData
-            )
-        );
-        return sha256(abi.encodePacked(grantIDTimestampBe, inner));
+        return LibLeafEncoding.leafCommitment(grantIDTimestampBe, g);
     }
 
     function _publishGrant(

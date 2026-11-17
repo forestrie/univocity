@@ -6,6 +6,7 @@ import {ImutableUnivocity} from "@univocity/contracts/ImutableUnivocity.sol";
 import {ALG_KS256} from "@univocity/cosecbor/constants.sol";
 import {buildSigStructure} from "@univocity/cosecbor/cosecbor.sol";
 import {mmrSizeForLeafCount} from "@univocity/algorithms/peaks.sol";
+import {LibLeafEncoding} from "@univocity/algorithms/lib/LibLeafEncoding.sol";
 import {
     GC_AUTH_LOG,
     GF_AUTH_LOG,
@@ -91,17 +92,7 @@ abstract contract AnchoredLogFixture is Test {
     }
 
     function _grantLeaf(PublishGrant memory g) private pure returns (bytes32) {
-        bytes32 inner = sha256(
-            abi.encodePacked(
-                g.logId,
-                g.grant,
-                g.maxHeight,
-                g.minGrowth,
-                g.ownerLogId,
-                g.grantData
-            )
-        );
-        return sha256(abi.encodePacked(GRANT_IDTIMESTAMP, inner));
+        return LibLeafEncoding.leafCommitment(GRANT_IDTIMESTAMP, g);
     }
 
     function _bootstrapReceipt(bytes32[] memory acc, uint256 size)

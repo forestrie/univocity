@@ -17,6 +17,7 @@ import {
 } from "@univocity/interfaces/types.sol";
 import {hashPosPair64} from "@univocity/algorithms/binUtils.sol";
 import {peaks} from "@univocity/algorithms/peaks.sol";
+import {LibLeafEncoding} from "@univocity/algorithms/lib/LibLeafEncoding.sol";
 
 /// @notice Handler for invariant tests:
 ///    only bootstrap actions with valid accumulators
@@ -53,31 +54,13 @@ contract UnivocityHandler is Test {
             bytes32(0),
             abi.encodePacked(ks256Signer)
         );
-        _authorityLeaf0 = _leafCommitment(idts, g);
+        _authorityLeaf0 = LibLeafEncoding.leafCommitment(idts, g);
         ConsistencyReceipt memory consistency =
             _buildConsistencyReceipt(_toAcc(_authorityLeaf0));
         univocity.publishCheckpoint(
             consistency, _emptyInclusionProof(), idts, g
         );
         initialized = true;
-    }
-
-    function _leafCommitment(bytes8 idtimestampBe, PublishGrant memory g)
-        internal
-        pure
-        returns (bytes32)
-    {
-        bytes32 inner = sha256(
-            abi.encodePacked(
-                g.logId,
-                g.grant,
-                g.maxHeight,
-                g.minGrowth,
-                g.ownerLogId,
-                g.grantData
-            )
-        );
-        return sha256(abi.encodePacked(idtimestampBe, inner));
     }
 
     uint256 internal constant GF_CREATE = uint256(1) << 32;
@@ -251,7 +234,7 @@ contract UnivocityHandler is Test {
         );
         PublishGrant memory gLog =
             _publishGrant(logId, GRANT_DATA, GC_DATA_LOG, 0, 0, rootLogId, "");
-        bytes32 leaf1 = _leafCommitment(idts, gLog);
+        bytes32 leaf1 = LibLeafEncoding.leafCommitment(idts, gLog);
         ConsistencyReceipt memory consistency1to3 =
             _buildConsistencyReceipt1To3(_authorityLeaf0, leaf1);
         univocity.publishCheckpoint(

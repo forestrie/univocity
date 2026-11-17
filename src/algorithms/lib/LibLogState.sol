@@ -100,19 +100,6 @@ library LibLogState {
             );
     }
 
-    /// @notice Storage variant: reads accumulator/size from storage (uses
-    ///    proofLengthRootStorage; no full accumulator copy to memory).
-    function verifyInclusionStorage(
-        LogState storage log,
-        uint256 index,
-        bytes32 node,
-        bytes32[] calldata proof
-    ) internal view returns (bool) {
-        return _verifyInclusionStorage(
-            index, node, proof, log.accumulator, log.size
-        );
-    }
-
     function verifyGrantInclusion(
         LogState memory log,
         PublishGrant calldata publishGrant,
