@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 import {
-    includedRoot,
     includedRootByLeafIndex,
     verifyInclusionAtPeak,
     verifyInclusionAtSize
@@ -12,6 +11,7 @@ import {mmrSizeForLeafCount} from "@univocity/algorithms/peaks.sol";
 import {LibLogState} from "@univocity/algorithms/lib/LibLogState.sol";
 import {LogState} from "@univocity/interfaces/types.sol";
 import {Mmr, MmrBuilder} from "../shared/MmrBuilder.sol";
+import {includedRootReference} from "./IncludedRootOracle.sol";
 
 contract AtPeakHarness {
     function atPeak(
@@ -49,7 +49,7 @@ contract AtPeakHarness {
         pure
         returns (bytes32)
     {
-        return includedRoot(i, leaf, proof);
+        return includedRootReference(i, leaf, proof);
     }
 }
 

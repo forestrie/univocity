@@ -81,8 +81,7 @@ function peaksBitmapComplete(uint256 mmrSize)
 ///    them, stopping at the first peak whose index range reaches `index`.
 ///    At most 64 steps for a uint64 size. Equal to
 ///    peakIndex(leafCount(mmrSize), indexHeight(index) +
-///    committingPathLength(index, mmrSize)), which costs a height
-///    computation per step.
+///    committingPathLength(index, mmrSize)).
 /// @param index Zero-based MMR index of the node.
 /// @param mmrSize Number of nodes in the complete MMR.
 /// @return slot Index into the accumulator; the peak count, which names no

@@ -11,7 +11,7 @@ pragma solidity ^0.8.24;
 // bookkeeping per hop beyond the hash itself. Exposition with diagrams and
 // worked examples: docs/consistent-roots.md.
 
-import {includedRoot} from "@univocity/algorithms/includedRoot.sol";
+import {includedRootByLeafIndex} from "@univocity/algorithms/includedRoot.sol";
 import {
     mmrSizeForLeafCount,
     peaksBitmap
@@ -149,8 +149,17 @@ function consistentRootsForSizes(
             );
         }
         uint256 subtree = (uint256(1) << (h + 1)) - 1;
-        bytes32 proven =
-            includedRoot(offset + subtree - 1, accumulatorFrom[i], proofs[i]);
+        // Every leaf under this peak shares the origin leaf count's bits
+        // above h, and the leftmost has bit h and those below, the bits of
+        // `subtree`, clear. Its index steers the walk, so no node height is
+        // computed.
+        bytes32 proven = includedRootByLeafIndex(
+            offset + subtree - 1,
+            h,
+            from & ~subtree,
+            accumulatorFrom[i],
+            proofs[i]
+        );
         if (i == above) {
             root = proven;
         } else if (proven != root) {

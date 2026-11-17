@@ -16,9 +16,10 @@
     },
     "univocityVerifierFactory": {
       "temporary": "Until FOR-701 replaces it: written for and read by script/temporary/DeployUnivocityVerifierFactory.s.sol",
+      "status": "Predicted, not deployed: the address this build deploys to, with code on no chain. Base Sepolia runs the v0.5.0 factory, 0xbE7a98939EDd2B5340B3678710dd07Fc82527e27, until FOR-701 deploys this one",
       "salt": "univocity/UnivocityVerifierFactory/0",
-      "address": "0x78670eDc59493EbfF6C69a273323D3b3D3bD0E58",
-      "verifierInitCodeHash": "0x058fdef76fd942d16482271e5bf041c936f0eb73028380a218f17aef5cb1efd1"
+      "address": "0xb7c922e8CB1974A9443decE3aC28043B8694F38D",
+      "verifierInitCodeHash": "0x5473eacd6418edf160b3c373165917505370f74c2939126dcfacb82b112d84e2"
     }
   },
   "environments": {
