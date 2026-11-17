@@ -69,8 +69,8 @@ contract ConsistencyShapeTest is Test {
 
     /// @dev The fold from 2^20 - 1 to 2^20 leaves, its worst case at that
     ///    size (20 buried peaks, 210 siblings), timed through
-    ///    FoldGasHarness: measured 262,199 plus 15%.
-    uint256 internal constant CEILING_FOLD_2POW20 = 301_500;
+    ///    FoldGasHarness: measured 259,819 plus 15%.
+    uint256 internal constant CEILING_FOLD_2POW20 = 298_800;
 
     ConsistencyShapeHarness internal harness;
     FoldGasHarness internal gasHarness;

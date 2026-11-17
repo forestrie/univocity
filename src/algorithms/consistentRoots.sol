@@ -150,12 +150,13 @@ function consistentRootsForSizes(
         }
         uint256 subtree = (uint256(1) << (h + 1)) - 1;
         // Every leaf under this peak shares the origin leaf count's bits
-        // above h, and the leftmost has bit h and those below clear. Its
-        // index steers the walk, so no node height is computed.
+        // above h, and the leftmost has bit h and those below, the bits of
+        // `subtree`, clear. Its index steers the walk, so no node height is
+        // computed.
         bytes32 proven = includedRootByLeafIndex(
             offset + subtree - 1,
             h,
-            (from >> (h + 1)) << (h + 1),
+            from & ~subtree,
             accumulatorFrom[i],
             proofs[i]
         );
