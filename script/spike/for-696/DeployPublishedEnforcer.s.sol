@@ -16,10 +16,11 @@ import {SpikeBase} from "./SpikeBase.s.sol";
 ///    builds the verifier of the run's univocity instance (devdocs ARC-0032
 ///    §4.2). DEPLOY_KEY pays.
 /// @dev The factory goes through the temporary deploy script (until
-///    FOR-701), which deploys it only where it has no code. Where it already
-///    has code (e.g. on Base Sepolia once deployed from v0.5.0), the run
-///    reuses it; elsewhere, such as a fork taken before that, the run
-///    deploys it at the same address. Run by `task spike-for-696:contracts`
+///    FOR-701), which deploys the factory deployment.json records
+///    wherever that address has no code, and reuses it where it has code.
+///    After FOR-717 the record names the successor factory, so a run
+///    deploys it unless it is already deployed. Run by
+///    `task spike-for-696:contracts`
 ///    (broadcasts). Reads .instance from the run record and writes
 ///    .spike/for-696/contracts.json, which the task merges into it.
 contract DeployPublishedEnforcer is SpikeBase {

@@ -17,8 +17,8 @@
     "univocityVerifierFactory": {
       "temporary": "Until FOR-701 replaces it: written for and read by script/temporary/DeployUnivocityVerifierFactory.s.sol",
       "salt": "univocity/UnivocityVerifierFactory/0",
-      "address": "0xbE7a98939EDd2B5340B3678710dd07Fc82527e27",
-      "verifierInitCodeHash": "0xc96f9caecfb4c92a6815a800e4ad35fc04998684db556e1a1a5ea0469c7fd2c8"
+      "address": "0x78670eDc59493EbfF6C69a273323D3b3D3bD0E58",
+      "verifierInitCodeHash": "0x058fdef76fd942d16482271e5bf041c936f0eb73028380a218f17aef5cb1efd1"
     }
   },
   "environments": {
