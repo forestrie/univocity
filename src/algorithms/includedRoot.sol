@@ -54,8 +54,8 @@ function verifyInclusion(
 ///    of a log of L leaves has its committing peak at height
 ///    bitLength(e ^ L) - 1, the highest bit where the two differ, and every
 ///    leaf beneath a node shares the node's peak, so the path is that
-///    height less the node's own. Work is linear in the bit length: the
-///    node's height once and two passes of peaksBitmapComplete.
+///    height less the node's own. Work is linear in the bit length: two
+///    passes of peaksBitmapComplete, and the height of an interior node.
 /// @param index Zero-based MMR index of the node; index < mmrSize.
 /// @param mmrSize Number of nodes in the complete MMR.
 /// @return Number of siblings from `index` to its committing peak.
@@ -63,9 +63,9 @@ function committingPathLength(uint256 index, uint256 mmrSize)
     pure
     returns (uint256)
 {
-    uint256 g = indexHeight(index);
+    (uint256 g, uint256 e) = heightAndLastLeaf(index);
     (uint256 leaves,) = peaksBitmapComplete(mmrSize);
-    return bitLength(leftmostLeafIndex(index, g) ^ leaves) - 1 - g;
+    return bitLength(e ^ leaves) - 1 - g;
 }
 
 /// @notice Verify that a leaf is included in MMR(mmrSize) with a path that
@@ -141,27 +141,28 @@ function verifyInclusionAtPeak(
     ) == peak;
 }
 
-/// @notice Index, among the leaves, of the leftmost leaf beneath node `i`
-///    of height g: a leaf index that steers includedRootByLeafIndex from
-///    the node.
-/// @dev A node of height g is the last of the 2^(g+1) - 1 nodes of its
-///    subtree, and the first is its leftmost leaf, whose MMR index
-///    peaksBitmapComplete turns into a leaf index. Unchecked: that MMR
-///    index lies in [0, i], so arithmetic modulo 2^256, which wraps only
-///    for a node at the top of the range, still lands on it.
+/// @notice Height of node `i`, and the index among the leaves of the last
+///    leaf beneath it: what includedRootByLeafIndex needs to walk from the
+///    node.
+/// @dev peaksBitmapComplete(i) counts the leaves of the largest complete
+///    MMR among the i nodes before node `i`. For a leaf those nodes are a
+///    complete MMR, so the count is the leaf's own index. A node of height
+///    g >= 1 is preceded by its two child subtrees, which hold all 2^g of
+///    its leaves, but only the node merges them, so the largest complete
+///    MMR holds all but the last and the count is the last one's index.
+///    Only an interior node, whose size is not complete, pays for
+///    indexHeight.
 /// @param i Zero-based MMR index of the node.
-/// @param g Height of the node, as indexHeight(i) returns it.
-/// @return leafIndex Zero-based index of the leftmost leaf among the leaves.
-function leftmostLeafIndex(uint256 i, uint256 g)
+/// @return g Height of the node: 0 for a leaf.
+/// @return leafIndex Zero-based index of the last leaf beneath the node;
+///    for a leaf, its own index.
+function heightAndLastLeaf(uint256 i)
     pure
-    returns (uint256 leafIndex)
+    returns (uint256 g, uint256 leafIndex)
 {
-    uint256 first;
-    unchecked {
-        // forge-lint: disable-next-line(incorrect-shift)
-        first = i + 2 - (2 << g);
-    }
-    (leafIndex,) = peaksBitmapComplete(first);
+    bool isLeaf;
+    (leafIndex, isLeaf) = peaksBitmapComplete(i);
+    if (!isLeaf) g = indexHeight(i);
 }
 
 /// @notice includedRoot from a node of known height, reading each step's
@@ -262,11 +263,12 @@ function proofLengthRootStorage(
 /// @notice Computes the MMR root implied by the inclusion proof for a node.
 /// @dev Traverses the proof path from the node at index `i` up to the root,
 ///    hashing with each sibling along the way, for a node of any height,
-///    leaf or interior. Work is linear in the path length: the node's
-///    height once, its leftmost leaf's index (leftmostLeafIndex, one pass
-///    of peaksBitmapComplete), then includedRootByLeafIndex, which reads
-///    each step's direction from one bit of that index. Proof is calldata to
-///    avoid a copy when called from verifyInclusion.
+///    leaf or interior. Work is linear in the path length: one pass of
+///    peaksBitmapComplete gives the index of the last leaf beneath the
+///    node, and the node's height if it is not a leaf (heightAndLastLeaf),
+///    then includedRootByLeafIndex reads each step's direction from one
+///    bit of that index. Proof is calldata to avoid a copy when called
+///    from verifyInclusion.
 /// @param i The zero-based MMR index where `nodeHash` is located.
 /// @param nodeHash The hash of the node whose inclusion is being proven.
 /// @param proof The sibling hashes required to produce the root from nodeHash.
@@ -276,7 +278,6 @@ function includedRoot(uint256 i, bytes32 nodeHash, bytes32[] calldata proof)
     pure
     returns (bytes32 root)
 {
-    uint256 g = indexHeight(i);
-    return
-        includedRootByLeafIndex(i, g, leftmostLeafIndex(i, g), nodeHash, proof);
+    (uint256 g, uint256 leafIndex) = heightAndLastLeaf(i);
+    return includedRootByLeafIndex(i, g, leafIndex, nodeHash, proof);
 }

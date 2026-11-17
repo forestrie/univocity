@@ -96,8 +96,8 @@ contract LeafWalkTest is Test {
     uint256 internal constant CEILING_SLOT_MAX = 16_400;
 
     /// @dev includedRoot for the last of 2^20 leaves, 20 siblings, timed
-    ///    through RootGasHarness: measured 38,360 plus 15%.
-    uint256 internal constant CEILING_ROOT_2POW20 = 44_100;
+    ///    through RootGasHarness: measured 25,104 plus 15%.
+    uint256 internal constant CEILING_ROOT_2POW20 = 28_900;
 
     function _referenceSlot(uint256 index, uint256 size)
         internal
