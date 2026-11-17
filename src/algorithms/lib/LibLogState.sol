@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import {LogState, PublishGrant} from "@univocity/interfaces/types.sol";
 import {
-    verifyInclusion as _verifyInclusion,
     verifyInclusionAtSize as _verifyInclusionAtSize,
     verifyInclusionStorage as _verifyInclusionStorage
 } from "@univocity/algorithms/includedRoot.sol";
@@ -76,15 +75,6 @@ library LibLogState {
         if (slot < log.accumulator.length) peak = log.accumulator[slot];
     }
 
-    function verifyInclusion(
-        LogState memory log,
-        uint256 index,
-        bytes32 node,
-        bytes32[] calldata proof
-    ) internal pure returns (bool) {
-        return _verifyInclusion(index, node, proof, log.accumulator, log.size);
-    }
-
     /// @notice Leaf inclusion at the log's anchored size, accepting a path
     ///    built at a later size (includedRoot.verifyInclusionAtSize).
     function verifyInclusionAtAnchored(
@@ -100,23 +90,9 @@ library LibLogState {
             );
     }
 
-    function verifyGrantInclusion(
-        LogState memory log,
-        PublishGrant calldata publishGrant,
-        bytes8 grantIDTimestampBe,
-        uint256 index,
-        bytes32[] calldata proof
-    ) internal pure returns (bool) {
-        bytes32 leafCommitment = _leafCommitment(
-            grantIDTimestampBe, publishGrant
-        );
-        return _verifyInclusion(
-            index, leafCommitment, proof, log.accumulator, log.size
-        );
-    }
-
-    /// @notice Storage variant: reads accumulator/size from storage (uses
-    ///    proofLengthRootStorage; no full accumulator copy to memory).
+    /// @notice Grant leaf inclusion against the log's stored accumulator
+    ///    and size, read from storage (proofLengthRootStorage; no full
+    ///    accumulator copy to memory).
     function verifyGrantInclusionStorage(
         LogState storage log,
         PublishGrant calldata publishGrant,

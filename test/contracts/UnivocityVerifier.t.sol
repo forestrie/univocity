@@ -199,17 +199,6 @@ contract UnivocityVerifierTest is Test {
         );
     }
 
-    function test_inclusion_stillReadsLogState() public {
-        _anchor(7);
-        // verifyInclusion on a getter-capable source uses logState and
-        // the accumulator, as before.
-        bytes32[] memory p = _path(5, 7);
-        assertTrue(
-            IUnivocityVerifierLegacy(factory.verifierFor(address(getterSrc)))
-                .verifyInclusion(LOG, ix[5], _leaf(5), p)
-        );
-    }
-
     /// @notice Over every leaf of MMRs at several anchored and path sizes:
     ///    getter source == logState-only source == oracle verifier.
     function test_differential_getterFallbackReference_agree() public {
@@ -246,13 +235,4 @@ contract UnivocityVerifierTest is Test {
             }
         }
     }
-}
-
-interface IUnivocityVerifierLegacy {
-    function verifyInclusion(
-        bytes32 logId,
-        uint256 index,
-        bytes32 node,
-        bytes32[] calldata proof
-    ) external view returns (bool);
 }
