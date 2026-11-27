@@ -1,14 +1,14 @@
-# ADR-0006: COSE-shaped delegation proof without on-chain certificate parsing
+---
+id: adr-0006-cose-shaped-delegation-proof
+title: COSE-shaped delegation proof without on-chain certificate parsing
+status: accepted
+created: 2026-05-19
+updated: 2026-11-27
+decisions: [ADR-0002, ADR-0005]
+refs: [plan-0016-minimal-cose-cbor-api-predecode, plan-0023-consistency-receipt-abi-and-signature-payload, "https://www.rfc-editor.org/rfc/rfc8949", "https://www.rfc-editor.org/rfc/rfc9052", "https://www.rfc-editor.org/rfc/rfc9053"]
+---
 
-**Status:** DRAFT  
-**Date:** 2026-05-19  
-**Related:** [ADR-0002](adr-0002-cose-verifier-keys-caller-dispatch.md),
-[ADR-0005](adr-0005-grant-constrains-checkpoint-signer.md),
-[plan-0016](../plans/plan-0016-minimal-cose-cbor-api-predecode.md),
-[plan-0023](../plans/plan-0023-consistency-receipt-abi-and-signature-payload.md),
-[RFC 8949](https://www.rfc-editor.org/rfc/rfc8949),
-[RFC 9052](https://www.rfc-editor.org/rfc/rfc9052),
-[RFC 9053](https://www.rfc-editor.org/rfc/rfc9053)
+# ADR-0006: COSE-shaped delegation proof without on-chain certificate parsing
 
 ## Question
 
@@ -17,8 +17,7 @@ the contract to parse full COSE/CBOR delegation certificates?
 
 ## Context
 
-The current contract design follows the pre-decoded calldata approach from
-[plan-0016](../plans/plan-0016-minimal-cose-cbor-api-predecode.md):
+The current contract design follows the pre-decoded calldata approach:
 
 - checkpoint receipts carry `protectedHeader` and `signature`, but consistency
   proof material is supplied as typed ABI fields;

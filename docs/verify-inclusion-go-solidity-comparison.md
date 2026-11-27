@@ -1,9 +1,16 @@
-# VerifyInclusion: Go vs Solidity comparison
+---
+id: verify-inclusion-go-solidity-comparison
+title: "VerifyInclusion: Go vs Solidity comparison"
+status: current
+created: 2026-02-23
+updated: 2026-11-27
+owner: robinbryce
+review-by: 2027-02-27
+decisions: []
+refs: ["https://github.com/forestrie/go-merklelog/blob/main/mmr/verify.go", "https://github.com/forestrie/univocity/blob/main/src/algorithms/includedRoot.sol"]
+---
 
-**Status:** DRAFT  
-**Date:** 2025-02-23  
-**Related:** go-merklelog/mmr/verify.go (arbor/services/_deps), univocity
-src/algorithms/includedRoot.sol
+# VerifyInclusion: Go vs Solidity comparison
 
 ## 1. Go implementation (reference)
 

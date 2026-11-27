@@ -1,9 +1,14 @@
-# ADR-0002: CoseVerifierKeys — caller dispatches to correct implementation
+---
+id: adr-0002-cose-verifier-keys-caller-dispatch
+title: CoseVerifierKeys — caller dispatches to correct implementation
+status: accepted
+created: 2026-02-23
+updated: 2026-11-27
+decisions: [ADR-0003]
+refs: ["https://github.com/forestrie/univocity/blob/main/src/contracts/_Univocity.sol", "https://github.com/forestrie/univocity/blob/main/src/cosecbor/cosecbor.sol"]
+---
 
-**Status:** ACCEPTED  
-**Date:** 2026-02-23  
-**Related:** [ADR-0003](adr-0003-bootstrap-keys-opaque-constructor.md),
-Univocity.sol, cosecbor
+# ADR-0002: CoseVerifierKeys — caller dispatches to correct implementation
 
 ## Decision
 

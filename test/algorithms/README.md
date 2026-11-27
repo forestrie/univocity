@@ -4,7 +4,7 @@ This document summarizes the verification efforts ensuring that the Solidity
 implementations in `src/algorithms/` match the Python reference in
 `algorithms/` and the Go implementation
 [go-merklelog/mmr](https://github.com/forestrie/go-merklelog/tree/main/mmr).
-Test vectors are aligned with the canonical 39-node MMR (plan-0020).
+Test vectors are aligned with the canonical 39-node MMR.
 
 ## Reference implementations
 
@@ -74,7 +74,7 @@ Inclusion proof verification:
 
 ### Kat39Inclusion.t.sol
 
-39-node KAT for inclusion (plan-0020):
+39-node KAT for inclusion:
 
 | Test | Data |
 |------|------|
@@ -108,7 +108,7 @@ Key peak hashes (cross-checked with Go KAT39PeakHashes / Python accumulators):
 
 ## Regenerating vectors
 
-Single entry point for KAT tables (plan-0020):
+Single entry point for KAT tables:
 
 ```bash
 # Index height (0..38) and leaf count (1..39) tables; peak indices reference

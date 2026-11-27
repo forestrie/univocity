@@ -1,11 +1,15 @@
-# ARC-0017 Retrospective 1: Implementation status and security assessment
+---
+id: arc-0017-retrospective-1
+title: "ARC-0017 Retrospective 1: Implementation status and security assessment"
+status: absorbed
+created: 2026-02-23
+updated: 2026-11-27
+decisions: [arc-0017-log-hierarchy-and-authority, arc-0017-auth-overview]
+refs: [plan-0021-phase-zero-log-hierarchy-data-structures, plan-0013-adr-0032-delegated-checkpoint-verification]
+absorbed-into: [arc-0017-log-hierarchy-and-authority]
+---
 
-**Status:** DRAFT  
-**Date:** 2026-02-23  
-**Related:** [ARC-0017 (log hierarchy)](arc-0017-log-hierarchy-and-authority.md),
-[ARC-0017 auth overview](arc-0017-auth-overview.md),
-[plan-0021](../plans/plan-0021-phase-zero-log-hierarchy-data-structures.md),
-[plan-0013](../plans/plan-0013-adr-0032-delegated-checkpoint-verification.md)
+# ARC-0017 Retrospective 1: Implementation status and security assessment
 
 This document reviews the univocity implementation against ARC-0017 and the
 plans, summarizes differences and remaining gaps, and provides a security

@@ -1,3 +1,12 @@
+---
+id: adr-0007-contract-release-build-archives
+title: Contract release ships two validated build archives
+status: accepted
+created: 2026-06-11
+updated: 2026-11-27
+decisions: ["univocity-tools:adr-0006-build-archive-decouples-deploy"]
+---
+
 # Contract release ships two validated build archives
 
 Downstream deploy and verify should run without foundry at the consumer.

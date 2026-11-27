@@ -1,3 +1,15 @@
+---
+id: consistent-roots
+title: "Consistency between two MMR states: `consistentRootsForSizes`"
+status: current
+created: 2026-09-20
+updated: 2026-11-27
+owner: robinbryce
+review-by: 2027-02-27
+decisions: ["protocol:ADR-0066"]
+refs: [FOR-567, plan-2609-10-signed-checkpoint-size]
+---
+
 # Consistency between two MMR states: `consistentRootsForSizes`
 
 This is the exposition behind `src/algorithms/consistentRoots.sol`. The code
@@ -5,7 +17,7 @@ comments say what each step does; this page says why the shape the two sizes
 imply is exactly the shape the fold enforces, with pictures. It complements
 [draft-bryce-cose-receipts-mmr-profile](https://github.com/robinbryce/draft-bryce-cose-receipts-mmr-profile)
 ("Verifying the Receipt of consistency") and
-[ADR-0066](https://github.com/forestrie/protocol/blob/main/decisions/adr-0066-sec-signed-checkpoint-size.md)
+[ADR-0066](https://github.com/forestrie/protocol/blob/main/adr/adr-0066-sec-signed-checkpoint-size.md)
 D5, whose verification MUSTs this fold implements. The draft's next revision
 raises its path-length SHOULD to a MUST for receipts of consistency; the
 contract already enforces it.
@@ -23,7 +35,7 @@ peak, in which case a path of siblings climbs from it to that new peak.
 The fold takes the old peaks and the paths and produces the new peaks the
 paths prove. What it must not do is accept a path of the wrong length, or a
 target size the tree cannot have: both let a signed accumulator be anchored at
-a size and shape the log never had (FOR-567).
+a size and shape the log never had.
 
 ## Peaks bitmaps
 
@@ -180,8 +192,7 @@ signature.
 - Python: `consistent_roots_for_sizes` in
   [merkle-mountain-range-proofs](https://github.com/robinbryce/merkle-mountain-range-proofs)
   (PR #1), used to derive the KAT-39 vectors in `test/algorithms/`.
-- Go and TypeScript ports follow the same steps line for line (plan-2609-10
-  slices 02 and 04).
+- Go and TypeScript ports follow the same steps line for line.
 
 The draft's hop-by-hop `inclusion_proof_path` walk lives in
 `test/algorithms/InclusionProofPathOracle.sol` as the oracle the fuzz tests

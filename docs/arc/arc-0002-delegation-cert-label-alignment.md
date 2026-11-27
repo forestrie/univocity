@@ -1,15 +1,19 @@
-# ARC-0002: Delegation cert labels and encoding alignment
+---
+id: arc-0002-delegation-cert-label-alignment
+title: Delegation cert labels and encoding alignment
+status: accepted
+created: 2026-02-22
+updated: 2026-11-27
+refs: [plan-0013-adr-0032-delegated-checkpoint-verification, "protocol:spec/delegation-and-webauthn-envelopes.md"]
+---
 
-**Status:** ACCEPTED  
-**Date:** 2026-02-22  
-**Related:** [plan-0013](../plans/plan-0013-adr-0032-delegated-checkpoint-verification.md),
-ARC-0010 (devdocs), Arbor sealer (Go)
+# ARC-0002: Delegation cert labels and encoding alignment
 
 ## Purpose
 
 Reference for delegation cert labels and encoding between Univocity (Solidity),
-the Arbor sealer (Go), and the delegation cert producer (delegation signer /
-ARC-0010). Use this document when implementing or changing COSE/CBOR handling
+the Arbor sealer (Go), and the delegation cert producer (delegation signer;
+see the [delegation envelope spec](https://github.com/forestrie/protocol/blob/main/spec/delegation-and-webauthn-envelopes.md)). Use this document when implementing or changing COSE/CBOR handling
 for delegation.
 
 ## 1. Where the cert appears
@@ -39,8 +43,8 @@ display; verification is on-chain. No mismatch.
 
 ## 4. Delegation cert payload (integer-keyed map)
 
-| Key | ARC-0010 / Plan 0013 | Univocity | Sealer |
-|-----|----------------------|-----------|--------|
+| Key | Delegation spec | Univocity | Sealer |
+|-----|-----------------|-----------|--------|
 | **1** | log_id | bytes32(keccak256(_readBytesOrString(...))) | log_id as string |
 | **2** | massif_id | Decoded | Skipped |
 | **3** | mmr_start | _readUint | payloadMap[3] |
@@ -57,9 +61,9 @@ consistent with on-chain `publishGrant.logId` (e.g. `keccak256(log_id_tstr)`).
 
 Only algorithm (key 1) is required for verification; alignment is fine.
 
-## 6. Checkpoint payload (go-merklelog vs ARC-0010)
+## 6. Checkpoint payload (go-merklelog vs the delegation spec)
 
-go-merklelog uses massif seal format (MMRState); Univocity expects ARC-0010
+go-merklelog uses massif seal format (MMRState); Univocity expects the delegation spec's
 checkpoint payload (log_id, massif_id, mmr_size, mmr_root, mmr_index). These
 are different profiles. The current consistency-receipt flow does not verify
 the go-merklelog checkpoint payload on-chain; the delegation cert at 1000 is

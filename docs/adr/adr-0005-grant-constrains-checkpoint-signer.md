@@ -1,12 +1,14 @@
-# ADR-0005: Grant-constrains allowed checkpoint signer (root key)
+---
+id: adr-0005-grant-constrains-checkpoint-signer
+title: Grant-constrains allowed checkpoint signer (root key)
+status: accepted
+created: 2026-02-23
+updated: 2026-11-27
+decisions: [arc-0017-auth-overview, arc-0017-log-hierarchy-and-authority, ADR-0004, ADR-0003]
+refs: [plan-0021-phase-zero-log-hierarchy-data-structures, plan-0022-adr-0005-gf-require-signer-implementation, plan-0026-verify-only-no-recovery]
+---
 
-**Status:** DRAFT  
-**Date:** 2026-02-23  
-**Related:** [ARC-0017](../arc/arc-0017-auth-overview.md),
-[ARC-0017 (hierarchy)](../arc/arc-0017-log-hierarchy-and-authority.md),
-[ADR-0004](adr-0004-root-log-self-grant-extension.md),
-[ADR-0003](adr-0003-bootstrap-keys-opaque-constructor.md),
-[plan-0021](../plans/plan-0021-phase-zero-log-hierarchy-data-structures.md)
+# ADR-0005: Grant-constrains allowed checkpoint signer (root key)
 
 ## Question
 
@@ -199,17 +201,17 @@ setting it as the log's root key.
   recovered root matches grant and stores it.
 - **Commitment change:** New leaves that use the binding have a different
   hash shape; existing leaves without the field remain valid (no binding).
-- **Docs and plans:** ARC-0017 and plan-0021 would describe the optional
-  grant binding; implementation plan would define the grant encoding and the
-  signer-match check for the create path.
+- **Docs and plans:** ARC-0017 and its implementation plan would describe
+  the optional grant binding; the plan would define the grant encoding and
+  the signer-match check for the create path.
 
-## Update (plan-0026)
+## Implementation
 
-**Verify-only, no recovery.** [Plan 0026](../plans/plan-0026-verify-only-no-recovery.md)
-implements verify-only: the contract no longer recovers the signer from the
-receipt or delegation signature. For the **first checkpoint** to a log,
-**grantData** must be the signer (root) public key (20 bytes KS256, 64 bytes
-ES256); the contract verifies the receipt (or delegation) with that key and
-reverts on failure. **GF_REQUIRE_SIGNER** is retained for leaf-hash
-compatibility but is **no longer branched on** in logic; all first checkpoints
-effectively require the key in grantData.
+The decision landed in a stricter form than proposed. The contract
+verifies only: it recovers no key from the receipt or delegation
+signature. For the **first checkpoint** to a log, **grantData** is always
+the signer (root) public key (20 bytes KS256, 64 bytes ES256); the contract
+verifies the receipt (or delegation) with that key and reverts on failure.
+There is no optional binding: the **GF_REQUIRE_SIGNER** flag proposed above
+never landed, and no such flag exists in `src/`. Every first checkpoint
+names its signer in the grant.

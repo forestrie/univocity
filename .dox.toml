@@ -1,5 +1,20 @@
-schema_ref = "v1.0.0"
+schema_ref = "v1.1.0"
 namespace = "univocity"
 root = "docs"
 types = ["adr", "arc", "named-doc", "rules"]
-baseline = ".dox-baseline.json"
+
+[checks.id-unique]
+# The three ARC-0017 documents shared one number before ids were
+# allocated against origin; each keeps its stem and is cited by it.
+allow = ["ARC-0017"]
+
+[checks.no-work-ids]
+# Retired canon is history: it keeps the plan and issue ids it was
+# written with.
+exempt = ["docs/adr/retired/**", "docs/arc/retired/**"]
+
+# Rules digest agents load: the platform rules, pinned at a protocol tag,
+# then this repo's docs/rules.md (devdocs ADR-0074).
+[digest]
+out = ".claude/rules/rules-of-the-road.md"
+include = ["protocol:rules/platform.md@rules-v1.0.0"]

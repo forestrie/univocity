@@ -1,6 +1,6 @@
 # Univocity checkpoint tests
 
-Plan 0022 Phase 0 refactored the test layout. The suite is split into
+The suite is split into
 functionally grouped contracts:
 
 - **UnivocityTestHelper.sol** — Shared setup, constants, and helpers (deployment,
@@ -14,8 +14,7 @@ functionally grouped contracts:
   grant decode, ES256 recovery, delegation, and rule3 tests.
 
 - **UnivocityBootstrap.t.sol** — Bootstrap and first-checkpoint tests
-  (UnivocityBootstrapTest). Add bootstrap first-checkpoint tests here
-  (Plan 0022 Phase 4).
+  (UnivocityBootstrapTest). Add bootstrap first-checkpoint tests here.
 
 - **UnivocityGrantRequirements.t.sol** — Grant flag and code requirement tests
   (GF_*, GC_*).
@@ -31,7 +30,7 @@ functionally grouped contracts:
 - **UnivocityMisc.t.sol** — Error coverage matrix and similar.
 
 - **UnivocityConsistencyProof.t.sol** — Consistency proof chain shape: every
-  proof must start at the anchored size (FOR-567), grow, declare complete MMR
+  proof must start at the anchored size, grow, declare complete MMR
   sizes, and carry paths of the length the draft's `inclusion_proof_path`
   implies. Holds the regression routes for the base-0 / aliased-base /
   chain-break / shrinking-chain / empty-path / peak-count cases plus an

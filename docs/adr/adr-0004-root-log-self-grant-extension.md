@@ -1,10 +1,14 @@
-# ADR-0004: Root log self-grant extension (unified auth model)
+---
+id: adr-0004-root-log-self-grant-extension
+title: Root log self-grant extension (unified auth model)
+status: accepted
+created: 2026-02-27
+updated: 2026-11-27
+decisions: [arc-0017-log-hierarchy-and-authority, ARC-0016]
+refs: [plan-0021-phase-zero-log-hierarchy-data-structures]
+---
 
-**Status:** ACCEPTED  
-**Date:** 2026-02-27  
-**Related:** [ARC-0017](../arc/arc-0017-log-hierarchy-and-authority.md),
-[ARC-0016](../arc/arc-0016-checkpoint-incentivisation-implementation.md),
-[plan-0021](../plans/plan-0021-phase-zero-log-hierarchy-data-structures.md)
+# ADR-0004: Root log self-grant extension (unified auth model)
 
 ## Decision
 
@@ -135,7 +139,7 @@ grant (inclusion proof against the root log itself).
 
 ## Consequences
 
-- **ARC-0017 and plan-0021** would be updated: root’s authLogId = rootLogId;
+- **ARC-0017 and its implementation plan** would be updated: root’s authLogId = rootLogId;
   root extension requires grant in root (inclusion proof); bootstrap only for
   first checkpoint ever.
 - **Contract:** `_verifyInclusionGrant` would drop the “if root, check
