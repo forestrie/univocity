@@ -1,13 +1,14 @@
-# ARC-0016: Checkpoint incentivisation model (implementation reflection)
+---
+id: arc-0016-checkpoint-incentivisation-implementation
+title: Checkpoint incentivisation model (implementation reflection)
+status: accepted
+created: 2026-02-23
+updated: 2026-11-27
+decisions: [ADR-0004, ARC-0001, ADR-0001, arc-0017-log-hierarchy-and-authority, "devdocs:ARC-0016"]
+refs: [plan-0001-r5-authority, plan-0012-univocity-arc-0016-implementation-review, plan-0013-adr-0032-delegated-checkpoint-verification, plan-0014-feasibility-consistency-receipt-calldata-memory, plan-0015-publishcheckpoint-payment-receipt-as-roi, plan-0016-minimal-cose-cbor-api-predecode]
+---
 
-**Status:** DRAFT  
-**Date:** 2026-02-23  
-**Related:** [ADR-0004](../adr/adr-0004-root-log-self-grant-extension.md),
-[ARC-0001](arc-0001-grant-minimum-range.md),
-[ADR-0001](../adr/adr-0001-payer-attribution-permissionless-submission.md),
-[plan-0001](../history/plans/plan-0001-r5-authority.md) (historical),
-[plan-0012](../history/plans/plan-0012-arc-0016-implementation-review.md) (historical),
-[ARC-0017](arc-0017-log-hierarchy-and-authority.md)
+# ARC-0016: Checkpoint incentivisation model (implementation reflection)
 
 This document re-drafts the checkpoint incentivisation model to reflect the
 **actual current implementation** in univocity. It is a reflection of
@@ -65,7 +66,7 @@ Signer, payer, and submitter are independent. The contract does **not** verify
 - **Log root key:** Established at first checkpoint for that log (from
   receipt signer or recovered from delegation). Stored via internal
   `setLogRoot`; not exposed externally. Root is **never** derived from a
-  delegation cert on-chain (plan 0016). Key rollover (if added) is
+  delegation cert on-chain. Key rollover (if added) is
   PublishGrant-based; see [ARC-0017 root key rollover](../arc/arc-0017-log-hierarchy-and-authority.md#root-key-rollover).
 - **Delegation:** Optional. Caller supplies a minimal `DelegationProof`
   (opaque `delegationKey`, `mmrStart`, `mmrEnd`, `alg`, `signature`). Contract
@@ -206,14 +207,14 @@ paymentIDTimestampBe, PublishGrant calldata publishGrant)`.
 ## Appendix A: Divergences and gaps
 
 The following list captures ways in which the current implementation diverges
-from or leaves gaps relative to the original ARC-0016 and related plans
-(see [history/plans](../history/plans/)). Use this for review.
+from or leaves gaps relative to the original ARC-0016 and the plans listed
+in `refs`. Use this for review.
 
 1. **Payment as inclusion proof only (no COSE Receipt of Inclusion)**  
-   The historical plan-0015 and R5 model (plan-0001) described payment as **COSE
+   The earlier payment-receipt and R5 designs described payment as **COSE
    signed Receipt of Inclusion**: decode payment receipt on-chain, extract
    inclusion proof from [396][-1], verify COSE signature over the derived
-   root. The implementation follows plan-0016: payment is **pre-decoded
+   root. The implementation uses the pre-decoded API: payment is **pre-decoded
    inclusion proof only**. No COSE decode for payment; no signature
    verification of the payment receipt. The authority log is still the
    source of truth (leaf must be included), but the **form** of payment
@@ -227,12 +228,12 @@ from or leaves gaps relative to the original ARC-0016 and related plans
   /auth vs data logs.
 
 3. **Consistency receipt: pre-decoded only**  
-   The design in plan-0014 / plan-0013 assumed the raw COSE Receipt of
+   The earlier calldata design assumed the raw COSE Receipt of
    Consistency as calldata with on-chain decode. The implementation uses a
    pre-decoded `ConsistencyReceipt` (protectedHeader, signature,
    consistencyProofs, delegationProof). Decoding and any COSE envelope
-   parsing happen off-chain. This is an intentional simplification (plan
-   0016) but is a divergence from “single blob” receipt at the boundary.
+   parsing happen off-chain. This is an intentional simplification
+   but is a divergence from “single blob” receipt at the boundary.
 
 4. **Delegation: ES256 only**  
    Delegation verification supports only P-256/ES256. KS256 delegation is
@@ -250,7 +251,7 @@ from or leaves gaps relative to the original ARC-0016 and related plans
    and the unified auth model; no divergence.
 
 7. **Event sourcing completeness**  
-   ARC-0016 and the historical plan-0001 state that “all state changes emit events for
+   ARC-0016 and the earlier R5 design state that “all state changes emit events for
    replay.” In practice, the only state-changing entry point is
    publishCheckpoint, and it emits CheckpointPublished (and
    Initialized/LogRegistered when applicable). So replay of “checkpoint

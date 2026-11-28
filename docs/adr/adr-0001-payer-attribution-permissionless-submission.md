@@ -1,12 +1,14 @@
-# ADR-0001: Payer attribution and permissionless submission
+---
+id: adr-0001-payer-attribution-permissionless-submission
+title: Payer attribution and permissionless submission
+status: accepted
+created: 2026-02-23
+updated: 2026-11-27
+decisions: [ARC-0001]
+refs: [plan-0013-adr-0032-delegated-checkpoint-verification, plan-0001-r5-authority, plan-0015-publishcheckpoint-payment-receipt-as-roi, plan-0014-feasibility-consistency-receipt-calldata-memory]
+---
 
-**Status:** ACCEPTED  
-**Date:** 2026-02-23  
-**Related:** [ARC-0001](../arc/arc-0001-grant-minimum-range.md),
-[plan-0013](../plans/plan-0013-adr-0032-delegated-checkpoint-verification.md).
-Historical: [plan-0001](../history/plans/plan-0001-r5-authority.md),
-[plan-0015](../history/plans/plan-0015-publishCheckpoint-payment-receipt-as-roi.md),
-[plan-0014](../history/plans/plan-0014-feasibility-consistency-receipt-calldata-memory.md).
+# ADR-0001: Payer attribution and permissionless submission
 
 ## Decision
 
@@ -18,8 +20,7 @@ and bounds (including min_growth; see
 restrict who may submit. The grant struct was renamed to PublishGrant and the
 **payer field was removed**; any sender may submit; submission is
 permissionless. In `CheckpointPublished`, **sender** is a non-indexed
-parameter; **grantLogId** and **rootKey** are indexed. See [plan-0013](../plans/plan-0013-adr-0032-delegated-checkpoint-verification.md)
-and historical plans (payment receipt, R5) in [history/plans](../history/plans/).
+parameter; **grantLogId** and **rootKey** are indexed.
 
 ## Context
 

@@ -16,7 +16,7 @@
 # =============================================================================
 
 [fmt]
-# Match standing formatting rules: soft 79, hard 100 for comments (.cursorrules)
+# Match standing formatting rules: soft 79, hard 100 for comments (solidity-comments rule)
 line_length = 79
 
 [lint]

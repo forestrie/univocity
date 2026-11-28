@@ -1,9 +1,10 @@
 # Univocity contracts
 
 Foundry sources, deployment scripts, and on-chain Univocity smart contracts.
-Platform domain terms live in [devdocs/glossary.md](../devdocs/glossary.md).
+Platform domain terms live in the
+[protocol glossary](https://github.com/forestrie/protocol/blob/main/glossary.md).
 Cart and deployer tooling terms live in
-[univocity-tools CONTEXT.md](../univocity-tools/CONTEXT.md).
+[univocity-tools CONTEXT.md](https://github.com/forestrie/univocity-tools/blob/main/CONTEXT.md).
 
 ## Language
 

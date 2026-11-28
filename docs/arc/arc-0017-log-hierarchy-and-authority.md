@@ -1,14 +1,14 @@
-# ARC-0017: Log hierarchy and authority (revised for current implementation)
+---
+id: arc-0017-log-hierarchy-and-authority
+title: Log hierarchy and authority (revised for current implementation)
+status: accepted
+created: 2026-02-23
+updated: 2026-11-27
+decisions: [arc-0017-auth-overview, ADR-0004, ARC-0016, ARC-0001]
+refs: ["canopy:docs/grants.md", plan-0012-univocity-arc-0016-implementation-review, plan-0021-phase-zero-log-hierarchy-data-structures]
+---
 
-**Status:** DRAFT  
-**Date:** 2026-02-23  
-**Overview:** [ARC-0017 authorization model (diagrams)](arc-0017-auth-overview.md)  
-**Related:** [Canopy — Grants (off-chain Forestrie-_grant, verification vs ingestion)](https://github.com/forestrie/canopy/blob/main/docs/grants.md),
-[ADR-0004](../adr/adr-0004-root-log-self-grant-extension.md),
-[ARC-0016](arc-0016-checkpoint-incentivisation-implementation.md),
-[ARC-0001](arc-0001-grant-minimum-range.md),
-[plan-0012](../history/plans/plan-0012-arc-0016-implementation-review.md) (historical),
-[plan-0021](../plans/plan-0021-phase-zero-log-hierarchy-data-structures.md)
+# ARC-0017: Log hierarchy and authority (revised for current implementation)
 
 This document describes the **log hierarchy and authority model** revised to be
 consistent with the choices made in the current univocity implementation. It
@@ -313,7 +313,7 @@ in that authority log).
   (root has **self** = rootLogId). Set at first checkpoint from grant
   **ownerLogId** when grant allows log creation (§2 rule 5). |
 
-**LogState** — holds mutable state (accumulator, size). Immutable-per-log fields live in **LogConfig** (nested or in a separate mapping keyed by logId; see plan-0021). Grant bounds are enforced via size only (max_size, min_range); no separate checkpoint counter.
+**LogState** — holds mutable state (accumulator, size). Immutable-per-log fields live in **LogConfig** (nested or in a separate mapping keyed by logId). Grant bounds are enforced via size only (max_size, min_range); no separate checkpoint counter.
 
 Global `rootLogId` identifies the root authority log. Enumerating authority
 logs is an off-chain indexer concern (see
@@ -323,7 +323,7 @@ logs is an off-chain indexer concern (see
 
 ## 6. Critical ambiguities
 
-- **Storage layout:** This ARC and plan-0021 describe LogConfig as either nested in LogState or in a **separate mapping** keyed by logId. Implementations must be consistent; plan-0021 uses separate mappings. Any reference to `log.config` in this ARC should be read as "config for that logId" (same key in the config mapping).
+- **Storage layout:** This ARC describes LogConfig as either nested in LogState or in a **separate mapping** keyed by logId. Implementations must be consistent; the implementation uses separate mappings. Any reference to `log.config` in this ARC should be read as "config for that logId" (same key in the config mapping).
 - **Grant bounds:** Grants are strictly limited by **state growth**: max_size (max log size under the grant) and min_range (minimum size increase per checkpoint). The effective cap on checkpoints under a grant is (max_size − current_size) / min_range. No separate checkpoint counter; size alone governs.
 - **Grant payload for log creation:** The exact shape of ownerLogId in the grant (e.g. new field on PublishGrant, or in the leaf commitment) is left to the implementation; §2 rule 5 requires that the owner log be identified when the grant allows creating a log.
 

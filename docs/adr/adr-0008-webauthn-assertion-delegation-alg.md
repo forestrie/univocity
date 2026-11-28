@@ -1,11 +1,14 @@
-# ADR-0008: WebAuthn-assertion delegation algorithm (ALG_ES256_WEBAUTHN)
+---
+id: adr-0008-webauthn-assertion-delegation-alg
+title: WebAuthn-assertion delegation algorithm (ALG_ES256_WEBAUTHN)
+status: accepted
+created: 2026-08-22
+updated: 2026-11-27
+decisions: [ADR-0006, arc-0017-auth-overview, "https://github.com/forestrie/devdocs/blob/main/adr/adr-0062-canopy-derived-grant-flag-registry.md"]
+refs: ["product:engineering/prd-passkey-log-custody.md"]
+---
 
-**Status:** ACCEPTED
-**Date:** 2026-08-22
-**Related:** [ADR-0006](./adr-0006-cose-shaped-delegation-proof.md),
-[ARC-0017](../arc/arc-0017-auth-overview.md),
-product `engineering/prd-passkey-log-custody.md` (§4, §5f, §5g, §7.1),
-devdocs [ADR-0062](../../../devdocs/adr/adr-0062-canopy-derived-grant-flag-registry.md)
+# ADR-0008: WebAuthn-assertion delegation algorithm (ALG_ES256_WEBAUTHN)
 
 ## Context
 

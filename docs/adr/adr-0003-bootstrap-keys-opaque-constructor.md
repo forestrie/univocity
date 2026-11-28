@@ -1,9 +1,13 @@
-# ADR-0003: Bootstrap keys as alg + opaque bytes in constructor
+---
+id: adr-0003-bootstrap-keys-opaque-constructor
+title: Bootstrap keys as alg + opaque bytes in constructor
+status: accepted
+created: 2026-02-23
+updated: 2026-11-27
+refs: [plan-0016-minimal-cose-cbor-api-predecode, "https://github.com/forestrie/univocity/blob/main/src/interfaces/IUnivocity.sol"]
+---
 
-**Status:** ACCEPTED  
-**Date:** 2026-02-23  
-**Related:** [plan-0016](../plans/plan-0016-minimal-cose-cbor-api-predecode.md),
-[IUnivocity.sol](../../src/interfaces/IUnivocity.sol)
+# ADR-0003: Bootstrap keys as alg + opaque bytes in constructor
 
 ## Decision
 

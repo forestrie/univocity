@@ -18,17 +18,20 @@
 
 ## Repository rules (always apply)
 
-- **`.cursorrules`** — Solidity imports and comment wrapping; see
-  [docs/agents/solidity.md](docs/agents/solidity.md) for layout.
-- **`.claude/rules/`** — team rules (branch naming, commits, NatSpec
-  `solidity-comments`, rules of the road) synced from
+- **Rules of the road** — this repo's invariants (`U#`) are in
+  [docs/rules.md](docs/rules.md). Agents load the one-line digest,
+  [.claude/rules/rules-of-the-road.md](.claude/rules/rules-of-the-road.md),
+  which `dox digest` generates from `docs/rules.md` and the platform rules.
+- **`.claude/rules/`** — team rules (branch naming, commits, docs layout,
+  dox, Solidity imports, comments and wrapping in `solidity-comments`)
+  synced from
   [forestrie-agents](https://github.com/forestrie/forestrie-agents) (private)
   by `agentfiles sync` with `sync/univocity.manifest`; skills in
   [.agents/skills/](.agents/skills/). Do not edit the copies; change
-  forestrie-agents and re-sync.
-- **`.cursor/rules/`** — Cursor only; older copies of the team rules plus
-  [types-single-responsibility](.cursor/rules/types-single-responsibility.mdc)
-  and [doppler-run-tasks](.cursor/rules/doppler-run-tasks.mdc).
+  forestrie-agents and re-sync. The digest is the exception: `dox digest`
+  writes it.
+- **`.cursor/rules/`** — Cursor only:
+  [doppler-run-tasks](.cursor/rules/doppler-run-tasks.mdc).
 
 ## Source layout
 
@@ -64,12 +67,16 @@
 
 ## Documentation
 
-- **`docs/arc/`** — Contract architecture (ARC-0016, ARC-0017, etc.).
-- **`docs/adr/`** — Contract decision records.
-- **`docs/plans/`** — Implementation plans; historical in `docs/history/plans/`.
+- **`docs/arc/`** — Contract architecture (ARC-0016, ARC-0017, etc.);
+  [index](docs/arc/README.md).
+- **`docs/adr/`** — Contract decision records; [index](docs/adr/README.md).
+- **`docs/rules.md`** — Rules of the road for this repo (`U#`).
+- **Plans and status**: [forestrie/work](https://github.com/forestrie/work)
+  (private). None live in this repo.
 - **Platform** ADRs/ARCs/glossary: [devdocs](https://github.com/forestrie/devdocs) (private), [protocol/glossary.md](https://github.com/forestrie/protocol/blob/main/glossary.md).
-- **Agent index**: [docs/agents/README.md](docs/agents/README.md).
-- When adding design docs, use next free NNNN; see `.claude/rules/plan-docs.md` and `.claude/rules/adr-format.md`.
+- **Domain glossary** for this repo: [CONTEXT.md](CONTEXT.md).
+- Layout, frontmatter and ids: `.claude/rules/docs-layout.md`; allocate
+  ids and lint with dox (`.claude/rules/dox.md`).
 
 ## Deployment
 
@@ -93,7 +100,6 @@ when the trigger conditions apply rather than on every task.
 
 | File | Read when |
 |------|-----------|
-| `docs/agents/solidity.md` | Modifying Solidity (`src/`, `script/`, `test/`). |
 | `docs/arc/arc-0017-auth-overview.md` | Authorization, grant verification, checkpoint signing. |
 | `docs/consistent-roots.md` | Modifying the consistency fold (`src/algorithms/consistentRoots.sol`) or its tests. |
 | `docs/arc/arc-0017-log-hierarchy-and-authority.md` | Log hierarchy and multi-log features. |

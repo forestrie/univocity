@@ -1,11 +1,14 @@
-# ARC-0017: Authorization model overview
+---
+id: arc-0017-auth-overview
+title: Authorization model overview
+status: accepted
+created: 2026-02-23
+updated: 2026-11-27
+decisions: [arc-0017-log-hierarchy-and-authority, ARC-0016, ADR-0004]
+refs: ["canopy:docs/grants.md"]
+---
 
-**Status:** DRAFT  
-**Date:** 2026-02-23  
-**Related:** [ARC-0017 (log hierarchy)](arc-0017-log-hierarchy-and-authority.md),
-[Canopy — Grants (Forestrie-Grant wire, API verification vs sequencing)](https://github.com/forestrie/canopy/blob/main/docs/grants.md),
-[ARC-0016](arc-0016-checkpoint-incentivisation-implementation.md),
-[ADR-0004](../adr/adr-0004-root-log-self-grant-extension.md)
+# ARC-0017: Authorization model overview
 
 Succinct diagrams for the univocity authorization model. The same two
 checks apply to **every** checkpoint: (1) **grant** = inclusion proof in
